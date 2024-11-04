@@ -1,0 +1,96 @@
+[core]
+# enable debug mode
+debug = true
+heartbeat = 30
+
+#WEB服务器设置
+[webserver]
+addr = "0.0.0.0:12307"                         #监听地址
+enable_ssl = false                            #是否使用https, 如果为true, 则必须配置cert和key的路径
+static_dir = "E:\\workspace\\goProjects\\src\\gameserver\\internal\\web\\static"
+#"web/static"
+
+#证书设置
+[webserver.certificates]
+cert = "configs/****.crt"       #证书路径
+key = "configs/****.key"        #Key路径
+
+
+[gate]
+host = "127.0.0.1"
+port = 33250
+gate-address = "127.0.0.1:33290"
+
+[master]
+host = "127.0.0.1"
+port = 33252
+
+[game-server]
+host = "127.0.0.1"
+port = 33251
+
+# Redis server config
+[redis]
+host = "172.16.2.23"
+port = 6379
+
+# Mysql server config
+[database]
+host = "172.16.2.8"
+port = 3306
+dbname = "jsmx"
+password = "root"
+username = "root"
+args = "charset=utf8mb4"
+buf_size = 1024
+max_idle_conns = 1024
+max_open_conns = 1024
+show_sql = true
+
+# 微信
+[wechat]
+appid = "**"
+appsecret = "**"
+callback_url = "YOUR_CALLBACK"
+mer_id = "**"
+unify_order_url = "https://api.mch.weixin.qq.com/pay/unifiedorder"
+
+#Token设置
+[token]
+expires = 21600                        #token过期时间
+
+#白名单设置
+[whitelist]
+ip = ["10.10.*", "127.0.0.1", ".*"]                 #白名单地址, 支持golang正则表达式语法
+
+#分享信息
+[share]
+title = "一起来玩"
+desc = "砍爆你"
+
+#更新设置
+[update]
+force = true #是否强制更新
+version = "1.9.3"
+android = "https://fir.im/tand"
+ios = "https://fir.im/tios"
+
+#联系设置
+[contact]
+daili1 = "kefuweixin01"
+daili2 = "kefuweixin01"
+kefu1 = "kefuweixin01"
+
+#语音账号http://gcloud.qq.com/product/6
+[voice]
+appid = "xxx"
+appkey = "xxx"
+
+#广播消息
+[broadcast]
+message = ["系统消息：健康游戏，禁止沉迷", "欢迎进入游戏"]
+
+#登陆相关
+[login]
+guest = true
+lists = ["test"]

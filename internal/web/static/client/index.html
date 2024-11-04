@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Monster Models</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block; /* 移除canvas默认的内边距和外边距 */
+            width: 100vw; /* 设置canvas宽度为视口宽度的100% */
+            height: 100vh; /* 设置canvas高度为视口高度的100% */
+        }
+        /* Toast的样式 */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            margin-left: -125px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            bottom: 30px;
+            font-size: 17px;
+            opacity: 0;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        /*消息发送框*/
+        #messageBox {
+            display: none;
+            position: fixed;
+            bottom: calc(50vh - 250px);
+            right: calc(50vw - 150px);
+            border: 1px solid #ccc;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            height: 500px;
+            z-index: 10;
+        }
+
+        #messageList {
+            list-style-type: none;
+            padding: 0;
+            margin: 0 0 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            height: 400px;
+            padding: 5px;
+            background-color: darkgray;
+        }
+
+        #messageList li {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        #messageInput {
+            width: 280px;
+            padding: 10px;
+            display: block;
+            margin-bottom: 10px;
+        }
+        #openMessageBoxBtn {
+            position: absolute;
+            right: 30px; /* 调整到你需要的位置 */
+            bottom: 30px; /* 调整到你需要的位置 */
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <button id="openMessageBoxBtn" class="openMessageBoxBtn">打开消息框</button>
+    <div id="messageBox">
+        <ul id="messageList"></ul>
+        <input type="text" id="messageInput" placeholder="输入消息">
+        <button id="sendMessageBtn">发送</button>
+    </div>
+
+    <div id="toast">This is a Toast message!</div>
+
+	<script src="./nano/protocol.js"></script>
+    <script src="./nano/nano-websocket-client.js"></script>
+
+    <script src="rolestate.js"></script>
+    <script src="role.js"></script>
+    <script src="monster.js"></script>
+    <script src="hero.js"></script>
+	<script src="scenemap.js"></script>
+	<script src="grid_show.js"></script>
+    <script src="scene.js"></script>
+	<script src="camera.js"></script>
+    <script src="block.js"></script>
+    <script src="httpclient.js"></script>
+    <script src="constants.js"></script>
+    <script src="./javascript-astar/astar.js"></script>
+	<script src="game.js"></script>
+<!--    <script src="https://cdn.jsdelivr.net/npm/pako@latest/dist/pako.min.js"></script>-->
+</body>
+<script type="text/javascript">
+    const game = new Game();
+
+    // 获取元素
+    const openMessageBoxBtn = document.getElementById('openMessageBoxBtn');
+    const messageBox = document.getElementById('messageBox');
+    const messageList = document.getElementById('messageList');
+    const messageInput = document.getElementById('messageInput');
+    const sendMessageBtn = document.getElementById('sendMessageBtn');
+	window.onload = function () {
+		
+	};
+
+    window.showToast = function(msg) {
+        const toast = document.getElementById('toast');
+        toast.className = 'show';
+        toast.innerText = msg; // 设置Toast的内容
+        setTimeout(function () {
+            toast.className = toast.className.replace('show', '');
+        }, 3000); // 3秒后消失
+    }
+
+    // 打开消息框
+    openMessageBoxBtn.addEventListener('click', () => {
+        messageBox.style.display = 'block';
+    });
+
+    // 发送消息
+    sendMessageBtn.addEventListener('click', () => {
+        const messageText = messageInput.value;
+        if (messageText.trim() !== '') {
+            const listItem = document.createElement('li');
+            listItem.textContent = messageText;
+            messageList.appendChild(listItem);
+            game.sendTextMsg(messageText);
+            // 清空输入框
+            messageInput.value = '';
+
+            // 滚动到列表底部
+            messageList.scrollTop = messageList.scrollHeight;
+        }
+    });
+
+</script>
+</html>

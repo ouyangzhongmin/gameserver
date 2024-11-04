@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+	<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+        <title>Demo - JavaScript A* Search Algorithm</title>
+		<link rel="stylesheet" type="text/css" media="screen, projection" href="demo.css" />
+	</head>
+<body>
+	<div id="header"> 
+        <h1>javascript-astar</h1>
+        <div class='buttons'>
+            <a class='btn' href='http://github.com/bgrins/javascript-astar'>Github</a> 
+            <a class='btn' href='http://www.briangrinstead.com/blog/astar-search-algorithm-in-javascript-updated'>Article</a>
+        </div>
+        <div class="links">
+            <a href='../'>Home</a> |
+            <a href='../demo/'>Demo</a> |
+            <a href='../test/'>Tests</a> |
+            <a href='../benchmark/'>Benchmark</a>
+        </div>
+	</div>
+
+	<div id="content">
+		<h2>Demonstration</h2>
+
+	    <div id="controls" class='clear'>
+
+	    		<label for="selectWallFrequency">Wall Frequency: </label>
+	    		<select id="selectWallFrequency">
+	    			<option value=".1">10%</option>
+	    			<option value=".2">20%</option>
+	    			<option value=".3">30%</option>
+	    			<option value=".4">40%</option>
+	    		</select>
+	    		<br />
+	    		<label for="selectGridSize">Grid Size: </label>
+	    		<select id="selectGridSize" name="selectGridSize">
+	    			<option value="10">10x10</option>
+	    			<option value="15">15x15</option>
+	    			<option value="20">20x20</option>
+	    			<option value="30">30x30</option>
+	    			<option value="40" selected="selected">40x40</option>
+	    			<option value="50">50x50</option>
+	    			<option value="100">100x100</option>
+	    			<option value="150">150x150</option>
+	    		</select>
+
+	    		<br />
+	    		<label for="checkDebug">Show search info?</label>
+	    		<input type="checkbox" name="checkDebug" id="checkDebug" />
+	    		<br />
+	    		<label for="searchDiagonal">Allow diagonal movement?</label>
+	    		<input type="checkbox" name="searchDiagonal" id="searchDiagonal" />
+	    		<br />
+	    		<label for="checkClosest">Closest node if target unreachable?</label>
+	    		<input type="checkbox" name="checkClosest" id="checkClosest" />
+	    		<br />
+	    		<label for="generateWeights">Add random weights?</label>
+	    		<input type="checkbox" name="generateWeights" id="generateWeights" />
+	    		<br />
+	    		<label for="displayWeights">Display weight values?</label>
+	    		<input type="checkbox" name="displayWeights" id="displayWeights" />
+	    		<br />
+	    		<input type="button" id="btnGenerate" value="Generate New Map" />
+	    		<fieldset id='weightsKey'>
+	    			<legend>Key:</legend>
+	    			<div>
+	    			<span class="grid_item weight1" style="width: 14.25px; height: 14.25px; margin-right: 6px;" id="keyWeight3"></span> Weight of 1 </div>
+	    			<div>
+	    			<span class="grid_item weight3" style="width: 14.25px; height: 14.25px; margin-right: 6px;" id="keyWeight3"></span> Weight of 3 </div>
+	    			<div>
+	    			<span class="grid_item weight5" style="width: 14.25px; height: 14.25px; margin-right: 6px;" id="keyWeight3"></span> Weight of 5 </div>
+	    			<div>
+	    			<span class="grid_item wall" style="width: 14.25px; height: 14.25px; margin-right: 6px;" id="keyWall"></span> Wall (imapassable) </div>
+	    		</fieldset>
+				<br />
+		<span id="message">Click on a grid position to search</span>
+	    </div>
+
+	    <div id="main">
+	    	<div id="search_grid">Loading grid...</div>
+	    </div>
+
+	</div>
+	<div id="footer"></div>
+
+	<script type='text/javascript' src='jquery-1.7.1.min.js'></script>
+	<script type='text/javascript' src='../astar.js'></script>
+	<!--<script type='text/javascript' src='../dist/astar-concat.js'></script>-->
+	<script type='text/javascript' src='demo.js'></script>
+</body>
+</html>
