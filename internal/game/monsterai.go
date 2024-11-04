@@ -33,7 +33,7 @@ func newMonsterAi(m *Monster, aidata *model.Aiconfig) *monsterai {
 	return a
 }
 
-func (a *monsterai) GetAiData() *model.Aiconfig {
+func (a *monsterai) GetAiData() interface{} {
 	return a.aidata
 }
 

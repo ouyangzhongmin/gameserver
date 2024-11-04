@@ -1,7 +1,6 @@
 package game
 
 import (
-	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
@@ -39,7 +38,7 @@ type IMovableEntity interface {
 type IAiManager interface {
 	update(curMilliSecond int64, elapsedTime int64) error
 	onBeenAttacked(target IMovableEntity)
-	GetAiData() *model.Aiconfig
+	GetAiData() interface{}
 	GetOwner() IMovableEntity
 }
 
