@@ -4,7 +4,7 @@
 * master- 集群master服务器, 处理用户选择创建等
 * game - 游戏场景逻辑服务器, 可以多开，每个game对应1个或多个场景管理
 * web 登录http服务
-aoi下载于开源：https://github.com/knight0zh/aoi
+* aoi下载于开源：https://github.com/knight0zh/aoi
 
 目前问题:
 ```aiignore
