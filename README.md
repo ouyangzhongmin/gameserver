@@ -5,7 +5,8 @@
 * game - 游戏场景逻辑服务器, 可以多开，每个game对应1个或多个场景管理
 * web 登录http服务
 * aoi下载于开源：https://github.com/knight0zh/aoi
-
+* nanaserver: https://github.com/lonng/nanoserver
+* nano: https://github.com/lonng/nano
 
 ## 启动
 导入docs/jsmx.sql到mysql,然后分别运行cmd/master、gate、game、web start_server.sh启动所有服务，
