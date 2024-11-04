@@ -396,7 +396,7 @@ func (h *Hero) CanAttackTarget(target IEntity) bool {
 func (h *Hero) onBeenHurt(damage int64) {
 	h.PushTask(func() {
 		if !h.IsAlive() {
-			logger.Warningln("hero is died")
+			logger.Warningln("hero is dead")
 			return
 		}
 		h.Life -= damage
@@ -426,7 +426,7 @@ func (h *Hero) onBeenAttacked(target IMovableEntity) {
 func (h *Hero) manaCost(mana int64) {
 	h.PushTask(func() {
 		if !h.IsAlive() {
-			logger.Warningln("hero is died")
+			logger.Warningln("hero is dead")
 			return
 		}
 		h.Mana -= mana

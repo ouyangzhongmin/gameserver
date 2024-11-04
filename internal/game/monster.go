@@ -305,7 +305,7 @@ func (m *Monster) onBeenAttacked(target IMovableEntity) {
 func (m *Monster) onBeenHurt(damage int64) {
 	m.PushTask(func() {
 		if !m.IsAlive() {
-			logger.Warningln("hero is died")
+			logger.Warningln("hero is dead")
 			return
 		}
 		m.Life -= damage
