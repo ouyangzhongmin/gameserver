@@ -333,3 +333,45 @@ function generateUniqueId() {
     });
     return uniqueId
 }
+
+//16进制颜色合并alfpha转换为rgba
+// console.log(hexToRGBA("#FF5733", 0.5)); // 输出: rgba(255, 87, 51, 0.5)
+function hexToRGBA(hex, alpha = 1) {
+    // 确保传入的是一个有效的十六进制颜色
+    if (!/#[0-9A-F]{6}$/i.test(hex)) {
+        throw new Error('Invalid HEX color.');
+    }
+
+    // 从十六进制字符串中提取颜色分量
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    // 返回RGBA字符串
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// 颜色值名称转换为rgba
+// console.log(colorNameToRGBA("red", 0.5)); // 输出: rgba(255, 0, 0, 0.5)
+function colorNameToRGBA(colorName, alpha = 1) {
+    const colors = {
+        red: [255, 0, 0],
+        green: [0, 255, 0],
+        blue: [0, 0, 255],
+        white: [255, 255, 255],
+        black: [0, 0, 0],
+        // 可以添加更多颜色...
+    };
+
+    const rgb = colors[colorName.toLowerCase()];
+    if (!rgb) {
+        throw new Error('Unsupported color name.');
+    }
+
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+}
+
+
+
+
+

@@ -10,7 +10,19 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"math"
+	"time"
 )
+
+type rebornMonster struct {
+	Uid             string
+	Data            *model.Monster
+	PreparePaths    *path.SerialPaths
+	MovableRect     shape.Rect
+	PathFinder      *PathFinder
+	aidata          interface{}
+	Cfg             *model.SceneMonsterConfig
+	RebornTimestamp int64
+}
 
 type Monster struct {
 	*object.MonsterObject
@@ -22,6 +34,7 @@ type Monster struct {
 	aimgr          IAiManager
 	pathFinder     *PathFinder
 	preparePaths   *path.SerialPaths //预制的移动路径
+	cfg            *model.SceneMonsterConfig
 }
 
 func NewMonster(data *model.Monster) *Monster {
@@ -55,6 +68,10 @@ func (m *Monster) SetAiData(aimgr IAiManager) {
 
 func (m *Monster) SetPreparePaths(p *path.SerialPaths) {
 	m.preparePaths = p
+}
+
+func (m *Monster) SetSceneMonsterConfig(cfg *model.SceneMonsterConfig) {
+	m.cfg = cfg
 }
 
 func (m *Monster) SetPos(x, y, z shape.Coord) {
@@ -170,6 +187,27 @@ func (m *Monster) Escape() {
 
 func (m *Monster) Die() {
 	m.SetState(constants.ACTION_STATE_DIE)
+	logger.Debugf("hero:%d-%s die", m.GetID(), m._name)
+	m.Broadcast(protocol.OnEntityDie, &protocol.EntityDieResponse{
+		ID:         m.GetID(),
+		EntityType: constants.ENTITY_TYPE_MONSTER,
+	})
+
+	// 加入复活队列中
+	m.scene.addRebornMonster(&rebornMonster{
+		Uid:             m.GetUUID(),
+		Data:            &m.MonsterObject.Monster,
+		PreparePaths:    m.preparePaths,
+		MovableRect:     m.movableRect,
+		PathFinder:      m.pathFinder,
+		aidata:          m.aimgr.GetAiData(),
+		Cfg:             m.cfg,
+		RebornTimestamp: time.Now().UnixMilli() + int64(m.cfg.Reborn)*1000,
+	})
+
+	m.PushTask(func() {
+		m.Destroy()
+	})
 }
 
 // update都会在task携程内执行
@@ -280,9 +318,9 @@ func (m *Monster) Stop() {
 }
 
 func (m *Monster) CanAttackTarget(target IEntity) bool {
-	switch target.(type) {
+	switch val := target.(type) {
 	case *Hero:
-		return true
+		return val.IsAlive() && !val.IsOffline() && !val.IsDestroyed()
 	case *Monster:
 		return false
 	}

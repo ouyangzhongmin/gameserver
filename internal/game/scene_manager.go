@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/protocol"
+	"time"
 
 	"github.com/lonng/nano/component"
 	"github.com/lonng/nano/session"
@@ -145,7 +146,7 @@ func (manager *SceneManager) TextMessage(s *session.Session, msg *protocol.TextM
 		return err
 	}
 	p.PushTask(func() {
-		p.Broadcast(protocol.OnTextMessage, msg)
+		p.Broadcast(protocol.OnTextMessage, msg, false)
 	})
 	return nil
 }
@@ -181,5 +182,30 @@ func (manager *SceneManager) RecordingVoice(s *session.Session, msg *protocol.Re
 	//if d != nil && d.group != nil {
 	//	return d.group.Broadcast("onRecordingVoice", resp)
 	//}
+	return nil
+}
+
+// 动态重置怪物
+func (manager *SceneManager) DynamicResetMonsters(s *session.Session, req *protocol.DynamicResetMonstersRequest) error {
+	sceneIds := make(map[int]int)
+	for _, c := range req.Configs {
+		sceneIds[c.SceneId] = 1
+	}
+	//先全部清除了
+	for _, sid := range sceneIds {
+		manager.scenes[sid].monsters.Range(func(key, value any) bool {
+			manager.scenes[sid].removeMonster(value.(*Monster))
+			time.Sleep(10 * time.Millisecond)
+			return true
+		})
+	}
+	time.Sleep(200 * time.Millisecond)
+	for _, c := range req.Configs {
+		err := manager.scenes[c.SceneId].initMonsterByConfig(c)
+		if err != nil {
+			return err
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 	return nil
 }

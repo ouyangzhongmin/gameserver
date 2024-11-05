@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lonng/nano/scheduler"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"sync/atomic"
 )
 
 type Entity struct {
@@ -19,7 +20,7 @@ type Entity struct {
 	_name           string
 	_entityType     int
 	_pos            shape.Vector3
-	_destroyed      bool
+	_destroyed      atomic.Bool
 }
 
 func (e *Entity) initEntity(id int64, name string, entityType int, bufSize int) {
@@ -38,7 +39,7 @@ func (e *Entity) _tasksFunc() {
 		select {
 		case <-e._chDestroy:
 			logger.Printf("stop entity:%d\n", e.GetID())
-			e._destroyed = true
+			e._destroyed.Store(true)
 			return
 		case task := <-e._chTasks:
 			e._doTask(task)
@@ -72,6 +73,10 @@ func (e *Entity) Destroy() {
 	e._name += "_destroyed"
 	e.scene = nil
 	close(e._chDestroy)
+}
+
+func (e *Entity) IsDestroyed() bool {
+	return e._destroyed.Load()
 }
 
 func (e *Entity) onEnterScene(scene *Scene) {

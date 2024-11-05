@@ -114,6 +114,11 @@ type ManaChangedResponse struct {
 	MaxMana    int64 `json:"max_mana"`
 }
 
+type EntityDieResponse struct {
+	ID         int64 `json:"id"`
+	EntityType int   `json:"entity_type"`
+}
+
 // 前端需要自行判定id相同的覆盖旧的
 type EntityBufferAddResponse struct {
 	ID         int64 `json:"id"`
@@ -155,6 +160,10 @@ type RecordingVoice struct {
 type PlayRecordingVoice struct {
 	Uid    int64  `json:"uid"`
 	FileId string `json:"fileId"`
+}
+
+type DynamicResetMonstersRequest struct {
+	Configs []model.SceneMonsterConfig `json:"configs"`
 }
 
 type ClientInitCompletedRequest struct {

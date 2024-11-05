@@ -14,7 +14,9 @@ const (
 	OnMonsterCommonAttack = "OnMonsterCommonAttack"
 	OnLifeChanged         = "OnLifeChanged"
 	OnManaChanged         = "OnManaChanged"
+	OnEntityDie           = "OnEntityDie"
 	OnBufferAdd           = "OnBufferAdd"
 	OnBufferRemove        = "OnBufferRemove"
-	OnTextMessage         = "OnTextMessage"
+
+	OnTextMessage = "OnTextMessage"
 )

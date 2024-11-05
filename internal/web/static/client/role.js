@@ -12,8 +12,6 @@ class Role extends RoleState{
         this.y = 0;
         this.z = 0;
         this.setPos(getPixelXByGrid(+data.pos_x),getPixelYByGrid(+data.pos_y), 0)
-        this.life = data.life;
-        this.mana = data.mana;
         this.color = color;
         this.radius = 15;
 
@@ -32,6 +30,20 @@ class Role extends RoleState{
         this._needSyncPaths = false;
         this._nextSyncPathIndex = 0;
         this._syncPathsLen = 5;
+
+        /**
+         * {
+         *     msg:"aaa",
+         *     duration:3000,
+         *     color: 'red',
+         *     offsetx: 0,//每次会位移坐标
+         *     offsety: 0,
+         *     alpha: 1, //从不透明渐变到透明
+         *     flowup: 1, //向上流动
+         * }
+         * @type {*[]}
+         */
+        this.bubbleMsgs = []
     }
 
     update(deltaTime, camera){
@@ -41,8 +53,23 @@ class Role extends RoleState{
         this.screenX = this.x - camera.x;
         this.screenY = this.y - camera.y;
 
-        if (this.isSelfHero){
-            this.updateSyncMovePaths();
+        if (this.bubbleMsgs){
+            for (let i = this.bubbleMsgs.length -1 ;i >= 0 ; i--){
+                let bmsg = this.bubbleMsgs[i]
+                bmsg.duration -= deltaTime
+                if (bmsg.flowup === 1){
+                    bmsg.offsetx += 0.1
+                    bmsg.offsety += 0.4
+                }
+                bmsg.alpha -= parseFloat((1 / bmsg.duration).toFixed(3))
+                if (bmsg.alpha < 0){
+                    bmsg.alpha = 0
+                }
+                if ( bmsg.duration <= 0){
+                    //删除对象
+                    this.bubbleMsgs.splice(i, 1)
+                }
+            }
         }
     }
 
@@ -64,6 +91,16 @@ class Role extends RoleState{
         ctx.textAlign = 'center';
         ctx.fillText(this.name, this.screenX, this.screenY - this.radius - 10);
 
+        if (this.bubbleMsgs){
+            //绘制冒泡
+            for (let i = 0 ;i < this.bubbleMsgs.length ; i++){
+                let bmsg = this.bubbleMsgs[i]
+                let rgba = colorNameToRGBA(bmsg.color, bmsg.alpha)
+                ctx.fillStyle = rgba;
+                // console.log("rgba::", rgba)
+                ctx.fillText(bmsg.msg, this.screenX + bmsg.offsetx, this.screenY - this.radius - 25 - i*5 - bmsg.offsety);
+            }
+        }
         // ����Ѫ��������
         // const barWidth = this.radius * 1.6;
         // const barHeight = 3;
@@ -93,6 +130,19 @@ class Role extends RoleState{
         this.x = x;
         this.y = y;
         this.z = z;
+    }
+
+    lifeChanged(damage, life, max_life){
+        this.data.life = life;
+        this.data.max_life = max_life;
+
+        this.bubble(damage < 0 ? '+' + damage : "-" + damage, 1000, "red", true)
+    }
+
+    manaChanged(cost, mana, max_mana){
+        this.data.mana = mana;
+        this.data.max_mana = max_mana;
+        this.bubble('-'+cost, 1000, "blue", true)
     }
 
     // paths中的数据paths[i][0]为y轴, paths[i][1]为X轴
@@ -168,100 +218,41 @@ class Role extends RoleState{
         this._pathIndex = 0;
         this._lastPathIndex = -1;
         this.isAutoMoving = false;
+    }
 
-        if (this.isSelfHero){
-            Global.nano.request("SceneManager.HeroMoveStop", {
-                uid:this.id,
-                pos_x: getGridXByPixel(this.x),
-                pos_y: getGridYByPixel(this.y),
-                pos_z: 0 ,
-            })
-        }
+    die()
+    {
+        super.die()
+        this.name += "【dead】"
     }
 
     invokeWalkCompleted(success){
 
     }
 
-    updateSyncMovePaths() {
-        if(!this._needSyncPaths || !this.isSelfHero) {
-            return
+    // 冒泡
+    // flowup bool 是否向上流动
+    bubble(msg, duration, color, flowup){
+        if (!flowup){
+            this.bubbleMsgs.unshift({
+                msg: msg,
+                duration:duration,
+                color: color,
+                offsetx: 0,//每次会位移坐标
+                offsety: 0,
+                alpha: 1, //从不透明渐变到透明
+                flowup: 0,
+            })
+        }else{
+            this.bubbleMsgs.unshift({
+                msg: msg,
+                duration:duration,
+                color: color,
+                offsetx: 0,//每次会位移坐标
+                offsety: 0,
+                alpha: 1, //从不透明渐变到透明
+                flowup: 1, //向上流动
+            })
         }
-        const paths = this.getSyncPaths();
-        if(!paths || paths.length === 0){
-            return
-        }
-        Global.nano.request("SceneManager.HeroMove", {
-            uid:this.id,
-            trace_paths: paths,
-        })
-    }
-
-    getSyncPaths() { //本类在C2SSyncComponent前面刷新
-        if(this._needSyncPaths) {
-            this._needSyncPaths = false;
-            this._syncPaths = null;
-            //本地开始走向_pathIndex这个目标点
-            if(this._pathIndex === 0) {
-                this._syncPaths = this._paths.slice(this._pathIndex , this._pathIndex + this._syncPathsLen + 1);
-                if(this._syncPaths && this._syncPaths.length > 0) {
-                    //判断当前所占格子是否已经在路径中，没有则添加
-                    let selfGridX = getGridXByPixel(this.x);
-                    let selfGridY = getGridYByPixel(this.y);
-                    if(Math.abs(this._syncPaths[0][1] - selfGridX) > 5 || Math.abs(this._syncPaths[0][0] - selfGridY) > 5)
-                    {
-                        this._syncPaths = [[selfGridY, selfGridX ]];
-                    }
-                }
-            } else {
-                this._syncPaths = this._paths.slice(this._pathIndex - 1 , this._pathIndex + this._syncPathsLen + 1);
-            }
-
-            if(this.isIndexOf(this._syncPaths , this._lastSyncPaths)) {
-                console.log(this.name + ' 当前要同步的路径在上一条同步的路径中被包含了，不需要再同步');
-                return null;
-            }
-            if(this._syncPaths && Global.block.isBlock(this._syncPaths[0][1] , this._syncPaths[0][0])) {
-                let selfGridX = getGridXByPixel(this.x);
-                let selfGridY = getGridYByPixel(this.y);
-                console.log(this.name, "第一格不可以行走")
-                this._syncPaths[0][0] = selfGridY;
-                this._syncPaths[0][1] = selfGridX;
-            }
-            this._lastSyncPaths = this._syncPaths;
-            return this._syncPaths;
-        }
-        return null;
-    }
-
-    /**
-     * 当前的路径是否在上一条路径中已经被包含了
-     * @param syncPaths
-     * @param lastSyncPaths
-     * @return
-     */
-    isIndexOf(syncPaths  , lastSyncPaths ) 
-    {
-        if(!syncPaths || !lastSyncPaths)
-            return false;
-
-        const len  = syncPaths.length;
-        const lastLen  = lastSyncPaths.length;
-        if(len > lastLen)
-            return false;
-        let j = 0;
-        for(j  = 0 ; j < lastLen ; j++)
-        {
-            if(lastSyncPaths[j][0] === syncPaths[0][0] && lastSyncPaths[j][1] === syncPaths[0][1])
-                break;
-        }
-        for(let i  = 0 ; i < len ; i++)
-        {
-            if(j + i >= lastLen)
-                return false;
-            if(lastSyncPaths[j + i][0] !== syncPaths[i][0] || lastSyncPaths[j + i][1] !== syncPaths[i][1])
-                return false;
-        }
-        return true;
     }
 }

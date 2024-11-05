@@ -77,7 +77,7 @@ func (buf *Buffer) Remove() {
 			ID:         val.GetID(),
 			EntityType: constants.ENTITY_TYPE_HERO,
 			BufID:      buf.Id,
-		})
+		}, true)
 	case *Monster:
 		val.Broadcast(protocol.OnBufferRemove, &protocol.EntitBufferRemoveResponse{
 			ID:         val.GetID(),
@@ -96,7 +96,7 @@ func (buf *Buffer) broadcastAdd() {
 			ID:         val.GetID(),
 			EntityType: constants.ENTITY_TYPE_HERO,
 			Buf:        buf.BufferObject,
-		})
+		}, true)
 	case *Monster:
 		val.Broadcast(protocol.OnBufferAdd, &protocol.EntityBufferAddResponse{
 			ID:         val.GetID(),

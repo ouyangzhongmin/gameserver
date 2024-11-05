@@ -3,13 +3,13 @@
 * gate -- 网关服务器
 * master- 集群master服务器, 处理用户选择创建等
 * game - 游戏场景逻辑服务器, 可以多开，每个game对应1个或多个场景管理
-* web 登录http服务
+* web 登录http服务 + html client demo
 * aoi下载于开源：https://github.com/knight0zh/aoi
 * nanaserver: https://github.com/lonng/nanoserver
 * nano: https://github.com/lonng/nano
 
 ## 启动
-导入docs/jsmx.sql到mysql,然后分别运行cmd/master、gate、game、web start_server.sh启动所有服务，
+导入docs/jsmx.sql到mysql,修改configs/config.toml配置,然后分别运行cmd/master、gate、game、web start_server.sh启动所有服务，
 内置html demo: http://localhost:12307/static/client/
 
 ## 目前问题:

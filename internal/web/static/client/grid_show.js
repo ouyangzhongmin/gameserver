@@ -45,4 +45,8 @@ class GridShow {
         // console.log("gridShow.show:", grid)
     }
 
+    isShow(){
+        return this.grid && this.grid.length > 0
+    }
+
 }

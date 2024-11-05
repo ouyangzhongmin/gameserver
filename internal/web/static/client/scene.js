@@ -4,6 +4,7 @@ class Scene {
     constructor(canvas) {
         this.monsters = {}
 		this.heros = {}
+		this.deads = []
 		this.selfHero = new Hero(1, 'HeroSelf', 200, 150, 150, 100, 'green');
 		this.selfHero.isSelfHero = true;
 		this.sceneId = 0
@@ -141,6 +142,16 @@ class Scene {
 		for (let key in this.monsters) {
 			this.monsters[key].update(deltaTime, this.camera);
 		}
+		if (this.deads.length > 0){
+			let ts = Date.now()
+			for (let i = this.deads.length -1;i >= 0 ; i--) {
+				this.deads[i].update(deltaTime, this.camera);
+				if (this.deads[i].deadTimeStamp + 20*1000 < ts){
+					//清理掉
+					this.deads.splice(i, 1)
+				}
+			}
+		}
 	}
 
     draw(ctx) {
@@ -157,6 +168,11 @@ class Scene {
 		for (let key in this.monsters) {
 			this.monsters[key].draw(ctx)
 		}
+		if (this.deads.length > 0){
+			for (let i = this.deads.length -1;i >= 0 ; i--) {
+				this.deads[i].draw(ctx);
+			}
+		}
 	}
 
 	onMouseUp(event) {
@@ -167,6 +183,16 @@ class Scene {
 		const paths = this.findPath(this.selfHero.x, this.selfHero.y, x + this.camera.x, y + this.camera.y)
         this.selfHero.moveByPaths(paths);
     }
+
+	onMousemove(event){
+		// 获取鼠标的X和Y坐标
+		if (this.gridShow.isShow()){
+			const rect = canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+			console.log("cur grid::", getGridYByPixel(y + this.camera.y), getGridXByPixel(x + this.camera.x))
+		}
+	}
 
 	findPath(sx,sy, ex,ey){
 		const start = {x:getGridXByPixel(sx), y:getGridYByPixel(sy)} ;
@@ -243,12 +269,84 @@ class Scene {
 		monster.y = getPixelYByGrid(posY)
 	}
 
+	lifeChanged(data){
+		const entityType = data.entity_type;
+		if (entityType === 0){
+			//hero
+			const hero = this.heros[data.id]
+			if (!hero){
+				console.error(`hero:${data.id}不存在`)
+				return;
+			}
+			hero.lifeChanged(data.damage, data.life, data.max_life)
+		}else if(entityType === 1){
+			//monster
+			const monster = this.monsters[data.id]
+			if (!monster){
+				console.error(`monster:${data.id}不存在`)
+				return;
+			}
+			monster.lifeChanged(data.damage, data.life, data.max_life)
+		}
+	}
+
+	manaChanged(data){
+		const entityType = data.entity_type;
+		if (entityType === 0){
+			//hero
+			const hero = this.heros[data.id]
+			if (!hero){
+				console.error(`hero:${data.id}不存在`)
+				return;
+			}
+			hero.manaChanged(data.cost, data.mana, data.max_mana)
+		}else if(entityType === 1){
+			//monster
+			const monster = this.monsters[data.id]
+			if (!monster){
+				console.error(`monster:${data.id}不存在`)
+				return;
+			}
+			monster.manaChanged(data.cost, data.mana, data.max_mana)
+		}
+	}
+
+	entityDie(data){
+		const entityType = data.entity_type;
+		if (entityType === 0){
+			const hero = this.heros[data.id]
+			if (!hero){
+				console.error(`hero:${data.id}不存在`)
+				return;
+			}
+			hero.die()
+			if (hero.id !== this.selfHero.id){
+				this.removeHero(hero.id)
+				// todo 死亡残留10S再删除
+				hero.id = hero.id*10000 + Date.now()
+				this.deads.push(hero)
+			}
+		}else if(entityType === 1){
+			//monster
+			const monster = this.monsters[data.id]
+			if (!monster){
+				console.error(`monster:${data.id}不存在`)
+				return;
+			}
+			this.removeMonster(monster.id)
+			// todo 死亡残留10S再删除
+			monster.id = monster.id*10000 + Date.now()
+			monster.die()
+			this.deads.push(monster)
+		}
+	}
+
 	heroTextMessage(heroId, msg){
 		const hero = this.heros[heroId]
 		if (!hero){
 			console.error(`hero:${heroId}不存在`)
 			return;
 		}
-		hero.bubble(msg)
+		hero.bubble(msg, 3000, "white", false)
 	}
 }

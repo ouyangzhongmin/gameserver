@@ -22,6 +22,7 @@ class Game {
         this.uniqueId = generateUniqueId();
         const that = this;
         canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
+        canvas.addEventListener('mousemove', this.onMousemove.bind(this));
         window.addEventListener('resize', function() {
             console.log('窗口尺寸变化了！当前宽度：', window.innerWidth, '；当前高度：', window.innerHeight);
             canvas.width = window.innerWidth;
@@ -146,6 +147,9 @@ class Game {
             nano.on("OnManaChanged", function(data){
                 that.OnManaChanged(data)
             })
+            nano.on("OnEntityDie", function(data){
+                that.OnEntityDie(data)
+            })
             nano.on("OnBufferAdd", function(data){
                 that.OnBufferAdd(data)
             })
@@ -182,6 +186,10 @@ class Game {
     // 处理鼠标点击事件
     onMouseUp(event) {
         this.scene.onMouseUp(event);
+    }
+    // 处理鼠标移动事件
+    onMousemove(event) {
+        this.scene.onMousemove(event);
     }
 
     OnEnterScene(data) {
@@ -247,10 +255,17 @@ class Game {
 
     OnLifeChanged(data){
         console.log("OnLifeChanged:::", data)
+        this.scene.lifeChanged(data)
     }
 
     OnManaChanged(data){
         console.log("OnManaChanged:::", data)
+        this.scene.manaChanged(data)
+    }
+
+    OnEntityDie(data){
+        console.log("OnEntityDie:::", data)
+        this.scene.entityDie(data)
     }
 
     OnBufferAdd(data){
@@ -266,7 +281,43 @@ class Game {
         this.scene.heroTextMessage(data.hero_id, data.msg)
     }
 
+    /**
+     * {
+     *   "resetSceneMonsters":1,
+     *   "configs":[
+     *    {
+     *        "scene_id":1,
+     *        "monster_id":1,
+     *        "total": 10,
+     *        "reborn": 60,
+     *        "bornx": 50,
+     *        "borny": 145,
+     *        "bornz": 0,
+     *        "a_range": 50
+     *    },
+     *    {
+     *        "scene_id":1,
+     *        "monster_id":2,
+     *        "total": 100,
+     *        "reborn": 60,
+     *        "bornx": 120,
+     *        "borny": 150,
+     *        "bornz": 0,
+     *        "a_range": 50
+     *    }
+     *   ]
+     * }
+     * @param msg
+     */
     sendTextMsg(msg){
+        if (msg.indexOf("resetSceneMonsters") > -1){
+            //动态充值怪物
+           let configs = JSON.parse(msg)
+            nano.request("SceneManager.DynamicResetMonsters",configs, function(data){
+                console.log("DynamicResetMonsters:", data)
+            });
+           return
+        }
         nano.request("SceneManager.TextMessage", {
             hero_id: Global.selfHeroData.id,
             msg: msg,

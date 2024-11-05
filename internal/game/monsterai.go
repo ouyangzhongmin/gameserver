@@ -102,7 +102,21 @@ func (a *monsterai) processIdleState(curMilliSecond int64, elapsedTime int64) er
 }
 
 func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) error {
-	if a.enemy == nil {
+	needClearEnemy := a.enemy == nil
+	if a.enemy != nil {
+		switch val := a.enemy.(type) {
+		case *Hero:
+			if val.IsOffline() || !val.IsAlive() || val.IsDestroyed() {
+				needClearEnemy = true
+			}
+		case *Monster:
+			if !val.IsAlive() || val.IsDestroyed() {
+				needClearEnemy = true
+			}
+		}
+	}
+	if needClearEnemy {
+		a.enemy = nil
 		if a.monster.haveStepsToGo() {
 			a.monster.Stop()
 		}
@@ -122,27 +136,32 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 		if a.monster.IsInAttackRange(a.enemy.GetPos().X, a.enemy.GetPos().Y) {
 			//如果在攻击范围
 			if a.nextAttackTime <= curMilliSecond {
+				if a.monster.haveStepsToGo() {
+					a.monster.Stop()
+				}
 				a.attackEnemy()
 			}
 		} else {
 			//走到敌人附近去
-			tpos, err := a.monster.GetCanAttackPos(a.enemy, 1)
-			if err != nil {
-				return err
+			if !a.monster.haveStepsToGo() {
+				tpos, err := a.monster.GetCanAttackPos(a.enemy, 1)
+				if err != nil {
+					return err
+				}
+				a.monster.SetState(constants.ACTION_STATE_CHASE)
+				if a.monster.preparePaths != nil && len(a.monster.preparePaths.Paths) > 0 {
+					//要回到预制路线的起点上去
+					a.preparePathId = a.preparePathId % len(a.monster.preparePaths.Paths)
+					paths := a.monster.preparePaths.Paths[a.preparePathId]
+					a.originX = shape.Coord(paths.Sx)
+					a.originY = shape.Coord(paths.Sy)
+				} else {
+					a.originX = a.monster.GetPos().X
+					a.originY = a.monster.GetPos().Y
+				}
+				logger.Debugf("monster:%d 设置原点:%d,%d", a.monster.GetID(), a.originX, a.originY)
+				return a.monster.MoveTo(tpos.X, tpos.Y, 0)
 			}
-			a.monster.SetState(constants.ACTION_STATE_CHASE)
-			if a.monster.preparePaths != nil && len(a.monster.preparePaths.Paths) > 0 {
-				//要回到预制路线的起点上去
-				a.preparePathId = a.preparePathId % len(a.monster.preparePaths.Paths)
-				paths := a.monster.preparePaths.Paths[a.preparePathId]
-				a.originX = shape.Coord(paths.Sx)
-				a.originY = shape.Coord(paths.Sy)
-			} else {
-				a.originX = a.monster.GetPos().X
-				a.originY = a.monster.GetPos().Y
-			}
-			logger.Debugf("monster:%d 回到原点:%d,%d", a.monster.GetID(), a.originX, a.originY)
-			return a.monster.MoveTo(tpos.X, tpos.Y, 0)
 		}
 	} else {
 		//正在攻击
@@ -158,12 +177,16 @@ func (a *monsterai) processReturnState(curMilliSecond int64, elapsedTime int64) 
 	if a.monster.GetPos().X == a.originX && a.monster.GetPos().Y == a.originY {
 		//回到原点后恢复到idle状态
 		a.behaviorState = constants.BEHAVIOR_STATE_IDLE
+		return nil
+	}
+	if !a.monster.haveStepsToGo() {
+		return a.backOrigin()
 	}
 	return nil
 }
 
 func (a *monsterai) attackEnemy() {
-	logger.Debugf("monster:%d attack enemy:%d \n", a.monster.GetID(), a.enemy.GetID())
+	logger.Debugf("monster:%d attack enemy:%d-%d \n", a.monster.GetID(), a.enemy.GetID(), a.enemy.GetEntityType())
 	a.monster.AttackAction()
 	a.monster.doAttackTarget(a.enemy)
 	a.refreshNextAttackTime()
@@ -195,6 +218,7 @@ func (a *monsterai) backOrigin() error {
 	a.behaviorState = constants.BEHAVIOR_STATE_RETURN
 	a.monster.SetState(constants.ACTION_STATE_RUN)
 	//这里由于是中途被打断的，只能使用寻路回到原点去
+	logger.Debugf("monster:%d_%s返回原点:%d,%d", a.monster.GetID(), a.monster._name, a.originX, a.originY)
 	return a.monster.MoveTo(a.originX, a.originY, 0)
 }
 

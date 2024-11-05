@@ -133,9 +133,14 @@
         }, 3000); // 3秒后消失
     }
 
+    messageBox.style.display = "none";
     // 打开消息框
     openMessageBoxBtn.addEventListener('click', () => {
-        messageBox.style.display = 'block';
+        if (messageBox.style.display === "none"){
+            messageBox.style.display = 'block';
+        }else{
+            messageBox.style.display = 'none';
+        }
     });
 
     // 发送消息

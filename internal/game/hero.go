@@ -143,6 +143,10 @@ func (h *Hero) bindSession(s *session.Session) {
 	}
 }
 
+func (h *Hero) IsOffline() bool {
+	return h.session == nil
+}
+
 func (h *Hero) save() {
 	h.PushTask(func() {
 		h.InitPosx = int(h.Posx)
@@ -249,7 +253,10 @@ func (h *Hero) Destroy() {
 }
 
 // 广播给所有能看见自己的对象
-func (h *Hero) Broadcast(route string, msg interface{}) {
+func (h *Hero) Broadcast(route string, msg interface{}, includeSelf bool) {
+	if includeSelf {
+		h.SendMsg(route, msg)
+	}
 	//这里如果放入task里执行，在退Destroy的时候要注意这个task不会执行了
 	h.canSeeMeViewList.Range(func(key, value interface{}) bool {
 		switch val := value.(type) {
@@ -289,6 +296,11 @@ func (h *Hero) Run() {
 
 func (h *Hero) Die() {
 	h.SetState(constants.ACTION_STATE_DIE)
+	logger.Debugf("hero:%d-%s die", h.GetID(), h._name)
+	h.Broadcast(protocol.OnEntityDie, &protocol.EntityDieResponse{
+		ID:         h.GetID(),
+		EntityType: constants.ENTITY_TYPE_HERO,
+	}, true)
 }
 
 // update都会在chTask携程内执行
@@ -361,7 +373,7 @@ func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error
 			PosX:       h.GetPos().X,
 			PosY:       h.GetPos().Y,
 			PosZ:       h.GetPos().Z,
-		})
+		}, false)
 	})
 	return nil
 }
@@ -375,7 +387,7 @@ func (h *Hero) MoveStop(x, y, z shape.Coord) error {
 			PosX: h.GetPos().X,
 			PosY: h.GetPos().Y,
 			PosZ: h.GetPos().Z,
-		})
+		}, false)
 	})
 	return nil
 }
@@ -412,8 +424,8 @@ func (h *Hero) onBeenHurt(damage int64) {
 			Damage:     damage,
 			Life:       h.Life,
 			MaxLife:    h.MaxLife,
-		})
-		if h.Life == 0 {
+		}, true)
+		if h.Life <= 0 {
 			h.Die()
 			//死亡了
 		}
@@ -442,6 +454,6 @@ func (h *Hero) manaCost(mana int64) {
 			Cost:       mana,
 			Mana:       h.Mana,
 			MaxMana:    h.MaxMana,
-		})
+		}, true)
 	})
 }

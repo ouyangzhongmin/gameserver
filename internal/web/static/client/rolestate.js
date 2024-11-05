@@ -14,6 +14,7 @@ class RoleState {
 
 		this.speedX = 0;
 		this.speedY = 0;
+		this.deadTimeStamp = 0
 	}
 
 	setMovable(value){
@@ -147,6 +148,7 @@ class RoleState {
 	{
 		this.stand();
 		this.setState(State.DEAD);
+		this.deadTimeStamp = Date.now()
 	}
 
 	jump()

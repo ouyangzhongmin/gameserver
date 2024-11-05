@@ -18,14 +18,14 @@ func NewPathFinder(grids [][]int32) *PathFinder {
 	return f
 }
 
-func (f *PathFinder) FindPath(sx, sy, ex, ey int) (path [][]int32, err error) {
+func (f *PathFinder) FindPath(sx, sy, ex, ey int) ([][]int32, error) {
 	key := fmt.Sprintf("%d_%d_%d_%d", sy, sx, ey, ex)
-	if paths, ok := f.cachedPaths[key]; ok {
-		return paths, nil
+	if path, ok := f.cachedPaths[key]; ok && path != nil {
+		return path, nil
 	} else {
-		path, _, _, err = f.a.FindPath([]int32{int32(sy), int32(sx)}, []int32{int32(ey), int32(ex)})
+		path, _, _, err := f.a.FindPath([]int32{int32(sy), int32(sx)}, []int32{int32(ey), int32(ex)})
 		if path != nil {
-			f.cachedPaths[key] = paths
+			f.cachedPaths[key] = path
 		}
 		return path, err
 	}

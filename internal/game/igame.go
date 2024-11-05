@@ -14,6 +14,8 @@ type IEntity interface {
 	// 不存储在数据库，只作为运行对象的唯一值
 	GetUUID() string
 	GetEntityType() int
+	Destroy()
+	IsDestroyed() bool
 }
 
 type IMovableEntity interface {

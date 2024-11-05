@@ -266,7 +266,7 @@ func (a *AStar) makePath(p *Node) [][]int32 {
 
 // 路径查找主函数 sPos，ePos一维数组,x=sPos[0],y=sPos[1], grids[x][y], 游戏内可能是反过来的，这里要注意
 func (a *AStar) FindPath(sPos, ePos []int32) (path [][]int32, block, turn int, err error) {
-	//a.Clean()
+	a.Clean()
 	state := a.GetNodeState(sPos[0], sPos[1])
 	if state != NODE_OPEN && state != NODE_BARRIER {
 		err = errors.New(fmt.Sprintf("spos state is %d", state))

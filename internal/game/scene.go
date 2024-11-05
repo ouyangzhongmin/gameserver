@@ -43,6 +43,8 @@ type Scene struct {
 	toBuildViewList sync.Map
 	aoiMgr          *aoiMgr
 
+	rebornMonsters sync.Map
+
 	//基于大格子算法的AOI
 	//entityBlocks [][]sync.Map
 
@@ -139,62 +141,95 @@ func (s *Scene) PushTask(task scheduler.Task) {
 func (s *Scene) initMonsters() {
 	if s.sceneData.MonsterConfigList != nil {
 		for _, cfg := range s.sceneData.MonsterConfigList {
-			monsterData, err := db.QueryMonster(cfg.MonsterId)
+			err := s.initMonsterByConfig(cfg)
 			if err != nil {
-				panic("initMonsters err::" + err.Error())
-			}
-			aidata, err := db.QueryAiConfig(cfg.MonsterId)
-			if err != nil {
-				logger.Warningln("monster:%d 没有配置aiconfig", cfg.MonsterId)
-			}
-			rect := shape.Rect{
-				X:      int64(cfg.Bornx - cfg.ARange),
-				Y:      int64(cfg.Borny - cfg.ARange),
-				Width:  int64(cfg.ARange * 2),
-				Height: int64(cfg.ARange * 2),
-			}
-			if rect.X < 0 {
-				rect.X = 0
-			}
-			if rect.Y < 0 {
-				rect.Y = 0
-			}
-			fpath := fmt.Sprintf("blocks/%s_%d,%d,%d.paths", s.sceneData.MapFile, cfg.Bornx, cfg.Borny, cfg.ARange)
-			buf, err := fileutil.ReadFile(fileutil.FindResourcePth(fpath))
-			var spaths []*path.SerialPaths
-			if err != nil {
-				fmt.Printf("%s未配置:%v\n", fpath, err)
-			} else {
-				err = json.Unmarshal(buf, &spaths)
-				if err != nil {
-					fmt.Println("Unmarshal paths file err:", err)
-				}
-			}
-
-			for i := 0; i < cfg.Total; i++ {
-				m := NewMonster(monsterData)
-				if spaths != nil && len(spaths) > 0 {
-					//预制路径
-					sindex := rand.Intn(len(spaths))
-					sp := spaths[sindex]
-					m.SetPreparePaths(sp)
-					m.SetPos(shape.Coord(sp.Paths[0].Sx), shape.Coord(sp.Paths[0].Sy), shape.Coord(cfg.Bornz))
-				} else {
-					//随机坐标
-					rx, ry, err := s.GetRandomXY(rect, 100)
-					if err != nil {
-						logger.Warningln("monster init pos err:", err)
-						rx, ry = shape.Coord(cfg.Bornx), shape.Coord(cfg.Borny)
-					}
-					m.SetPos(rx, ry, shape.Coord(cfg.Bornz))
-				}
-				m.SetMovableRect(rect)
-				if aidata != nil {
-					m.SetAiData(newMonsterAi(m, aidata))
-				}
-				s.addMonster(m)
+				panic(err)
 			}
 		}
+	}
+}
+
+func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
+	monsterData, err := db.QueryMonster(cfg.MonsterId)
+	if err != nil {
+		logger.Errorln("initMonsters err::" + err.Error())
+		return err
+	}
+	aidata, err := db.QueryAiConfig(cfg.MonsterId)
+	if err != nil {
+		logger.Warningln("monster:%d 没有配置aiconfig", cfg.MonsterId)
+	}
+	rect := shape.Rect{
+		X:      int64(cfg.Bornx - cfg.ARange),
+		Y:      int64(cfg.Borny - cfg.ARange),
+		Width:  int64(cfg.ARange * 2),
+		Height: int64(cfg.ARange * 2),
+	}
+	if rect.X < 0 {
+		rect.X = 0
+	}
+	if rect.Y < 0 {
+		rect.Y = 0
+	}
+	fpath := fmt.Sprintf("blocks/%s_%d,%d,%d.paths", s.sceneData.MapFile, cfg.Bornx, cfg.Borny, cfg.ARange)
+	buf, err := fileutil.ReadFile(fileutil.FindResourcePth(fpath))
+	var spaths []*path.SerialPaths
+	if err != nil {
+		fmt.Printf("%s未配置:%v\n", fpath, err)
+	} else {
+		err = json.Unmarshal(buf, &spaths)
+		if err != nil {
+			logger.Warningln("Unmarshal paths file err:", err)
+		}
+	}
+
+	for i := 0; i < cfg.Total; i++ {
+		m := NewMonster(monsterData)
+		m.SetSceneMonsterConfig(&cfg)
+		if spaths != nil && len(spaths) > 0 {
+			//预制路径
+			sindex := rand.Intn(len(spaths))
+			sp := spaths[sindex]
+			m.SetPreparePaths(sp)
+			m.SetPos(shape.Coord(sp.Paths[0].Sx), shape.Coord(sp.Paths[0].Sy), shape.Coord(cfg.Bornz))
+		} else {
+			//随机坐标
+			rx, ry, err := s.GetRandomXY(rect, 100)
+			if err != nil {
+				logger.Warningln("monster init pos err:", err)
+				rx, ry = shape.Coord(cfg.Bornx), shape.Coord(cfg.Borny)
+			}
+			m.SetPos(rx, ry, shape.Coord(cfg.Bornz))
+		}
+		m.SetMovableRect(rect)
+		if aidata != nil {
+			m.SetAiData(newMonsterAi(m, aidata))
+		}
+		s.addMonster(m)
+	}
+	return nil
+}
+
+// 复活一个monster
+func (s *Scene) rebornOneMonster(rm *rebornMonster) {
+	m := NewMonster(rm.Data)
+	m.SetSceneMonsterConfig(rm.Cfg)
+	m.SetMovableRect(rm.MovableRect)
+	if rm.PreparePaths != nil {
+		m.SetPreparePaths(rm.PreparePaths)
+	} else {
+		//随机坐标
+		rect := rm.MovableRect
+		rx, ry, err := s.GetRandomXY(rect, 100)
+		if err != nil {
+			logger.Warningln("monster init pos err:", err)
+			rx, ry = shape.Coord(rm.Cfg.Bornx), shape.Coord(rm.Cfg.Borny)
+		}
+		m.SetPos(rx, ry, shape.Coord(rm.Cfg.Bornz))
+		if rm.aidata != nil {
+			m.SetAiData(newMonsterAi(m, rm.aidata.(*model.Aiconfig)))
+		}
+		s.addMonster(m)
 	}
 }
 
@@ -275,6 +310,10 @@ func (s *Scene) removeMonster(m *Monster) {
 	m.onExitScene(s)
 }
 
+func (s *Scene) addRebornMonster(m *rebornMonster) {
+	s.rebornMonsters.Store(m.Uid, m)
+}
+
 func (s *Scene) addSpell(m *SpellEntity) {
 	//这个要在前面执行，并发的update内可能会取到空的scene
 	m.onEnterScene(s)
@@ -347,9 +386,20 @@ func (s *Scene) update() error {
 		//刷新所有对象的视野
 		s.refreshViewList()
 		s.refreshViewListDelatime = 0
+
+		// 复活monster
+		s.rebornMonsters.Range(func(key, value any) bool {
+			m := value.(*rebornMonster)
+			if m.RebornTimestamp <= ts {
+				s.rebornOneMonster(m)
+				s.rebornMonsters.Delete(key)
+			}
+			return true
+		})
 	}
 
 	s.lastUpdateTimeStamp = ts
+
 	return nil
 }
 
