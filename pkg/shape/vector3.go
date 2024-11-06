@@ -36,7 +36,7 @@ func (p Vector3) Add(o Vector3) Vector3 {
 	return Vector3{p.X + o.X, p.Y + o.Y, p.Z + o.Z}
 }
 
-func (p Vector3) Copy(o Vector3) {
+func (p *Vector3) Copy(o Vector3) {
 	p.X = o.X
 	p.Y = o.Y
 	p.Z = o.Z
