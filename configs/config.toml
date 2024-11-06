@@ -19,7 +19,7 @@ key = "configs/****.key"        #Key路径
 [gate]
 host = "127.0.0.1"
 port = 33250
-gate-address = "127.0.0.1:33290"
+gate-address = ":33290"
 
 [master]
 host = "127.0.0.1"
