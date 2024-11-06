@@ -14,6 +14,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	log "github.com/sirupsen/logrus"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -510,8 +511,9 @@ func (s *Scene) getEntitiesByRange(cx, cy, arange shape.Coord) map[string]IMovab
 	entites := s.aoiMgr.Search(cx, cy)
 	for _, e0 := range entites {
 		e := e0.(IMovableEntity)
-		if shape.IsInsideCircle(float64(cx), float64(cy), float64(arange), float64(e.GetPos().X), float64(e.GetPos().Y)) {
-			//判定是否在攻击圆范围内
+		//if shape.IsInsideCircle(float64(cx), float64(cy), float64(arange), float64(e.GetPos().X), float64(e.GetPos().Y)) {
+		if shape.Coord(math.Abs(float64(cx-e.GetPos().X))) <= arange && shape.Coord(math.Abs(float64(cy-e.GetPos().Y))) <= arange {
+			//判定是否在警戒范围内
 			result[e.GetUUID()] = e
 		}
 	}
