@@ -36,7 +36,7 @@ func NewHero(s *session.Session, data *model.Hero) *Hero {
 		messagesCh: make(chan routeMsg, 2048),
 		destroyCh:  make(chan struct{}),
 	}
-	h.initEntity(h.HeroObject.Id, data.Name, constants.ENTITY_TYPE_HERO, 1024)
+	h.initEntity(h.HeroObject.Id, data.Name, constants.ENTITY_TYPE_HERO, 2048)
 	h.GameObject.Uuid = h.GetUUID()
 	go h.doMessageChFunc()
 	return h
@@ -45,37 +45,64 @@ func NewHero(s *session.Session, data *model.Hero) *Hero {
 func (h *Hero) doMessageChFunc() {
 	i := 0
 	var ts int64 = 0
+	mergeMessages := make([]routeMsg, 0)
+	mergeMode := false
+	timer := time.NewTimer(time.Millisecond * 10)
+	timer.Stop()
 	for {
 		select {
 		case msg := <-h.messagesCh:
 			if h.session != nil {
-				ts = time.Now().UnixMilli()
-				i = 0
-				for ; i < 20; i++ {
+				if mergeMode {
+					mergeMessages = append(mergeMessages, msg)
+					if len(mergeMessages) >= 100 {
+						timer = time.NewTimer(time.Millisecond * 10)
+					}
+				} else {
+					ts = time.Now().UnixMilli()
 					err := h.session.Push(msg.Route, msg.Msg)
 					if err != nil {
 						if err.Error() == cluster.ErrBufferExceed.Error() {
 							//session send buffer exceed 同屏数量大时快速调用消息发送会导致消息发送失败，超出chan buffer范围
-							if i >= 19 {
-								logger.Errorf("hero: %s .SendMsg msg.Route:%s,msg:%s, useTime::%d, ErrBufferExceed err::: %v, %d \n", h._name, msg.Route, msg.Msg, time.Now().UnixMilli()-ts, err, i)
-							}
-							// todo 目前测试屏幕内1000以上还是会出现， 可以尝试修改源码的读写缓冲区和agent.chSend的size大小测试一下
-							time.Sleep(30)
-							continue
+							// 如果出现发送堆积的，则进入合并发送模式
+							logger.Debugf("hero: %d消息出现堆积进入合并消息模式", h._id)
+							mergeMessages = append(mergeMessages, msg)
+							mergeMode = true
+							timer = time.NewTimer(time.Millisecond * 300)
 						} else {
-							if i >= 3 {
-								logger.Errorf("hero: %s .SendMsg msg.Route:%s,msg:%s  err::: %v, %d \n", h._name, msg.Route, msg.Msg, err, i)
-								break
-							}
-							continue
+							logger.Errorf("hero: %s .SendMsg msg.Route:%s,msg:%s  err::: %v, %d \n", h._name, msg.Route, msg.Msg, err, i)
 						}
 					}
-					break
 				}
 				//logger.Debugf("hero: %s sendMsg msg.Route:%s,msg:%s, useTime::%d, retryCnt :%d", h._name, msg.Route, msg.Msg, time.Now().UnixMilli()-ts, i)
 			} else {
 				logger.Warningln("hero.SendMsg err: hero is offline", msg.Route, msg.Msg)
 			}
+		case <-timer.C:
+			if len(mergeMessages) > 0 {
+				if h.session != nil {
+					ts = time.Now().UnixMilli()
+					i = 0
+					for ; i < 100; i++ {
+						err := h.session.Push(protocol.OnMergeMessages, mergeMessages)
+						if err != nil {
+							if err.Error() == cluster.ErrBufferExceed.Error() {
+								logger.Errorf("hero: %s .SendMergeMsg msg.Route:%s,msg:%s, useTime::%d, ErrBufferExceed err::: %v, %d \n", h._name, protocol.OnMergeMessages, mergeMessages, time.Now().UnixMilli()-ts, err, i)
+							} else {
+								logger.Errorf("hero: %s .SendMergeMsg msg.Route:%s,msg:%s  err::: %v, %d \n", h._name, protocol.OnMergeMessages, mergeMessages, err, i)
+							}
+							time.Sleep(10 * time.Millisecond)
+							continue
+						}
+						break
+					}
+					logger.Debugf("hero: %s 发送合并消息体  useTime::%d, retryCnt :%d", h._name, time.Now().UnixMilli()-ts, i)
+				}
+				mergeMessages = make([]routeMsg, 0)
+			}
+			mergeMode = false
+			timer.Stop()
+			logger.Debugf("hero: %d退出合并消息模式", h._id)
 
 		case <-h.destroyCh:
 			return

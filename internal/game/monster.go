@@ -36,6 +36,7 @@ type Monster struct {
 	pathFinder     *PathFinder
 	preparePaths   *path.SerialPaths //预制的移动路径
 	cfg            *model.SceneMonsterConfig
+	bornPos        shape.Vector3
 }
 
 func NewMonster(data *model.Monster) *Monster {

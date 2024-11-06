@@ -201,6 +201,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 			}
 			m.SetPos(rx, ry, shape.Coord(cfg.Bornz))
 		}
+		m.bornPos = m.GetPos()
 		m.SetMovableRect(rect)
 		if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
@@ -217,6 +218,7 @@ func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 	m.SetMovableRect(rm.MovableRect)
 	if rm.PreparePaths != nil {
 		m.SetPreparePaths(rm.PreparePaths)
+		m.SetPos(shape.Coord(rm.PreparePaths.Paths[0].Sx), shape.Coord(rm.PreparePaths.Paths[0].Sy), shape.Coord(rm.Cfg.Bornz))
 	} else {
 		//随机坐标
 		rect := rm.MovableRect
@@ -226,11 +228,13 @@ func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 			rx, ry = shape.Coord(rm.Cfg.Bornx), shape.Coord(rm.Cfg.Borny)
 		}
 		m.SetPos(rx, ry, shape.Coord(rm.Cfg.Bornz))
-		if rm.aidata != nil {
-			m.SetAiData(newMonsterAi(m, rm.aidata.(*model.Aiconfig)))
-		}
-		s.addMonster(m)
 	}
+	if rm.aidata != nil {
+		m.SetAiData(newMonsterAi(m, rm.aidata.(*model.Aiconfig)))
+	}
+	m.bornPos = m.GetPos()
+	s.addMonster(m)
+
 }
 
 func (s *Scene) GetSceneId() int {

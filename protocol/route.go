@@ -1,7 +1,8 @@
 package protocol
 
 const (
-	//RPC用的
+	// 服务器将多条消息合并进入一条数据发给前端， 需要前端做特殊处理
+	OnMergeMessages = "OnMergeMessages"
 
 	//client用的
 	OnEnterScene          = "OnEnterScene"
@@ -20,16 +21,3 @@ const (
 
 	OnTextMessage = "OnTextMessage"
 )
-
-var (
-	mergeMsgRouteMap = make(map[string]int)
-)
-
-func init() {
-	//mergeMsgRouteMap[OnEnterScene] = 1
-}
-
-func IsMergeMsgRoute(route string) bool {
-	_, ok := mergeMsgRouteMap[route]
-	return ok
-}

@@ -25,10 +25,8 @@ type (
 		component.Base
 		group *nano.Group // 广播channel
 
-		//这里注意是用的userId做key ,scene里使用的是heroId做key
+		//这个timer与handler在同一条线程,所以这里players不需要处理并发问题
 		players    map[int64]*User   // 所有的玩家
-		chAdd      chan *User        // 添加队列
-		chRemove   chan int64        // 删除队列
 		chKick     chan int64        // 退出队列
 		chReset    chan int64        // 重置队列
 		chRecharge chan RechargeInfo // 充值信息
@@ -47,8 +45,6 @@ func NewManager() *Manager {
 	return &Manager{
 		group:      nano.NewGroup("_SYSTEM_MESSAGE_BROADCAST"),
 		players:    map[int64]*User{},
-		chAdd:      make(chan *User, 1024),
-		chRemove:   make(chan int64, 1024),
 		chKick:     make(chan int64, kickResetBacklog),
 		chReset:    make(chan int64, kickResetBacklog),
 		chRecharge: make(chan RechargeInfo, 32),
@@ -63,64 +59,44 @@ func (m *Manager) AfterInit() {
 			m.removePlayer(s.UID())
 		}
 	})
-	go m.doChanFunc()
 
+	//这个timer与handler在同一条线程,所以这里players不需要处理并发问题
+	scheduler.NewTimer(time.Second, func() {
+	ctrl:
+		for {
+			select {
+			case uid := <-m.chKick:
+				p, ok := defaultManager.player(uid)
+				if !ok || p.session == nil {
+					logger.Errorf("玩家%d不在线", uid)
+				}
+				p.session.Close()
+				logger.Infof("踢出玩家, UID=%d", uid)
+			case <-m.chScene:
+				m.reqSceneInfo()
+			case uid := <-m.chReset:
+				p, ok := defaultManager.player(uid)
+				if !ok {
+					return
+				}
+				if p.session != nil {
+					logger.Errorf("玩家正在游戏中，不能重置: %d", uid)
+					return
+				}
+				defaultManager.removePlayer(uid)
+				logger.Infof("重置玩家, UID=%d", uid)
+
+			default:
+				break ctrl
+			}
+		}
+	})
 	// 每60S更新一次场景统计
 	scheduler.NewTimer(60*time.Second, func() {
 		m.chScene <- 1 //先去请求数据，等数据返回后再保存
 		time.Sleep(time.Millisecond * 500)
 		m.dumpSceneInfo()
 	})
-}
-
-func (m *Manager) doChanFunc() {
-	for {
-		select {
-		case user := <-m.chAdd:
-			uid := user.Uid
-			_, ok := defaultManager.player(uid)
-			if ok {
-				logger.Errorf("玩家%d已在线，正在覆盖", uid)
-			}
-			m.players[uid] = user
-			logger.Infof("玩家上线, UID=%d", uid)
-
-		case uid := <-m.chRemove:
-			_, ok := defaultManager.player(uid)
-			if !ok {
-				return
-			}
-			delete(m.players, uid)
-			log.Infof("玩家: %d从在线列表中删除, 剩余：%d", uid, len(m.players))
-			logger.Infof("删除玩家, UID=%d", uid)
-		case uid := <-m.chKick:
-			p, ok := defaultManager.player(uid)
-			if !ok || p.session == nil {
-				logger.Errorf("玩家%d不在线", uid)
-			}
-			p.session.Close()
-			logger.Infof("踢出玩家, UID=%d", uid)
-		case <-m.chScene:
-			m.reqSceneInfo()
-		case uid := <-m.chReset:
-			p, ok := defaultManager.player(uid)
-			if !ok {
-				return
-			}
-			if p.session != nil {
-				logger.Errorf("玩家正在游戏中，不能重置: %d", uid)
-				return
-			}
-			defaultManager.removePlayer(uid)
-			logger.Infof("重置玩家, UID=%d", uid)
-			//case ri := <-m.chRecharge:
-			//	player, ok := m.player(ri.Uid)
-			//	// 如果玩家在线
-			//	if s := player.session; ok && s != nil {
-			//		s.Push("onCoinChange", &protocol.CoinChangeInformation{Coin: ri.Coin})
-			//	}
-		}
-	}
 }
 
 // nano的handler都在一条go scheduler.Sched()线程中执行的，所有handler如果耗时高需要开异步执行
@@ -236,12 +212,24 @@ func (m *Manager) player(uid int64) (*User, bool) {
 	return p, ok
 }
 
-func (m *Manager) addPlayer(h *User) {
-	m.chAdd <- h
+func (m *Manager) addPlayer(user *User) {
+	uid := user.Uid
+	_, ok := defaultManager.player(uid)
+	if ok {
+		logger.Errorf("玩家%d已在线，正在覆盖", uid)
+	}
+	m.players[uid] = user
+	logger.Infof("玩家上线, UID=%d", uid)
 }
 
 func (m *Manager) removePlayer(uid int64) {
-	m.chRemove <- uid
+	_, ok := defaultManager.player(uid)
+	if !ok {
+		return
+	}
+	delete(m.players, uid)
+	log.Infof("玩家: %d从在线列表中删除, 剩余：%d", uid, len(m.players))
+	logger.Infof("删除玩家, UID=%d", uid)
 }
 
 func (m *Manager) sessionCount() int {

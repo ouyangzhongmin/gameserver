@@ -82,7 +82,7 @@ func (a *monsterai) processIdleState(curMilliSecond int64, elapsedTime int64) er
 				if a.monster.preparePaths != nil && len(a.monster.preparePaths.Paths) > 0 {
 					a.preparePathId = a.preparePathId % len(a.monster.preparePaths.Paths)
 					paths := a.monster.preparePaths.Paths[a.preparePathId]
-					logger.Debugf("monster:%d 使用预制路径:%d移动:%v", a.monster.GetID(), a.preparePathId, paths)
+					//logger.Debugf("monster:%d 使用预制路径:%d移动:%v", a.monster.GetID(), a.preparePathId, paths)
 					a.monster.SetState(constants.ACTION_STATE_WALK)
 					a.preparePathId += 1
 					return a.monster.MoveByPaths(paths.Paths)
@@ -155,6 +155,11 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 				} else {
 					a.originX = a.monster.GetPos().X
 					a.originY = a.monster.GetPos().Y
+					if !a.monster.GetMovableRect().Contains(int64(a.originX), int64(a.originY)) {
+						//超出范围了，回到出生点
+						a.originX = a.monster.bornPos.X
+						a.originY = a.monster.bornPos.Y
+					}
 				}
 				logger.Debugf("monster:%d 设置原点:%d,%d", a.monster.GetID(), a.originX, a.originY)
 				return a.monster.MoveTo(tpos.X, tpos.Y, 0)
@@ -219,6 +224,7 @@ func (a *monsterai) backOrigin() error {
 		a.monster.SetState(constants.ACTION_STATE_RUN)
 		//这里由于是中途被打断的，只能使用寻路回到原点去
 		logger.Debugf("monster:%d_%s返回原点:%d,%d", a.monster.GetID(), a.monster._name, a.originX, a.originY)
+
 		return a.monster.MoveTo(a.originX, a.originY, 0)
 	}
 	return nil

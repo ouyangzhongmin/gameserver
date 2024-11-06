@@ -109,6 +109,16 @@ class Game {
                 console.log(data);
             });
 
+            //处理服务器合并的消息体
+            nano.on("OnMergeMessages", function (msgs){
+                console.log("OnMergeMessages", msgs);
+                if(Array.isArray(msgs)) {
+                    for(let i=0, l=msgs.length; i<l; i++) {
+                        nano.emit(msgs[i].route, msgs[i].body);
+                    }
+                }
+            });
+
             nano.on("OnEnterScene", function(data){
                 Global.selfHeroData = data.hero_data
                 nano.request("SceneManager.HeroSetViewRange", {

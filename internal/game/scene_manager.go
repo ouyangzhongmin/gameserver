@@ -32,10 +32,8 @@ func NewSceneManager() *SceneManager {
 func (manager *SceneManager) AfterInit() {
 	session.Lifetime.OnClosed(func(s *session.Session) {
 		// Fixed: 玩家WIFI切换到4G网络不断开, 重连时，将UID设置为illegalSessionUid
-		if s.UID() > 0 {
-			if err := manager.onPlayerDisconnect(s); err != nil {
-				logger.Errorf("玩家退出: UID=%d, Error=%s", s.UID, err.Error())
-			}
+		if err := manager.onPlayerDisconnect(s); err != nil {
+			logger.Errorf("玩家退出: UID=%d, Error=%s \n", s.UID, err.Error())
 		}
 	})
 
@@ -71,7 +69,6 @@ func (manager *SceneManager) onPlayerDisconnect(s *session.Session) error {
 		return err
 	}
 	logger.Println("SceneManager.onPlayerDisconnect: 玩家网络断开", p.scene)
-	// 移除session
 	p.bindSession(nil)
 	p.Destroy()
 	return nil

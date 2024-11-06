@@ -29,7 +29,6 @@ func Startup() {
 	}
 
 	forceUpdate = viper.GetBool("update.force")
-
 	// register game handler
 	comps := &component.Components{}
 	comps.Register(defaultSceneManager)
@@ -49,6 +48,7 @@ func Startup() {
 	logger.Info("game service starup:", listen)
 	nano.Listen(listen,
 		nano.WithAdvertiseAddr(masterAddr),
+		nano.WithDebugMode(),
 		//nano.WithPipeline(pip),
 		nano.WithLogger(log.WithField("component", "game")),
 		nano.WithSerializer(json.NewSerializer()),
