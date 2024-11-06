@@ -231,7 +231,7 @@ func (a *monsterai) backOrigin() error {
 }
 
 func (a *monsterai) refreshNextBehaviorTime() {
-	a.nextBehaviorTime = time.Now().UnixMilli() + constants.BEHAVIOR_DURATION
+	a.nextBehaviorTime = time.Now().UnixMilli() + 500
 }
 
 func (a *monsterai) refreshNextAttackTime() {

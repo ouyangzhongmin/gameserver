@@ -14,8 +14,6 @@ const (
 
 	MONSTER_TYPE_NORMAL = 0
 	MONSTER_TYPE_NPC    = 1
-
-	BEHAVIOR_DURATION = 300
 )
 
 const (
