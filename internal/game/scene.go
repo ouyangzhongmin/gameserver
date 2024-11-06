@@ -202,7 +202,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 			}
 			m.SetPos(rx, ry, shape.Coord(cfg.Bornz))
 		}
-		m.bornPos = m.GetPos()
+		m.bornPos.Copy(m.GetPos())
 		m.SetMovableRect(rect)
 		if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
@@ -233,7 +233,7 @@ func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 	if rm.aidata != nil {
 		m.SetAiData(newMonsterAi(m, rm.aidata.(*model.Aiconfig)))
 	}
-	m.bornPos = m.GetPos()
+	m.bornPos.Copy(m.GetPos())
 	s.addMonster(m)
 
 }
