@@ -20,3 +20,16 @@ const (
 
 	OnTextMessage = "OnTextMessage"
 )
+
+var (
+	mergeMsgRouteMap = make(map[string]int)
+)
+
+func init() {
+	//mergeMsgRouteMap[OnEnterScene] = 1
+}
+
+func IsMergeMsgRoute(route string) bool {
+	_, ok := mergeMsgRouteMap[route]
+	return ok
+}

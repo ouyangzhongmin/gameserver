@@ -136,9 +136,6 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 		if a.monster.IsInAttackRange(a.enemy.GetPos().X, a.enemy.GetPos().Y) {
 			//如果在攻击范围
 			if a.nextAttackTime <= curMilliSecond {
-				if a.monster.haveStepsToGo() {
-					a.monster.Stop()
-				}
 				a.attackEnemy()
 			}
 		} else {
@@ -187,7 +184,9 @@ func (a *monsterai) processReturnState(curMilliSecond int64, elapsedTime int64) 
 
 func (a *monsterai) attackEnemy() {
 	logger.Debugf("monster:%d attack enemy:%d-%d \n", a.monster.GetID(), a.enemy.GetID(), a.enemy.GetEntityType())
-	a.monster.AttackAction()
+	if a.monster.haveStepsToGo() {
+		a.monster.Stop()
+	}
 	a.monster.doAttackTarget(a.enemy)
 	a.refreshNextAttackTime()
 }
@@ -215,11 +214,14 @@ func (a *monsterai) scanEnemy() IMovableEntity {
 }
 
 func (a *monsterai) backOrigin() error {
-	a.behaviorState = constants.BEHAVIOR_STATE_RETURN
-	a.monster.SetState(constants.ACTION_STATE_RUN)
-	//这里由于是中途被打断的，只能使用寻路回到原点去
-	logger.Debugf("monster:%d_%s返回原点:%d,%d", a.monster.GetID(), a.monster._name, a.originX, a.originY)
-	return a.monster.MoveTo(a.originX, a.originY, 0)
+	if !a.monster.haveStepsToGo() {
+		a.behaviorState = constants.BEHAVIOR_STATE_RETURN
+		a.monster.SetState(constants.ACTION_STATE_RUN)
+		//这里由于是中途被打断的，只能使用寻路回到原点去
+		logger.Debugf("monster:%d_%s返回原点:%d,%d", a.monster.GetID(), a.monster._name, a.originX, a.originY)
+		return a.monster.MoveTo(a.originX, a.originY, 0)
+	}
+	return nil
 }
 
 func (a *monsterai) refreshNextBehaviorTime() {

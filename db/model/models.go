@@ -72,29 +72,30 @@ type Login struct {
 	CreateAt  time.Time `json:"-" db:"create_at" `           //
 }
 type Monster struct {
-	Id             int64     `json:"id" db:"id" `                             //
-	Name           string    `json:"name" db:"name" `                         //
-	Avatar         string    `json:"avatar" db:"avatar" `                     //模型
-	MonsterType    int       `json:"monster_type" db:"monster_type" `         //0-怪物, 1-npc
-	Level          int       `json:"level" db:"level" `                       //
-	Grade          int       `json:"grade" db:"grade" `                       //级别：0"普通怪",1"小头目",2"精英怪",3"大BOSS",            4"变态怪", 5 "变态怪"
-	AttrType       int       `json:"attr_type" db:"attr_type" `               //属性类型:0 力量，1敏捷, 2智慧
-	BaseLife       int64     `json:"base_life" db:"base_life" `               //
-	BaseMana       int64     `json:"base_mana" db:"base_mana" `               //
-	BaseDefense    int64     `json:"base_defense" db:"base_defense" `         //
-	BaseAttack     int64     `json:"base_attack" db:"base_attack" `           //
-	Strength       int64     `json:"strength" db:"strength" `                 //
-	Agility        int64     `json:"agility" db:"agility" `                   //
-	Intelligence   int64     `json:"intelligence" db:"intelligence" `         //
-	RunStepTime    int       `json:"run_step_time" db:"run_step_time" `       //跑速度
-	IdleStepTime   int       `json:"idle_step_time" db:"idle_step_time" `     //正常速度
-	ChaseStepTime  int       `json:"chase_step_time" db:"chase_step_time" `   //追击速度
-	EscapeStepTime int       `json:"escape_step_time" db:"escape_step_time" ` //逃跑速度
-	AttackRange    int       `json:"attack_range" db:"attack_range" `         //攻击范围
-	AttackDuration int       `json:"attack_duration" db:"attack_duration" `   //攻击间隔
-	Description    string    `json:"description" db:"description" `           //简介
-	CreateAt       time.Time `json:"-" db:"create_at" `                       //
-	UpdateAt       time.Time `json:"-" db:"update_at" `                       //
+	Id                 int64     `json:"id" db:"id" `                                     //
+	Name               string    `json:"name" db:"name" `                                 //
+	Avatar             string    `json:"avatar" db:"avatar" `                             //模型
+	MonsterType        int       `json:"monster_type" db:"monster_type" `                 //0-怪物, 1-npc
+	Level              int       `json:"level" db:"level" `                               //
+	Grade              int       `json:"grade" db:"grade" `                               //级别：0"普通怪",1"小头目",2"精英怪",3"大BOSS",            4"变态怪", 5 "变态怪"
+	AttrType           int       `json:"attr_type" db:"attr_type" `                       //属性类型:0 力量，1敏捷, 2智慧
+	BaseLife           int64     `json:"base_life" db:"base_life" `                       //
+	BaseMana           int64     `json:"base_mana" db:"base_mana" `                       //
+	BaseDefense        int64     `json:"base_defense" db:"base_defense" `                 //
+	BaseAttack         int64     `json:"base_attack" db:"base_attack" `                   //
+	AttachAttackRandom int       `json:"attach_attack_random" db:"attach_attack_random" ` //附带的随机值
+	Strength           int64     `json:"strength" db:"strength" `                         //
+	Agility            int64     `json:"agility" db:"agility" `                           //
+	Intelligence       int64     `json:"intelligence" db:"intelligence" `                 //
+	RunStepTime        int       `json:"run_step_time" db:"run_step_time" `               //跑速度
+	IdleStepTime       int       `json:"idle_step_time" db:"idle_step_time" `             //正常速度
+	ChaseStepTime      int       `json:"chase_step_time" db:"chase_step_time" `           //追击速度
+	EscapeStepTime     int       `json:"escape_step_time" db:"escape_step_time" `         //逃跑速度
+	AttackRange        int       `json:"attack_range" db:"attack_range" `                 //攻击范围
+	AttackDuration     int       `json:"attack_duration" db:"attack_duration" `           //攻击间隔
+	Description        string    `json:"description" db:"description" `                   //简介
+	CreateAt           time.Time `json:"-" db:"create_at" `                               //
+	UpdateAt           time.Time `json:"-" db:"update_at" `                               //
 }
 type Online struct {
 	Id        int       `json:"id" db:"id" `                 //
@@ -148,7 +149,7 @@ type SceneMonsterConfig struct {
 	SceneId   int       `json:"scene_id" db:"scene_id" `     //
 	MonsterId int64     `json:"monster_id" db:"monster_id" ` //
 	Total     int       `json:"total" db:"total" `           //
-	Reborn    int       `json:"reborn" db:"reborn" `         //
+	Reborn    int       `json:"reborn" db:"reborn" `         //重生间隔
 	Bornx     int       `json:"bornx" db:"bornx" `           //
 	Borny     int       `json:"borny" db:"borny" `           //
 	Bornz     int       `json:"bornz" db:"bornz" `           //

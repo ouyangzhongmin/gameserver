@@ -234,6 +234,23 @@ func (h *Hero) SendMsg(route string, msg interface{}) {
 	})
 }
 
+// 广播给所有能看见自己的对象
+func (h *Hero) Broadcast(route string, msg interface{}, includeSelf bool) {
+	if includeSelf {
+		h.SendMsg(route, msg)
+	}
+	//这里如果放入task里执行，在退Destroy的时候要注意这个task不会执行了
+	h.canSeeMeViewList.Range(func(key, value interface{}) bool {
+		switch val := value.(type) {
+		case *Hero:
+			if val != h {
+				val.SendMsg(route, msg)
+			}
+		}
+		return true
+	})
+}
+
 func (h *Hero) ToString() string {
 	baseInfo := fmt.Sprintf("id:%d,uuid:%s, posX:%d, posY:%d, posZ:%d", h.GetID(), h.GetUUID(), h.GetPos().X, h.GetPos().Y, h.GetPos().Z)
 	return fmt.Sprintf("baseInfo:%s,,,data::%v", baseInfo, h.Hero)
@@ -250,23 +267,6 @@ func (h *Hero) Destroy() {
 		h.bindSession(nil)
 	}
 	close(h.destroyCh)
-}
-
-// 广播给所有能看见自己的对象
-func (h *Hero) Broadcast(route string, msg interface{}, includeSelf bool) {
-	if includeSelf {
-		h.SendMsg(route, msg)
-	}
-	//这里如果放入task里执行，在退Destroy的时候要注意这个task不会执行了
-	h.canSeeMeViewList.Range(func(key, value interface{}) bool {
-		switch val := value.(type) {
-		case *Hero:
-			if val != h {
-				val.SendMsg(route, msg)
-			}
-		}
-		return true
-	})
 }
 
 // 动作状态

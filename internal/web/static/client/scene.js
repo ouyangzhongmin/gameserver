@@ -157,7 +157,7 @@ class Scene {
     draw(ctx) {
 		//console.log("scene.draw")
 		if (this.map){
-			this.map.draw(ctx);
+			// this.map.draw(ctx);
 		}
 		if (this.gridShow){
 			this.gridShow.draw(ctx);
@@ -179,6 +179,10 @@ class Scene {
         const rect = canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
+		if(this.selfHero.isDead()){
+			this.selfHero.bubble("已死亡，无法移动", 1000, "red", true)
+			return
+		}
 
 		const paths = this.findPath(this.selfHero.x, this.selfHero.y, x + this.camera.x, y + this.camera.y)
         this.selfHero.moveByPaths(paths);

@@ -10,6 +10,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"math"
+	"math/rand"
 	"time"
 )
 
@@ -99,12 +100,16 @@ func (m *Monster) GetMana() int64 {
 }
 
 func (m *Monster) GetAttack() int64 {
-	if m.AttrType == 1 {
-		return m.BaseAttack + m.Agility*constants.ATTACK_ATTR_PERM
-	} else if m.AttrType == constants.ATTACK_ATTR_PERM {
-		return m.BaseAttack + m.Intelligence*constants.ATTACK_ATTR_PERM
+	var randAtt int64 = 0
+	if m.AttachAttackRandom > 0 {
+		randAtt = int64(rand.Intn(m.AttachAttackRandom))
 	}
-	return m.BaseAttack + m.Strength*constants.ATTACK_ATTR_PERM
+	if m.AttrType == 1 {
+		return m.BaseAttack + m.Agility*constants.ATTACK_ATTR_PERM + randAtt
+	} else if m.AttrType == constants.ATTACK_ATTR_PERM {
+		return m.BaseAttack + m.Intelligence*constants.ATTACK_ATTR_PERM + randAtt
+	}
+	return m.BaseAttack + m.Strength*constants.ATTACK_ATTR_PERM + randAtt
 }
 
 func (m *Monster) GetDefense() int64 {
@@ -392,7 +397,8 @@ func (m *Monster) manaCost(mana int64) {
 
 func (m *Monster) doAttackTarget(target IMovableEntity) {
 	m.PushTask(func() {
-		attack := m.Attack
+		m.AttackAction()
+		attack := m.GetAttack()
 		var defense int64 = 0
 		ttype := constants.ENTITY_TYPE_HERO
 		switch val := target.(type) {
