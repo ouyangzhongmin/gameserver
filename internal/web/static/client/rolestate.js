@@ -79,7 +79,7 @@ class RoleState {
 
 	beenAttack() {
 		if(!this.canBeenAttack())return;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.BEENATTACK);
 	}
 
@@ -92,7 +92,7 @@ class RoleState {
 	attack()
 	{
 		if(!this.canAttack())return false;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.ATTACK);
 		return true;
 	}
@@ -100,14 +100,14 @@ class RoleState {
 	sit()
 	{
 		if(!this.canSit())return;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.SIT);
 	}
 
 	beatBack()
 	{
 		if(!this.canBeatBack())return;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.BEATBACK);
 	}
 
@@ -118,35 +118,40 @@ class RoleState {
 
 	hit()
 	{
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.HIT);
 	}
 
 	stall()
 	{
 		if(!this.canStall())return;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.STALL);
 	}
 
 	castspell()
 	{
 		if(!this.canCastspell())return;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.CASTSPELL);
+	}
+
+	resetSpeed(){
+		this.speedX = 0;
+		this.speedY = 0;
 	}
 
 	stand()
 	{
 		if(!this.canStand())return;
 		this.setState(State.STAND);
-		this.speedX = 0;
-		this.speedY = 0;
+		this.resetSpeed()
 	}
+
 
 	die()
 	{
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.DEAD);
 		this.deadTimeStamp = Date.now()
 	}
@@ -155,7 +160,7 @@ class RoleState {
 	{
 		if(!this.canJump())
 			return;
-		this.stand();
+		this.resetSpeed();
 		this.setState(State.JUMP);
 	}
 

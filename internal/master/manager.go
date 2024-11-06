@@ -144,10 +144,14 @@ func (m *Manager) ChooseHero(s *session.Session, req *protocol.ChooseHeroRequest
 		sceneId = constants.DEFAULT_SCENE
 	}
 
-	return s.RPC("SceneManager.HeroEnterScene", &protocol.HeroEnterSceneRequest{
+	err = s.RPC("SceneManager.HeroEnterScene", &protocol.HeroEnterSceneRequest{
 		SceneId:  sceneId,
 		HeroData: heroData,
 	})
+	if err != nil {
+		logger.Errorln("rpc.Call(SceneManager.HeroEnterScene) err: ", err)
+	}
+	return err
 }
 
 func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest) error {
@@ -203,6 +207,9 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 		SceneId:  sceneId,
 		HeroData: heroData,
 	})
+	if err != nil {
+		logger.Errorln("rpc.Call(SceneManager.HeroEnterScene) err: ", err)
+	}
 	return err
 }
 

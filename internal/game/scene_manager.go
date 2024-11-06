@@ -76,16 +76,19 @@ func (manager *SceneManager) onPlayerDisconnect(s *session.Session) error {
 
 func (manager *SceneManager) HeroEnterScene(s *session.Session, req *protocol.HeroEnterSceneRequest) error {
 	if req.HeroData == nil {
+		logger.Errorf("scene:%d HeroEnterScene err: req.HeroData == nil", req.SceneId)
 		return errors.New("hero_data is nil")
 	}
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
+		logger.Errorf("scene:%d Hero:%dEnterScene err: scene not found", req.SceneId, req.HeroData.Id)
 		return errors.New("scene not found")
 	}
 	hero := NewHero(s, req.HeroData)
 	s.Bind(req.HeroData.Uid)
 	hero.bindSession(s)
 	scene.addHero(hero)
+	logger.Debugf("hero:%d_%s 进入场景:%d", hero.GetID(), hero._name, req.SceneId)
 	return nil
 }
 

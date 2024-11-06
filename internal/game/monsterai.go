@@ -161,7 +161,7 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 						a.originY = a.monster.bornPos.Y
 					}
 				}
-				logger.Debugf("monster:%d 设置原点:%d,%d", a.monster.GetID(), a.originX, a.originY)
+				//logger.Debugf("monster:%d 设置原点:%d,%d \n", a.monster.GetID(), a.originX, a.originY)
 				return a.monster.MoveTo(tpos.X, tpos.Y, 0)
 			}
 		}
@@ -222,9 +222,13 @@ func (a *monsterai) backOrigin() error {
 	if !a.monster.haveStepsToGo() {
 		a.behaviorState = constants.BEHAVIOR_STATE_RETURN
 		a.monster.SetState(constants.ACTION_STATE_RUN)
+		if !a.monster.GetMovableRect().Contains(int64(a.originX), int64(a.originY)) || (a.originX == 0 && a.originY == 0) {
+			//超出范围了，回到出生点
+			a.originX = a.monster.bornPos.X
+			a.originY = a.monster.bornPos.Y
+		}
+		logger.Debugf("monster:%d_%s返回原点:%d,%d \n", a.monster.GetID(), a.monster._name, a.originX, a.originY)
 		//这里由于是中途被打断的，只能使用寻路回到原点去
-		logger.Debugf("monster:%d_%s返回原点:%d,%d", a.monster.GetID(), a.monster._name, a.originX, a.originY)
-
 		return a.monster.MoveTo(a.originX, a.originY, 0)
 	}
 	return nil

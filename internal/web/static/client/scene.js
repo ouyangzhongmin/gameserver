@@ -157,7 +157,7 @@ class Scene {
     draw(ctx) {
 		//console.log("scene.draw")
 		if (this.map){
-			// this.map.draw(ctx);
+			this.map.draw(ctx);
 		}
 		if (this.gridShow){
 			this.gridShow.draw(ctx);
@@ -166,7 +166,7 @@ class Scene {
 			this.heros[key].draw(ctx)
 		}
 		for (let key in this.monsters) {
-			// this.monsters[key].draw(ctx)
+			this.monsters[key].draw(ctx)
 		}
 		if (this.deads.length > 0){
 			for (let i = this.deads.length -1;i >= 0 ; i--) {

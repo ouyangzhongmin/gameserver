@@ -207,6 +207,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
 		}
+		//logger.Debugf("newmonster:%d,%d,%d \n", m.GetID(), m.GetPos().X, m.GetPos().Y)
 		s.addMonster(m)
 	}
 	return nil

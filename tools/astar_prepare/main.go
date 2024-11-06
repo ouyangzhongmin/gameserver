@@ -33,7 +33,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "rect,r",
-			Value: "100,150,50",
+			Value: "15,140,50",
 			Usage: "指定预生成路径的范围",
 		},
 		cli.IntFlag{
@@ -66,6 +66,12 @@ func serve(c *cli.Context) error {
 		Y:      int64(borny - arange),
 		Width:  int64(arange * 2),
 		Height: int64(arange * 2),
+	}
+	if rect.X < 0 {
+		rect.X = 0
+	}
+	if rect.Y < 0 {
+		rect.Y = 0
 	}
 	blockInfo := game.NewBlockInfo()
 	buf, err := fileutil.ReadFile(fileutil.FindResourcePth(fmt.Sprintf("cmd/game/blocks/%s.block", mapFile)))
