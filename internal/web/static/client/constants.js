@@ -1,7 +1,7 @@
 
 
 var HttpBaseUrl = "http://127.0.0.1:12307"
-var path = window.location.pathname;
+var path = window.location.host;
 if (path.includes('47.99.180.185')) {
     HttpBaseUrl = "http://47.99.180.185:12307"
 }
