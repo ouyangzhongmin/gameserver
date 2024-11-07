@@ -54,8 +54,9 @@ func (h *Hero) doMessageChFunc() {
 			if h.session != nil {
 				if mergeMode {
 					mergeMessages = append(mergeMessages, msg)
-					if len(mergeMessages) >= 100 {
-						timer = time.NewTimer(time.Millisecond * 5)
+					if len(mergeMessages) >= 20 {
+						timer = time.NewTimer(time.Millisecond * 1)
+						time.Sleep(time.Millisecond * 10)
 					}
 				} else {
 					ts = time.Now().UnixMilli()
