@@ -13,8 +13,8 @@ import (
 )
 
 type routeMsg struct {
-	Route string
-	Msg   interface{}
+	Route string      `json:"route"`
+	Msg   interface{} `json:"msg"`
 }
 
 type Hero struct {
