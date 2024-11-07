@@ -157,7 +157,7 @@ class Scene {
     draw(ctx) {
 		//console.log("scene.draw")
 		if (this.map){
-			// this.map.draw(ctx);
+			this.map.draw(ctx);
 		}
 		if (this.gridShow){
 			this.gridShow.draw(ctx);
