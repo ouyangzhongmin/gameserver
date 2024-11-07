@@ -62,8 +62,14 @@ class Game {
 
     initNano(){
         const that = this;
-        console.log("initNano", that)
-        that.nano.init({host: "127.0.0.1", port: 33290, log: true}, function(){
+
+        var path = window.location.pathname;
+        var host = "127.0.0.1"
+        if (path.includes('47.99.180.185')) {
+            host = "47.99.180.185"
+        }
+        console.log("initNano", host)
+        that.nano.init({host: host, port: 33290, log: true}, function(){
             that.connected = true;
             console.log("connected success!!")
             window.showToast("connected success!!")
