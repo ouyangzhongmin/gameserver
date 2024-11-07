@@ -55,7 +55,7 @@ func (h *Hero) doMessageChFunc() {
 				if mergeMode {
 					mergeMessages = append(mergeMessages, msg)
 					if len(mergeMessages) >= 100 {
-						timer = time.NewTimer(time.Millisecond * 10)
+						timer = time.NewTimer(time.Millisecond * 5)
 					}
 				} else {
 					ts = time.Now().UnixMilli()
@@ -65,7 +65,7 @@ func (h *Hero) doMessageChFunc() {
 						logger.Debugf("hero: %d消息出现堆积进入合并消息模式", h._id)
 						mergeMessages = append(mergeMessages, msg)
 						mergeMode = true
-						timer = time.NewTimer(time.Millisecond * 200)
+						timer = time.NewTimer(time.Millisecond * 100)
 					}
 				}
 				//logger.Debugf("hero: %s sendMsg msg.Route:%s,msg:%s, useTime::%d, retryCnt :%d", h._name, msg.Route, msg.Msg, time.Now().UnixMilli()-ts, i)
