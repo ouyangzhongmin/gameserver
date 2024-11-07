@@ -1,7 +1,7 @@
 
 
 var HttpBaseUrl = "http://127.0.0.1:12307"
-if (isLocalEnv()) {
+if (isPrdEnv()) {
     HttpBaseUrl = "http://47.99.180.185:12307"
 }
 const GRID_WIDTH = 16;
@@ -46,7 +46,11 @@ const Global = {
     selfHeroData: null,
 }
 
-function isLocalEnv(){
+function isPrdEnv(){
+    let a = true
+    if(a){
+        return true
+    }
     var path = window.location.host;
     if (path.includes('47.99.180.185') || path.includes('jsmx-test.zhiyun-tech.com')) {
        return true

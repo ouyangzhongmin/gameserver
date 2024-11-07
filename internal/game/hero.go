@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"github.com/lonng/nano/cluster"
 	"github.com/lonng/nano/session"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
@@ -66,7 +65,7 @@ func (h *Hero) doMessageChFunc() {
 						logger.Debugf("hero: %d消息出现堆积进入合并消息模式", h._id)
 						mergeMessages = append(mergeMessages, msg)
 						mergeMode = true
-						timer = time.NewTimer(time.Millisecond * 300)
+						timer = time.NewTimer(time.Millisecond * 200)
 					}
 				}
 				//logger.Debugf("hero: %s sendMsg msg.Route:%s,msg:%s, useTime::%d, retryCnt :%d", h._name, msg.Route, msg.Msg, time.Now().UnixMilli()-ts, i)
@@ -81,12 +80,10 @@ func (h *Hero) doMessageChFunc() {
 					for ; i < 100; i++ {
 						err := h.session.Push(protocol.OnMergeMessages, mergeMessages)
 						if err != nil {
-							if err.Error() == cluster.ErrBufferExceed.Error() {
-								logger.Errorf("hero: %s .SendMergeMsg msg.Route:%s,msg:%s, useTime::%d, ErrBufferExceed err::: %v, %d \n", h._name, protocol.OnMergeMessages, mergeMessages, time.Now().UnixMilli()-ts, err, i)
-							} else {
+							if i >= 5 {
 								logger.Errorf("hero: %s .SendMergeMsg msg.Route:%s,msg:%s  err::: %v, %d \n", h._name, protocol.OnMergeMessages, mergeMessages, err, i)
 							}
-							time.Sleep(10 * time.Millisecond)
+							time.Sleep(20 * time.Millisecond)
 							continue
 						}
 						break
