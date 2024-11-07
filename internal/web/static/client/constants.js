@@ -1,8 +1,7 @@
 
 
 var HttpBaseUrl = "http://127.0.0.1:12307"
-var path = window.location.host;
-if (path.includes('47.99.180.185')) {
+if (isLocalEnv()) {
     HttpBaseUrl = "http://47.99.180.185:12307"
 }
 const GRID_WIDTH = 16;
@@ -45,6 +44,14 @@ const Global = {
     http: new HttpClient(HttpBaseUrl),
     userInfo: null,
     selfHeroData: null,
+}
+
+function isLocalEnv(){
+    var path = window.location.host;
+    if (path.includes('47.99.180.185') || path.includes('jsmx-test.zhiyun-tech.com')) {
+       return true
+    }
+    return false
 }
 
 function getPixelXByGrid(gridX) {
