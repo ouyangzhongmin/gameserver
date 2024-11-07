@@ -62,16 +62,11 @@ func (h *Hero) doMessageChFunc() {
 					ts = time.Now().UnixMilli()
 					err := h.session.Push(msg.Route, msg.Msg)
 					if err != nil {
-						if err.Error() == cluster.ErrBufferExceed.Error() {
-							//session send buffer exceed 同屏数量大时快速调用消息发送会导致消息发送失败，超出chan buffer范围
-							// 如果出现发送堆积的，则进入合并发送模式
-							logger.Debugf("hero: %d消息出现堆积进入合并消息模式", h._id)
-							mergeMessages = append(mergeMessages, msg)
-							mergeMode = true
-							timer = time.NewTimer(time.Millisecond * 300)
-						} else {
-							logger.Errorf("hero: %s .SendMsg msg.Route:%s,msg:%s  err::: %v, %d \n", h._name, msg.Route, msg.Msg, err, i)
-						}
+						// 如果出现发送堆积的，则进入合并发送模式
+						logger.Debugf("hero: %d消息出现堆积进入合并消息模式", h._id)
+						mergeMessages = append(mergeMessages, msg)
+						mergeMode = true
+						timer = time.NewTimer(time.Millisecond * 300)
 					}
 				}
 				//logger.Debugf("hero: %s sendMsg msg.Route:%s,msg:%s, useTime::%d, retryCnt :%d", h._name, msg.Route, msg.Msg, time.Now().UnixMilli()-ts, i)
