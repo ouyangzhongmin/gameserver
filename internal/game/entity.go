@@ -58,6 +58,9 @@ func (e *Entity) _doTask(f func()) {
 
 func (e *Entity) PushTask(task scheduler.Task) {
 	//todo 这里的task内可能会再有PushTask的调用，如果缓存区满后可能会导致死锁住，所以这里开携程了
+	if e._destroyed.Load() {
+		return
+	}
 	if len(e._chTasks) >= e._chTasksBufSize {
 		logger.Errorf("Entity:%d-%s task buffer is full 开启携程", e._id, e._name)
 		go func() {
