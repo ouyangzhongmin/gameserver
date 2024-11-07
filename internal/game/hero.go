@@ -54,7 +54,7 @@ func (h *Hero) doMessageChFunc() {
 			if h.session != nil {
 				if mergeMode {
 					mergeMessages = append(mergeMessages, msg)
-					if len(mergeMessages) >= 20 {
+					if len(mergeMessages) >= 50 {
 						timer = time.NewTimer(time.Millisecond * 1)
 						time.Sleep(time.Millisecond * 10)
 					}
@@ -81,7 +81,7 @@ func (h *Hero) doMessageChFunc() {
 					for ; i < 100; i++ {
 						err := h.session.Push(protocol.OnMergeMessages, mergeMessages)
 						if err != nil {
-							if i >= 5 {
+							if i >= 10 {
 								logger.Errorf("hero: %s .SendMergeMsg msg.Route:%s,msg:%s  err::: %v, %d \n", h._name, protocol.OnMergeMessages, mergeMessages, err, i)
 							}
 							time.Sleep(20 * time.Millisecond)
