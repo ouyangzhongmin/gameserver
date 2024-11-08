@@ -13,6 +13,7 @@ type monsterai struct {
 	monster       *Monster
 	originX       shape.Coord
 	originY       shape.Coord
+	chaseRect     shape.Rect
 	behaviorState constants.BEHAVIOR
 	preparePathId int
 
@@ -116,7 +117,6 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 		}
 	}
 	if needClearEnemy {
-		a.enemy = nil
 		if a.monster.haveStepsToGo() {
 			a.monster.Stop()
 		}
@@ -126,9 +126,13 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 	if a.monster.State != constants.ACTION_STATE_ATTACK {
 		if a.monster.State == constants.ACTION_STATE_CHASE {
 			//追击过程，看是否超出边界范围了
-			rect := a.monster.GetMovableRect()
-			if !rect.Contains(int64(a.monster.GetPos().X), int64(a.monster.GetPos().Y)) {
+			if !a.monster.GetMovableRect().Contains(int64(a.monster.GetPos().X), int64(a.monster.GetPos().Y)) {
 				//返回原点
+				return a.backOrigin()
+			}
+			if a.chaseRect.Width > 0 && !a.chaseRect.Contains(int64(a.monster.GetPos().X), int64(a.monster.GetPos().Y)) {
+				//返回原点
+				logger.Debugf("monster:%d超出追击范围", a.monster.GetID())
 				return a.backOrigin()
 			}
 		}
@@ -162,6 +166,10 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 					}
 				}
 				//logger.Debugf("monster:%d 设置原点:%d,%d \n", a.monster.GetID(), a.originX, a.originY)
+				a.chaseRect.X = int64(a.originX) - int64(a.aidata.ChaseRange)
+				a.chaseRect.Y = int64(a.originY) - int64(a.aidata.ChaseRange)
+				a.chaseRect.Width = int64(a.aidata.ChaseRange * 2)
+				a.chaseRect.Height = int64(a.aidata.ChaseRange * 2)
 				return a.monster.MoveTo(tpos.X, tpos.Y, 0)
 			}
 		}
@@ -220,6 +228,7 @@ func (a *monsterai) scanEnemy() IMovableEntity {
 
 func (a *monsterai) backOrigin() error {
 	if !a.monster.haveStepsToGo() {
+		a.clearChaseRect()
 		a.behaviorState = constants.BEHAVIOR_STATE_RETURN
 		a.monster.SetState(constants.ACTION_STATE_RUN)
 		if !a.monster.GetMovableRect().Contains(int64(a.originX), int64(a.originY)) || (a.originX == 0 && a.originY == 0) {
@@ -267,4 +276,11 @@ func (a *monsterai) setEnemy(target IMovableEntity) {
 		a.monster.Stop()
 	}
 	a.behaviorState = constants.BEHAVIOR_STATE_ATTACK
+}
+
+func (a *monsterai) clearChaseRect() {
+	a.chaseRect.X = 0
+	a.chaseRect.Y = 0
+	a.chaseRect.Width = 0
+	a.chaseRect.Height = 0
 }
