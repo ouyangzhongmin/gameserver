@@ -53,6 +53,7 @@ func (h *HeroObject) IsAlive() bool {
 type MonsterObject struct {
 	GameObject
 	Data        model.Monster         `json:"-"` //这个不用传递给前端，节省数据
+	Name        string                `json:"name"`
 	Id          int64                 `json:"id"`
 	Avatar      string                `json:"avatar" db:"avatar" `             //模型
 	MonsterType int                   `json:"monster_type" db:"monster_type" ` //0-怪物, 1-npc
