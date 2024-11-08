@@ -250,7 +250,7 @@ class Scene {
 
 		let curx = getGridXByPixel(hero.x)
 		let cury = getGridYByPixel(hero.y)
-		if (curx !== posX || cury !== posy){
+		if (curx !== posX || cury !== posY){
 			hero.correctPos(getPixelXByGrid(posX), getPixelYByGrid(posY))
 		}else{
 			hero.stand();
@@ -277,7 +277,7 @@ class Scene {
 		}
 		let curx = getGridXByPixel(monster.x)
 		let cury = getGridYByPixel(monster.y)
-		if (curx !== posX || cury !== posy){
+		if (curx !== posX || cury !== posY){
 			monster.correctPos(getPixelXByGrid(posX), getPixelYByGrid(posY))
 		}else{
 			monster.stand();
