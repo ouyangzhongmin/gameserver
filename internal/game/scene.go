@@ -495,8 +495,8 @@ func (s *Scene) updateEntityViewList(entity IMovableEntity) {
 		target := value.(IMovableEntity)
 		if target.GetScene() != entity.GetScene() || !target.CanSee(em) {
 			//原来在视野内，现在看不见了
-			target.onExitView(em)      //自己离开了target的视野
-			em.onExitOtherView(target) //自己记录的m能看见我
+			target.onExitView(entity)      //自己离开了target的视野
+			entity.onExitOtherView(target) //自己记录的m能看见我
 		}
 		return true
 	})
