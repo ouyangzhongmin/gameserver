@@ -89,7 +89,7 @@ class Role extends RoleState{
         ctx.fillStyle = 'black';
         ctx.font = '14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.name, this.screenX, this.screenY - this.radius - 10);
+        ctx.fillText(this.name+`【${this.data.level}级】`, this.screenX, this.screenY - this.radius - 10);
 
         if (this.bubbleMsgs){
             //绘制冒泡

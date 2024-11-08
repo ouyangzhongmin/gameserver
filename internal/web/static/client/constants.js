@@ -47,10 +47,10 @@ const Global = {
 }
 
 function isPrdEnv(){
-    let a = true
-    if(a){
-        return true
-    }
+    // let a = true
+    // if(a){
+    //     return true
+    // }
     var path = window.location.host;
     if (path.includes('47.99.180.185') || path.includes('jsmx-test.zhiyun-tech.com')) {
        return true

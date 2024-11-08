@@ -10,7 +10,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"math"
-	"math/rand"
 	"time"
 )
 
@@ -39,9 +38,9 @@ type Monster struct {
 	bornPos        shape.Vector3
 }
 
-func NewMonster(data *model.Monster) *Monster {
+func NewMonster(data *model.Monster, offset int) *Monster {
 	m := &Monster{
-		MonsterObject: object.NewMonsterObject(data),
+		MonsterObject: object.NewMonsterObject(data, offset),
 	}
 	m.initEntity(m.MonsterObject.Id, data.Name, constants.ENTITY_TYPE_MONSTER, 128)
 	m.GameObject.Uuid = m.GetUUID()
@@ -92,31 +91,6 @@ func (m *Monster) GetData() *object.MonsterObject {
 	return m.MonsterObject
 }
 
-func (m *Monster) GetLife() int64 {
-	return m.BaseLife + m.Strength*constants.LIFE_STRENGTH_PERM
-}
-
-func (m *Monster) GetMana() int64 {
-	return m.BaseMana + m.Intelligence*constants.MANA_INTELLIGENCE_PERM
-}
-
-func (m *Monster) GetAttack() int64 {
-	var randAtt int64 = 0
-	if m.AttachAttackRandom > 0 {
-		randAtt = int64(rand.Intn(m.AttachAttackRandom))
-	}
-	if m.AttrType == 1 {
-		return m.BaseAttack + m.Agility*constants.ATTACK_ATTR_PERM + randAtt
-	} else if m.AttrType == constants.ATTACK_ATTR_PERM {
-		return m.BaseAttack + m.Intelligence*constants.ATTACK_ATTR_PERM + randAtt
-	}
-	return m.BaseAttack + m.Strength*constants.ATTACK_ATTR_PERM + randAtt
-}
-
-func (m *Monster) GetDefense() int64 {
-	return m.BaseDefense + m.Agility*constants.DEFENSE_AGILITY_PERM
-}
-
 func (m *Monster) onEnterScene(scene *Scene) {
 	m.movableEntity.onEnterScene(scene)
 	//更新block数据
@@ -130,7 +104,7 @@ func (m *Monster) onExitScene(scene *Scene) {
 
 func (m *Monster) ToString() string {
 	baseInfo := fmt.Sprintf("id:%d,uuid:%s, posX:%d, posY:%d, posZ:%d", m.GetID(), m.GetUUID(), m.GetPos().X, m.GetPos().Y, m.GetPos().Z)
-	return fmt.Sprintf("baseInfo:%s,,,data::%v", baseInfo, m.Monster)
+	return fmt.Sprintf("baseInfo:%s,,,data::%v", baseInfo, m.Data)
 }
 
 func (m *Monster) Destroy() {
@@ -202,7 +176,7 @@ func (m *Monster) Die() {
 	// 加入复活队列中
 	m.scene.addRebornMonster(&rebornMonster{
 		Uid:             m.GetUUID(),
-		Data:            &m.MonsterObject.Monster,
+		Data:            &m.MonsterObject.Data,
 		PreparePaths:    m.preparePaths,
 		MovableRect:     m.movableRect,
 		PathFinder:      m.pathFinder,
@@ -334,10 +308,10 @@ func (m *Monster) CanAttackTarget(target IEntity) bool {
 }
 
 func (m *Monster) IsInAttackRange(x, y shape.Coord) bool {
-	if m.AttackRange > 50 {
+	if m.Data.AttackRange > 50 {
 		return true
 	}
-	return int(math.Abs(float64(x-m.GetPos().X))) <= m.AttackRange && int(math.Abs(float64(y-m.GetPos().Y))) <= m.AttackRange
+	return int(math.Abs(float64(x-m.GetPos().X))) <= m.Data.AttackRange && int(math.Abs(float64(y-m.GetPos().Y))) <= m.Data.AttackRange
 }
 
 func (m *Monster) onBeenAttacked(target IMovableEntity) {
@@ -446,14 +420,14 @@ func (m *Monster) GetCanAttackPos(target IEntity, offset int) (v shape.Vector3, 
 	var ty shape.Coord = 0
 	if m.GetPos().X < target.GetPos().X {
 		// +-1是为了一定能到attackRange范围去
-		tx = target.GetPos().X - shape.Coord(m.AttackRange) + shape.Coord(offset)
+		tx = target.GetPos().X - shape.Coord(m.Data.AttackRange) + shape.Coord(offset)
 	} else {
-		tx = target.GetPos().X + shape.Coord(m.AttackRange) - shape.Coord(offset)
+		tx = target.GetPos().X + shape.Coord(m.Data.AttackRange) - shape.Coord(offset)
 	}
 	if m.GetPos().Y < target.GetPos().Y {
-		ty = target.GetPos().Y - shape.Coord(m.AttackRange) + shape.Coord(offset)
+		ty = target.GetPos().Y - shape.Coord(m.Data.AttackRange) + shape.Coord(offset)
 	} else {
-		ty = target.GetPos().Y + shape.Coord(m.AttackRange) - shape.Coord(offset)
+		ty = target.GetPos().Y + shape.Coord(m.Data.AttackRange) - shape.Coord(offset)
 	}
 	if tx < 0 {
 		tx = 0
@@ -472,13 +446,13 @@ func (m *Monster) GetCanAttackPos(target IEntity, offset int) (v shape.Vector3, 
 }
 
 func (m *Monster) getStepTime() int {
-	stepTime := m.IdleStepTime
+	stepTime := m.Data.IdleStepTime
 	if m.State == constants.ACTION_STATE_RUN {
-		stepTime = m.RunStepTime
+		stepTime = m.Data.RunStepTime
 	} else if m.State == constants.ACTION_STATE_ESCAPE {
-		stepTime = m.EscapeStepTime
+		stepTime = m.Data.EscapeStepTime
 	} else if m.State == constants.ACTION_STATE_CHASE {
-		stepTime = m.ChaseStepTime
+		stepTime = m.Data.ChaseStepTime
 	}
 	return stepTime
 }

@@ -68,8 +68,8 @@ func (e *SpellEntity) update(curMilliSecond int64, elapsedTime int64) error {
 	if e.elapsedTime >= e.totalTime {
 		//到达消失时间
 		var err error
-		if e.IsRangeAttack != 0 {
-			entityes := e.scene.getEntitiesByRange(e.TargetPos.X, e.TargetPos.Y, shape.Coord(e.AttackRange))
+		if e.Data.IsRangeAttack != 0 {
+			entityes := e.scene.getEntitiesByRange(e.TargetPos.X, e.TargetPos.Y, shape.Coord(e.Data.AttackRange))
 			if entityes != nil && len(entityes) > 0 {
 				for _, entity := range entityes {
 					switch val := e.caster.(type) {
@@ -102,12 +102,12 @@ func (e *SpellEntity) update(curMilliSecond int64, elapsedTime int64) error {
 }
 
 func (e *SpellEntity) processTargetHurt(target IEntity) error {
-	if e.Damage != 0 {
+	if e.Data.Damage != 0 {
 		switch val := target.(type) {
 		case *Hero:
-			val.onBeenHurt(e.Damage)
+			val.onBeenHurt(e.Data.Damage)
 		case *Monster:
-			val.onBeenHurt(e.Damage)
+			val.onBeenHurt(e.Data.Damage)
 		}
 	}
 	return e.processBufferState(target)
@@ -123,9 +123,9 @@ func (e *SpellEntity) processBufferState(target IEntity) error {
 func (e *SpellEntity) casterManaCost() {
 	switch val := e.caster.(type) {
 	case *Hero:
-		val.manaCost(e.Mana)
+		val.manaCost(e.Data.Mana)
 	case *Monster:
-		val.manaCost(e.Mana)
+		val.manaCost(e.Data.Mana)
 	}
 }
 

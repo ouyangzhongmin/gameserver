@@ -239,7 +239,7 @@ func (a *monsterai) refreshNextBehaviorTime() {
 }
 
 func (a *monsterai) refreshNextAttackTime() {
-	a.nextAttackTime = time.Now().UnixMilli() + int64(a.monster.AttackDuration) + 50
+	a.nextAttackTime = time.Now().UnixMilli() + int64(a.monster.Data.AttackDuration) + 50
 }
 
 func (a *monsterai) refreshNextRandomMoveTime() {

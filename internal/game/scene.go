@@ -148,6 +148,7 @@ func (s *Scene) initMonsters() {
 			}
 		}
 	}
+	logger.Println("初始怪物数量:", s.totalMonsterCount())
 }
 
 func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
@@ -185,7 +186,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 	}
 
 	for i := 0; i < cfg.Total; i++ {
-		m := NewMonster(monsterData)
+		m := NewMonster(monsterData, i+1)
 		m.SetSceneMonsterConfig(&cfg)
 		if spaths != nil && len(spaths) > 0 {
 			//预制路径
@@ -207,7 +208,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
 		}
-		//logger.Debugf("newmonster:%d,%d,%d \n", m.GetID(), m.GetPos().X, m.GetPos().Y)
+		logger.Debugf("newmonster:%d,%d,%d \n", m.GetID(), m.GetPos().X, m.GetPos().Y)
 		s.addMonster(m)
 	}
 	return nil
@@ -215,7 +216,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 
 // 复活一个monster
 func (s *Scene) rebornOneMonster(rm *rebornMonster) {
-	m := NewMonster(rm.Data)
+	m := NewMonster(rm.Data, 0)
 	m.SetSceneMonsterConfig(rm.Cfg)
 	m.SetMovableRect(rm.MovableRect)
 	if rm.PreparePaths != nil {
@@ -304,6 +305,10 @@ func (s *Scene) removeHero(h *Hero) {
 func (s *Scene) addMonster(m *Monster) {
 	//这个要在前面执行，并发的update内可能会取到空的scene
 	m.onEnterScene(s)
+	if tm, ok := s.monsters.Load(m.GetID()); ok {
+		tm1 := tm.(*Monster)
+		logger.Warningln("已经存在怪物:", tm1.GetID(), tm1._name)
+	}
 	s.monsters.Store(m.GetID(), m)
 
 	s.aoiMgr.Enter(m)
