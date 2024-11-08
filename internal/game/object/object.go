@@ -85,6 +85,7 @@ func NewMonsterObject(data *model.Monster, offset int) *MonsterObject {
 	//注意这里的o.Data.Id不能超过10万，否则offsetId会被截取为0
 	offsetId := (o.Data.Id * 10000) & 0xFFFFFFFF
 	o.Id = time.Now().Unix()%1000000 + int64(offsetId) + int64(offset)
+	o.Name = o.Data.Name
 	o.Avatar = o.Data.Avatar
 	o.Grade = o.Data.Grade
 	o.Level = o.Data.Level
