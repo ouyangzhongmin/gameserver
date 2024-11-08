@@ -19,6 +19,7 @@ type monsterai struct {
 
 	nextBehaviorTime   int64
 	nextRandomMoveTime int64
+	nextScanEnemyTime  int64
 	nextAttackTime     int64
 
 	enemy IMovableEntity
@@ -31,6 +32,7 @@ func newMonsterAi(m *Monster, aidata *model.Aiconfig) *monsterai {
 	a.behaviorState = constants.BEHAVIOR_STATE_IDLE
 	a.refreshNextBehaviorTime()
 	a.refreshNextRandomMoveTime()
+	a.refreshNextScanEnemyTime()
 	return a
 }
 
@@ -70,10 +72,13 @@ func (a *monsterai) processIdleState(curMilliSecond int64, elapsedTime int64) er
 			//返回原点
 			return a.backOrigin()
 		}
-		enemy := a.scanEnemy()
-		if enemy != nil {
-			a.setEnemy(enemy)
-			return nil
+		if a.nextScanEnemyTime < curMilliSecond {
+			a.refreshNextScanEnemyTime()
+			enemy := a.scanEnemy()
+			if enemy != nil {
+				a.setEnemy(enemy)
+				return nil
+			}
 		}
 		if a.nextRandomMoveTime < curMilliSecond {
 			a.refreshNextRandomMoveTime()
@@ -253,6 +258,10 @@ func (a *monsterai) refreshNextAttackTime() {
 
 func (a *monsterai) refreshNextRandomMoveTime() {
 	a.nextRandomMoveTime = time.Now().UnixMilli() + 5000
+}
+
+func (a *monsterai) refreshNextScanEnemyTime() {
+	a.nextScanEnemyTime = time.Now().UnixMilli() + 1500
 }
 
 func (a *monsterai) onBeenAttacked(target IMovableEntity) {
