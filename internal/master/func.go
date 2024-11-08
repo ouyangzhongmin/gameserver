@@ -29,37 +29,36 @@ func createRandomHero(uid int64, sceneId int, name, avatar string, attrType int)
 		name = utils.GetRandomHeroName()
 	}
 	h := &model.Hero{
-		Name:       name,
-		Avatar:     avatar,
-		AttrType:   0,
-		Uid:        uid,
-		Experience: 0,
-		Level:      1,
-		BaseLife:   100,
-		BaseMana:   100,
-
+		Name:        name,
+		Avatar:      avatar,
+		AttrType:    0,
+		Uid:         uid,
+		Experience:  0,
+		Level:       1,
+		BaseLife:    1000,
+		BaseMana:    1000,
 		StepTime:    300,
 		SceneId:     sceneId,
-		AttackRange: 10,
+		AttackRange: 3,
 	}
 	if attrType == constants.ATTR_TYPE_STRENGTH {
 		h.BaseDefense = 5
-		h.BaseAttack = 12
-		h.Strength = 8
-		h.Agility = 5
-		h.Intelligence = 6
+		h.BaseAttack = 22
+		h.Strength = 28
+		h.Agility = 22
+		h.Intelligence = 20
 	} else if attrType == constants.ATTR_TYPE_AGILITY {
 		h.BaseDefense = 5
-		h.BaseAttack = 12
-		h.Strength = 6
-		h.Agility = 10
-		h.Intelligence = 5
+		h.BaseAttack = 22
+		h.Strength = 22
+		h.Agility = 30
+		h.Intelligence = 20
 	} else {
 		h.BaseDefense = 5
-		h.BaseAttack = 12
-		h.Strength = 5
-		h.Agility = 6
-		h.Intelligence = 10
+		h.BaseAttack = 22
+		h.Strength = 18
+		h.Agility = 18
+		h.Intelligence = 35
 	}
 	h.MaxLife = constants.CaculateLife(h.BaseLife, h.Strength)
 	h.MaxMana = constants.CaculateLife(h.BaseMana, h.Intelligence)
