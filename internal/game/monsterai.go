@@ -191,6 +191,7 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 func (a *monsterai) processReturnState(curMilliSecond int64, elapsedTime int64) error {
 	if a.monster.GetPos().X == a.originX && a.monster.GetPos().Y == a.originY {
 		//回到原点后恢复到idle状态
+		a.monster.SetState(constants.ACTION_STATE_IDLE)
 		a.behaviorState = constants.BEHAVIOR_STATE_IDLE
 		return nil
 	}
