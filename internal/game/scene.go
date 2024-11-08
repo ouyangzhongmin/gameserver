@@ -478,6 +478,9 @@ func (s *Scene) refreshViewList() {
 func (s *Scene) _refreshEntityViewList(entity IMovableEntity) {
 	entites := s.aoiMgr.Search(entity.GetPos().X, entity.GetPos().Y)
 	for _, e0 := range entites {
+		if e0 == nil {
+			continue
+		}
 		e := e0.(IMovableEntity)
 		if e != entity && entity.GetEntityType() == constants.ENTITY_TYPE_HERO {
 			//如果我是英雄， 判定我能不能看见对方
@@ -516,6 +519,9 @@ func (s *Scene) getEntitiesByRange(cx, cy, arange shape.Coord) map[string]IMovab
 	result := make(map[string]IMovableEntity)
 	entites := s.aoiMgr.Search(cx, cy)
 	for _, e0 := range entites {
+		if e0 == nil {
+			continue
+		}
 		e := e0.(IMovableEntity)
 		//if shape.IsInsideCircle(float64(cx), float64(cy), float64(arange), float64(e.GetPos().X), float64(e.GetPos().Y)) {
 		if shape.Coord(math.Abs(float64(cx-e.GetPos().X))) <= arange && shape.Coord(math.Abs(float64(cy-e.GetPos().Y))) <= arange {
