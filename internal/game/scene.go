@@ -51,8 +51,9 @@ type Scene struct {
 
 	updateTicker *time.Ticker
 	//每次更新的时间戳
-	lastUpdateTimeStamp     int64
-	refreshViewListDelatime int64
+	lastUpdateTimeStamp          int64
+	refreshViewListDelatime      int64
+	updateEntityViewListDelatime int64
 }
 
 func NewScene(sceneData *SceneData) *Scene {
@@ -352,6 +353,7 @@ func (s *Scene) update() error {
 	//每帧的时间间隔
 	elapsedTime := ts - s.lastUpdateTimeStamp
 	//heroCnt := 0
+	s.updateEntityViewListDelatime += elapsedTime
 	s.heros.Range(func(key, value any) bool {
 		h := value.(*Hero)
 		//heroCnt += 1
@@ -359,8 +361,12 @@ func (s *Scene) update() error {
 			logger.Errorln("hero.session is nil", h.GetID(), h._name)
 			s.removeHero(h)
 		} else {
+			if s.updateEntityViewListDelatime >= 500 {
+				h.PushTask(func() {
+					s.updateEntityViewList(h)
+				})
+			}
 			h.PushTask(func() {
-				s.updateEntityViewList(h)
 				err := h.update(ts, elapsedTime)
 				if err != nil {
 					logger.Errorln("hero.update err:", err)
@@ -372,8 +378,12 @@ func (s *Scene) update() error {
 	})
 	s.monsters.Range(func(key, value any) bool {
 		m := value.(*Monster)
+		if s.updateEntityViewListDelatime >= 500 {
+			m.PushTask(func() {
+				s.updateEntityViewList(m)
+			})
+		}
 		m.PushTask(func() {
-			s.updateEntityViewList(m)
 			err := m.update(ts, elapsedTime)
 			if err != nil {
 				logger.Errorln("monster.update err:", err)
@@ -383,8 +393,12 @@ func (s *Scene) update() error {
 	})
 	s.spells.Range(func(key, value any) bool {
 		e := value.(*SpellEntity)
+		if s.updateEntityViewListDelatime >= 500 {
+			e.PushTask(func() {
+				s.updateEntityViewList(e)
+			})
+		}
 		e.PushTask(func() {
-			s.updateEntityViewList(e)
 			err := e.update(ts, elapsedTime)
 			if err != nil {
 				logger.Errorln("spellEntity.update err:", err)
@@ -392,6 +406,9 @@ func (s *Scene) update() error {
 		})
 		return true
 	})
+	if s.updateEntityViewListDelatime >= 500 {
+		s.updateEntityViewListDelatime = 0
+	}
 	s.refreshViewListDelatime += elapsedTime
 	if s.refreshViewListDelatime >= 500 {
 		//刷新所有对象的视野
