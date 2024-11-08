@@ -47,8 +47,8 @@ const Global = {
 }
 
 function isPrdEnv(){
-    // let a = true
-    // if(a){
+    // let test = true
+    // if(test){
     //     return true
     // }
     var path = window.location.host;

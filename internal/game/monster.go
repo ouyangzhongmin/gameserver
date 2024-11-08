@@ -111,6 +111,14 @@ func (m *Monster) Destroy() {
 	if m.scene != nil {
 		m.scene.removeMonster(m)
 	}
+	m.viewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitOtherView(m)
+		return true
+	})
+	m.canSeeMeViewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitView(m)
+		return true
+	})
 	m.movableEntity.Destroy()
 	m.pathFinder = nil
 }

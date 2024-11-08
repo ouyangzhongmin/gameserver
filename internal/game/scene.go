@@ -51,9 +51,8 @@ type Scene struct {
 
 	updateTicker *time.Ticker
 	//每次更新的时间戳
-	lastUpdateTimeStamp          int64
-	refreshViewListDelatime      int64
-	updateEntityViewListDelatime int64
+	lastUpdateTimeStamp     int64
+	refreshViewListDelatime int64
 }
 
 func NewScene(sceneData *SceneData) *Scene {
@@ -352,20 +351,13 @@ func (s *Scene) update() error {
 	ts := time.Now().UnixMilli()
 	//每帧的时间间隔
 	elapsedTime := ts - s.lastUpdateTimeStamp
-	//heroCnt := 0
-	s.updateEntityViewListDelatime += elapsedTime
+
 	s.heros.Range(func(key, value any) bool {
 		h := value.(*Hero)
-		//heroCnt += 1
 		if h.session == nil {
 			logger.Errorln("hero.session is nil", h.GetID(), h._name)
 			s.removeHero(h)
 		} else {
-			if s.updateEntityViewListDelatime >= 500 {
-				h.PushTask(func() {
-					s.updateEntityViewList(h)
-				})
-			}
 			h.PushTask(func() {
 				err := h.update(ts, elapsedTime)
 				if err != nil {
@@ -378,11 +370,6 @@ func (s *Scene) update() error {
 	})
 	s.monsters.Range(func(key, value any) bool {
 		m := value.(*Monster)
-		if s.updateEntityViewListDelatime >= 500 {
-			m.PushTask(func() {
-				s.updateEntityViewList(m)
-			})
-		}
 		m.PushTask(func() {
 			err := m.update(ts, elapsedTime)
 			if err != nil {
@@ -393,11 +380,6 @@ func (s *Scene) update() error {
 	})
 	s.spells.Range(func(key, value any) bool {
 		e := value.(*SpellEntity)
-		if s.updateEntityViewListDelatime >= 500 {
-			e.PushTask(func() {
-				s.updateEntityViewList(e)
-			})
-		}
 		e.PushTask(func() {
 			err := e.update(ts, elapsedTime)
 			if err != nil {
@@ -406,9 +388,6 @@ func (s *Scene) update() error {
 		})
 		return true
 	})
-	if s.updateEntityViewListDelatime >= 500 {
-		s.updateEntityViewListDelatime = 0
-	}
 	s.refreshViewListDelatime += elapsedTime
 	if s.refreshViewListDelatime >= 500 {
 		//刷新所有对象的视野
@@ -429,39 +408,6 @@ func (s *Scene) update() error {
 	s.lastUpdateTimeStamp = ts
 
 	return nil
-}
-
-func (s *Scene) updateEntityViewList(entity IMovableEntity) {
-	var em *movableEntity = nil
-	switch val := entity.(type) {
-	case *Hero:
-		em = &val.movableEntity
-	case *Monster:
-		em = &val.movableEntity
-	case *SpellEntity:
-		em = &val.movableEntity
-	}
-	//检查当前视野内的对象是否已离开
-	if em.GetEntityType() == constants.ENTITY_TYPE_HERO {
-		em.viewList.Range(func(key, value interface{}) bool {
-			target := value.(IMovableEntity)
-			if target.GetScene() != entity.GetScene() || !entity.CanSee(target) {
-				//原来在视野内，现在看不见了
-				entity.onExitView(target)      //target离开了m的视野
-				target.onExitOtherView(entity) //清除target记录的m能看见他
-			}
-			return true
-		})
-	}
-	em.canSeeMeViewList.Range(func(key, value interface{}) bool {
-		target := value.(IMovableEntity)
-		if target.GetScene() != entity.GetScene() || !target.CanSee(em) {
-			//原来在视野内，现在看不见了
-			target.onExitView(em)      //自己离开了target的视野
-			em.onExitOtherView(target) //自己记录的m能看见我
-		}
-		return true
-	})
 }
 
 func (s *Scene) save() error {
@@ -493,29 +439,67 @@ func (s *Scene) refreshViewList() {
 }
 
 func (s *Scene) _refreshEntityViewList(entity IMovableEntity) {
+	s.updateEntityViewList(entity)
+
 	entites := s.aoiMgr.Search(entity.GetPos().X, entity.GetPos().Y)
 	for _, e0 := range entites {
 		if e0 == nil {
 			continue
 		}
 		e := e0.(IMovableEntity)
-		if e != entity && entity.GetEntityType() == constants.ENTITY_TYPE_HERO {
-			//如果我是英雄， 判定我能不能看见对方
-			if entity.CanSee(e) && !entity.IsInViewList(e) {
-				//原来不在视野内，现在看见了
-				entity.onEnterView(e)      //进入他的视野
-				e.onEnterOtherView(entity) //记录我进入了谁的视野
+		if e != entity {
+			if entity.GetEntityType() == constants.ENTITY_TYPE_HERO { //&&
+				//如果我是英雄， 判定我能不能看见对方
+				if entity.CanSee(e) && !entity.IsInViewList(e) {
+					//原来不在视野内，现在看见了
+					entity.onEnterView(e)      //进入他的视野
+					e.onEnterOtherView(entity) //记录我进入了谁的视野
+				}
 			}
-		}
-		if e != entity && e.GetEntityType() == constants.ENTITY_TYPE_HERO {
-			//循环的是英雄, 检查这个英雄是否能看见我
-			if e.CanSee(entity) && !e.IsInViewList(entity) {
-				//原来不在视野内，现在看见了
-				e.onEnterView(entity)      //进入他的视野
-				entity.onEnterOtherView(e) //记录我进入了谁的视野
+			if e.GetEntityType() == constants.ENTITY_TYPE_HERO {
+				//循环的是英雄, 检查这个英雄是否能看见我
+				if e.CanSee(entity) && !e.IsInViewList(entity) {
+					//原来不在视野内，现在看见了
+					e.onEnterView(entity)      //进入他的视野
+					entity.onEnterOtherView(e) //记录我进入了谁的视野
+				}
 			}
 		}
 	}
+}
+
+// todo 这里的刷新视野频度会跟随同屏数量增加而成倍数增加，比如同屏一万人，那么每个人都需要遍历2万次去判断是否离开视野，这里需要重新评估是否有更好的方案
+func (s *Scene) updateEntityViewList(entity IMovableEntity) {
+	var em *movableEntity = nil
+	switch val := entity.(type) {
+	case *Hero:
+		em = &val.movableEntity
+	case *Monster:
+		em = &val.movableEntity
+	case *SpellEntity:
+		em = &val.movableEntity
+	}
+	//检查当前视野内的对象是否已离开
+	if em.GetEntityType() == constants.ENTITY_TYPE_HERO {
+		em.viewList.Range(func(key, value interface{}) bool {
+			target := value.(IMovableEntity)
+			if target.GetScene() != entity.GetScene() || !entity.CanSee(target) {
+				//原来在视野内，现在看不见了
+				entity.onExitView(target)      //target离开了m的视野
+				target.onExitOtherView(entity) //清除target记录的m能看见他
+			}
+			return true
+		})
+	}
+	em.canSeeMeViewList.Range(func(key, value interface{}) bool {
+		target := value.(IMovableEntity)
+		if target.GetScene() != entity.GetScene() || !target.CanSee(em) {
+			//原来在视野内，现在看不见了
+			target.onExitView(em)      //自己离开了target的视野
+			em.onExitOtherView(target) //自己记录的m能看见我
+		}
+		return true
+	})
 }
 
 // 这个是线程安全的，可并发调用, 注意区别PathFinder

@@ -196,12 +196,13 @@ func (h *Hero) onEnterView(target IMovableEntity) {
 			Data:       data,
 			Buffers:    buffers,
 		})
+		logger.Debugf("hero::%d-%s 进入hero:%d-%s视野\n", val.GetID(), val._name, h.GetID(), h._name)
 	case *Monster:
 		ttype = constants.ENTITY_TYPE_MONSTER
 		data = val.MonsterObject
 		//buffers = val.GetBuffers()
 		//有对象进入自己的视野了，推送给前端创建对象
-		//logger.Debugf("monster::%d-%s 进入hero:%d视野\n", val.GetID(), val._name, h.GetID())
+		logger.Debugf("monster::%d-%s 进入hero:%d-%s视野\n", val.GetID(), val._name, h.GetID(), h._name)
 		h.SendMsg(protocol.OnEnterView, &protocol.TargetEnterViewResponse{
 			EntityType: ttype,
 			Data:       data,
@@ -230,7 +231,7 @@ func (h *Hero) onExitView(target IMovableEntity) {
 	case *SpellEntity:
 		ttype = constants.ENTITY_TYPE_SPELL
 	}
-	//logger.Debugf("对象:%d-%d离开hero:%d视野:", target.GetID(), ttype, h.GetID())
+	logger.Debugf("对象:%d-%d离开hero:%d_%s视野:", target.GetID(), ttype, h.GetID(), h._name)
 	if ttype > -1 {
 		//有对象离开自己的视野了，推送给前端删除对象
 		h.SendMsg(protocol.OnExitView, protocol.TargetExitViewResponse{
@@ -280,6 +281,14 @@ func (h *Hero) Destroy() {
 	if h.scene != nil {
 		h.scene.removeHero(h)
 	}
+	h.viewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitOtherView(h)
+		return true
+	})
+	h.canSeeMeViewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitView(h)
+		return true
+	})
 	h.movableEntity.Destroy()
 	if h.session != nil {
 		h.session.Clear()
@@ -364,7 +373,7 @@ func (h *Hero) clearTracePaths() {
 // 前端移动到目标位置
 func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error {
 	h.PushTask(func() {
-		logger.Debugf("hero:%s moveByPaths:%v", h._name, paths)
+		//logger.Debugf("hero:%s moveByPaths:%v", h._name, paths)
 		if h.scene == nil {
 			return
 		}

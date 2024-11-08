@@ -38,7 +38,7 @@ func (e *Entity) _tasksFunc() {
 	for {
 		select {
 		case <-e._chDestroy:
-			logger.Printf("stop entity:%d\n", e.GetID())
+			logger.Printf("destroy entity:%d-%s\n", e.GetID(), e._name)
 			e._destroyed.Store(true)
 			return
 		case task := <-e._chTasks:

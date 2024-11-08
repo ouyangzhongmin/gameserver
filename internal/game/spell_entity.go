@@ -96,7 +96,7 @@ func (e *SpellEntity) update(curMilliSecond int64, elapsedTime int64) error {
 			return e.processTargetHurt(e.target)
 		}
 		e.casterManaCost()
-		e.removeSelf()
+		e.Destroy()
 	}
 	return err
 }
@@ -129,10 +129,19 @@ func (e *SpellEntity) casterManaCost() {
 	}
 }
 
-func (e *SpellEntity) removeSelf() {
+func (e *SpellEntity) Destroy() {
 	e.caster = nil
 	e.target = nil
 	if e.scene != nil {
 		e.scene.removeSpell(e)
 	}
+	e.viewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitOtherView(e)
+		return true
+	})
+	e.canSeeMeViewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitView(e)
+		return true
+	})
+	e.movableEntity.Destroy()
 }
