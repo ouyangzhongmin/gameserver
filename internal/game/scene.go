@@ -448,22 +448,22 @@ func (s *Scene) _refreshEntityViewList(entity IMovableEntity) {
 		}
 		e := e0.(IMovableEntity)
 		if e != entity {
-			if entity.GetEntityType() == constants.ENTITY_TYPE_HERO { //&&
-				//如果我是英雄， 判定我能不能看见对方
-				if entity.CanSee(e) && !entity.IsInViewList(e) {
-					//原来不在视野内，现在看见了
-					entity.onEnterView(e)      //进入他的视野
-					e.onEnterOtherView(entity) //记录我进入了谁的视野
-				}
+			//if entity.GetEntityType() == constants.ENTITY_TYPE_HERO { //&&
+			//如果我是英雄， 判定我能不能看见对方
+			if entity.CanSee(e) && !entity.IsInViewList(e) {
+				//原来不在视野内，现在看见了
+				entity.onEnterView(e)      //进入他的视野
+				e.onEnterOtherView(entity) //记录我进入了谁的视野
 			}
-			if e.GetEntityType() == constants.ENTITY_TYPE_HERO {
-				//循环的是英雄, 检查这个英雄是否能看见我
-				if e.CanSee(entity) && !e.IsInViewList(entity) {
-					//原来不在视野内，现在看见了
-					e.onEnterView(entity)      //进入他的视野
-					entity.onEnterOtherView(e) //记录我进入了谁的视野
-				}
+			//}
+			//if e.GetEntityType() == constants.ENTITY_TYPE_HERO {
+			//循环的是英雄, 检查这个英雄是否能看见我
+			if e.CanSee(entity) && !e.IsInViewList(entity) {
+				//原来不在视野内，现在看见了
+				e.onEnterView(entity)      //进入他的视野
+				entity.onEnterOtherView(e) //记录我进入了谁的视野
 			}
+			//}
 		}
 	}
 }
