@@ -102,6 +102,33 @@ func (m *Monster) onExitScene(scene *Scene) {
 	m.movableEntity.onExitScene(scene)
 }
 
+func (m *Monster) onEnterView(target IMovableEntity) {
+	m.movableEntity.onEnterView(target)
+	switch val := target.(type) {
+	case *Hero:
+		logger.Debugf("hero::%d-%s monster:%d-%s视野\n", val.GetID(), val._name, m.GetID(), m._name)
+	case *Monster:
+		//有对象进入自己的视野了，推送给前端创建对象
+		logger.Debugf("monster::%d-%s 进入monster:%d-%s视野\n", val.GetID(), val._name, m.GetID(), m._name)
+	case *SpellEntity:
+		//有对象进入自己的视野了，推送给前端创建对象
+	}
+}
+
+func (m *Monster) onExitView(target IMovableEntity) {
+	m.movableEntity.onExitView(target)
+	ttype := -1
+	switch target.(type) {
+	case *Hero:
+		ttype = constants.ENTITY_TYPE_HERO
+	case *Monster:
+		ttype = constants.ENTITY_TYPE_MONSTER
+	case *SpellEntity:
+		ttype = constants.ENTITY_TYPE_SPELL
+	}
+	logger.Debugf("对象:%d-%d离开monster:%d_%s视野:", target.GetID(), ttype, m.GetID(), m._name)
+}
+
 func (m *Monster) ToString() string {
 	baseInfo := fmt.Sprintf("id:%d,uuid:%s, posX:%d, posY:%d, posZ:%d", m.GetID(), m.GetUUID(), m.GetPos().X, m.GetPos().Y, m.GetPos().Z)
 	return fmt.Sprintf("baseInfo:%s,,,data::%v", baseInfo, m.Data)
