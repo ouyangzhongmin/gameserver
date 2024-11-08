@@ -247,9 +247,16 @@ class Scene {
 			console.error(`hero:${heroId}不存在`)
 			return;
 		}
-		hero.stand();
-		hero.x = getPixelXByGrid(posX)
-		hero.y = getPixelYByGrid(posY)
+
+		let curx = getGridXByPixel(hero.x)
+		let cury = getGridYByPixel(hero.y)
+		if (curx !== posX || cury !== posy){
+			hero.correctPos(getPixelXByGrid(posX), getPixelYByGrid(posY))
+		}else{
+			hero.stand();
+			hero.x = getPixelXByGrid(posX)
+			hero.y = getPixelYByGrid(posY)
+		}
 	}
 
 	monsterMove(monserId, tracePaths, stepTime){
@@ -268,9 +275,15 @@ class Scene {
 			console.error(`monster:${monserId}不存在`)
 			return;
 		}
-		monster.stand();
-		monster.x = getPixelXByGrid(posX)
-		monster.y = getPixelYByGrid(posY)
+		let curx = getGridXByPixel(monster.x)
+		let cury = getGridYByPixel(monster.y)
+		if (curx !== posX || cury !== posy){
+			monster.correctPos(getPixelXByGrid(posX), getPixelYByGrid(posY))
+		}else{
+			monster.stand();
+			monster.x = getPixelXByGrid(posX)
+			monster.y = getPixelYByGrid(posY)
+		}
 	}
 
 	lifeChanged(data){

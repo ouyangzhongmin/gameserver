@@ -31,6 +31,10 @@ class Role extends RoleState{
         this._nextSyncPathIndex = 0;
         this._syncPathsLen = 5;
 
+        this._correctTargetX = -1;
+        this._correctTargetY = -1;
+        this._isCorrecting = false;
+
         /**
          * {
          *     msg:"aaa",
@@ -49,6 +53,9 @@ class Role extends RoleState{
     update(deltaTime, camera){
         if (this.isAutoMoving){
             this.updateMove(deltaTime);
+        }
+        if (this._isCorrecting){
+            this.updateCorrectPos(deltaTime);
         }
         this.screenX = this.x - camera.x;
         this.screenY = this.y - camera.y;
@@ -152,6 +159,7 @@ class Role extends RoleState{
             console.log("移动路径为空")
             return
         }
+        this.clearCorrectPos();
         this._paths = paths;
         this.isAutoMoving = true;
         this._lastPathIndex = -1;
@@ -212,18 +220,60 @@ class Role extends RoleState{
         }
     }
 
+    //修正位置
+    correctPos(tx,ty){
+        this._correctTargetX = tx;
+        this._correctTargetY = ty;
+        this._isCorrecting = true;
+    }
+
+    updateCorrectPos(deltaTime){
+        if (!this._isCorrecting){
+            return
+        }
+        const tempTargetX = this._correctTargetX;
+        const tempTargetY = this._correctTargetY;
+        const tempDist = getDistance(this.x , this.y , tempTargetX , tempTargetY);
+        const tempAngle = getAngle(this.x , this.y , tempTargetX , tempTargetY);
+        const correctSpeed = getSpeed(150)
+        const tempActualSpeed = correctSpeed * deltaTime;
+        if(tempDist <= Math.floor(tempActualSpeed + 0.5)) {
+            this.setPos(tempTargetX, tempTargetY, 0)
+            this.stand();
+        }else
+        {
+            this.speedX = cosD(tempAngle) * tempActualSpeed;
+            this.speedY = sinD(tempAngle) * tempActualSpeed;
+            this.setPos(this.x +this.speedX, this.y + this.speedY , 0)
+            this.walk();
+        }
+    }
+
     stand(){
         super.stand()
+        this.clearMovePaths();
+        this.clearCorrectPos();
+    }
+
+    clearMovePaths(){
         this._paths = null;
         this._pathIndex = 0;
         this._lastPathIndex = -1;
         this.isAutoMoving = false;
     }
 
+    clearCorrectPos(){
+        this._isCorrecting = false;
+        this._correctTargetX = -1;
+        this._correctTargetY = -1;
+    }
+
     die()
     {
         super.die()
-        this.name += "【dead】"
+        this.name += "【dead】";
+        this.clearMovePaths();
+        this.clearCorrectPos();
     }
 
     invokeWalkCompleted(success){
