@@ -201,7 +201,7 @@ func (a *monsterai) processReturnState(curMilliSecond int64, elapsedTime int64) 
 }
 
 func (a *monsterai) attackEnemy() {
-	logger.Debugf("monster:%d attack enemy:%d-%d \n", a.monster.GetID(), a.enemy.GetID(), a.enemy.GetEntityType())
+	//logger.Debugf("monster:%d attack enemy:%d-%d \n", a.monster.GetID(), a.enemy.GetID(), a.enemy.GetEntityType())
 	if a.monster.haveStepsToGo() {
 		a.monster.Stop()
 	}
