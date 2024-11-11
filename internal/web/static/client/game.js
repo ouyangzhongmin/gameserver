@@ -327,6 +327,7 @@ class Game {
     sendTextMsg(msg){
         if (msg.indexOf("add-") > -1){
             let cnt = parseInt(msg.replace("add-", ""))
+            console.log("resetSceneMonsters::", cnt)
             let resetSceneMonsters = {
                 "resetSceneMonsters":1,
                 "configs":[
@@ -353,7 +354,7 @@ class Game {
                 ]
             }
             //动态怪物
-           let configs = JSON.parse(resetSceneMonsters)
+           let configs = resetSceneMonsters//JSON.parse(resetSceneMonsters)
             nano.request("SceneManager.DynamicResetMonsters",configs, function(data){
                 console.log("DynamicResetMonsters:", data)
             });
