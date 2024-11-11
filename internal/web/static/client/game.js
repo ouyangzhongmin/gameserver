@@ -325,9 +325,35 @@ class Game {
      * @param msg
      */
     sendTextMsg(msg){
-        if (msg.indexOf("resetSceneMonsters") > -1){
-            //动态充值怪物
-           let configs = JSON.parse(msg)
+        if (msg.indexOf("add-") > -1){
+            let cnt = parseInt(msg.replace("add-", ""))
+            let resetSceneMonsters = {
+                "resetSceneMonsters":1,
+                "configs":[
+                    {
+                        "scene_id":1,
+                        "monster_id":1,
+                        "total": parseInt(cnt/2),
+                        "reborn": 60,
+                        "bornx": 50,
+                        "borny": 145,
+                        "bornz": 0,
+                        "a_range": 50
+                    },
+                    {
+                        "scene_id":1,
+                        "monster_id":2,
+                        "total": parseInt(cnt/2),
+                        "reborn": 60,
+                        "bornx": 120,
+                        "borny": 150,
+                        "bornz": 0,
+                        "a_range": 50
+                    }
+                ]
+            }
+            //动态怪物
+           let configs = JSON.parse(resetSceneMonsters)
             nano.request("SceneManager.DynamicResetMonsters",configs, function(data){
                 console.log("DynamicResetMonsters:", data)
             });
