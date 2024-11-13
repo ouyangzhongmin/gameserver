@@ -84,18 +84,17 @@ func (buf *Buffer) doOnceHurt() {
 }
 
 func (buf *Buffer) Remove() {
-	target := buf.target.(*movableEntity)
-	target.removeBuffer(buf.Id)
-
 	//这里也可以不广播，让前端直接按一样的流程模拟特效，这样可以减少消息
 	switch val := buf.target.(type) {
 	case *Hero:
+		val.removeBuffer(buf.Id)
 		val.Broadcast(protocol.OnBufferRemove, &protocol.EntitBufferRemoveResponse{
 			ID:         val.GetID(),
 			EntityType: constants.ENTITY_TYPE_HERO,
 			BufID:      buf.Id,
 		}, true)
 	case *Monster:
+		val.removeBuffer(buf.Id)
 		val.Broadcast(protocol.OnBufferRemove, &protocol.EntitBufferRemoveResponse{
 			ID:         val.GetID(),
 			EntityType: constants.ENTITY_TYPE_MONSTER,
