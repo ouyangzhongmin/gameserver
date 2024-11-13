@@ -35,6 +35,10 @@ class Role extends RoleState{
         this._correctTargetY = -1;
         this._isCorrecting = false;
 
+        if (this.data.life <= 0){
+            this.die();
+        }
+
         /**
          * {
          *     msg:"aaa",
