@@ -94,9 +94,9 @@ class Role extends RoleState{
 
         // ��������
         ctx.fillStyle = 'black';
-        ctx.font = '14px Arial';
+        ctx.font = '11px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.name+`【${this.data.level}级】`, this.screenX, this.screenY - this.radius - 10);
+        ctx.fillText(this.name+`【${this.data.level}级】`, this.screenX, this.screenY - this.radius - 5);
 
         if (this.bubbleMsgs){
             //绘制冒泡
@@ -109,24 +109,26 @@ class Role extends RoleState{
             }
         }
         // ����Ѫ��������
-        // const barWidth = this.radius * 1.6;
-        // const barHeight = 3;
-        //
-        // // HP������
-        // ctx.fillStyle = 'darkred';
-        // ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 15, barWidth, barHeight);
-        // // HP��
-        // ctx.fillStyle = 'red';
-        // ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 15, barWidth * (this.data.life / this.data.max_life), barHeight);
-        //
-        // // MP������
-        // ctx.fillStyle = 'darkblue';
-        // ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 35, barWidth, barHeight);
-        // // MP��
-        // ctx.fillStyle = 'blue';
-        // ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 35, barWidth * (this.data.mana / this.data.max_mana), barHeight);
-        //
-        // // ����HP��MP�ı�
+        const barWidth = this.radius * 2;
+        const barHeight = 3;
+
+        // MP������
+        ctx.fillStyle = 'darkblue';
+        ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 20, barWidth, barHeight);
+        // MP��
+        ctx.fillStyle = 'blue';
+        ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 20, barWidth * (this.data.mana / this.data.max_mana), barHeight);
+
+        // HP������
+        ctx.fillStyle = 'darkred';
+        ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 25, barWidth, barHeight);
+        // HP��
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.screenX - barWidth / 2, this.screenY - this.radius - 25, barWidth * (this.data.life / this.data.max_life), barHeight);
+
+
+
+        // ����HP��MP�ı�
         // ctx.fillStyle = 'white';
         // ctx.fillText(`HP: ${this.data.life}`, this.screenX, this.screenY - this.radius - 30);
         // ctx.fillText(`MP: ${this.data.mana}`, this.screenX, this.screenY - this.radius - 50);
@@ -149,7 +151,7 @@ class Role extends RoleState{
     manaChanged(cost, mana, max_mana){
         this.data.mana = mana;
         this.data.max_mana = max_mana;
-        this.bubble('-'+cost, 1000, "blue", true)
+        //this.bubble('-'+cost, 1000, "blue", true)
     }
 
     // paths中的数据paths[i][0]为y轴, paths[i][1]为X轴

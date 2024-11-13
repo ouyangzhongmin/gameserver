@@ -33,6 +33,7 @@ type IMovableEntity interface {
 	GetCanSeeMeViewList() map[string]IMovableEntity
 	GetViewRect() shape.Rect
 	SetViewRange(int, int)
+	GetViewRange() (int, int)
 	CanSee(target IEntity) bool
 	IsInViewList(target IMovableEntity) bool
 }

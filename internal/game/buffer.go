@@ -59,11 +59,27 @@ func (buf *Buffer) update(curMilliSecond int64, elapsedTime int64) {
 }
 
 func (buf *Buffer) doOnceHurt() {
+	var damage int64 = 0
+	if buf.Damage > 0 {
+		var defense int64 = 0
+		switch val := buf.target.(type) {
+		case *Hero:
+			defense = val.GetDefense()
+		case *Monster:
+			defense = val.GetDefense()
+		}
+		damage = int64(buf.Damage) - defense
+		if damage < 1 { //至少有1点伤害
+			damage = 1
+		}
+	} else { //加血不用计算防御力
+		damage = int64(buf.Damage)
+	}
 	switch val := buf.target.(type) {
 	case *Hero:
-		val.onBeenHurt(int64(buf.Damage))
+		val.onBeenHurt(damage)
 	case *Monster:
-		val.onBeenHurt(int64(buf.Damage))
+		val.onBeenHurt(damage)
 	}
 }
 
@@ -71,6 +87,7 @@ func (buf *Buffer) Remove() {
 	target := buf.target.(*movableEntity)
 	target.removeBuffer(buf.Id)
 
+	//这里也可以不广播，让前端直接按一样的流程模拟特效，这样可以减少消息
 	switch val := buf.target.(type) {
 	case *Hero:
 		val.Broadcast(protocol.OnBufferRemove, &protocol.EntitBufferRemoveResponse{
@@ -85,7 +102,6 @@ func (buf *Buffer) Remove() {
 			BufID:      buf.Id,
 		})
 	}
-
 	buf.target = nil
 }
 

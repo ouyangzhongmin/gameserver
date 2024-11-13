@@ -120,13 +120,22 @@ func (m *MonsterObject) GetDefense() int64 {
 
 type SpellObject struct {
 	GameObject
-	Data      model.Spell        `json:"-"`
-	Id        int64              `json:"id"`
-	Animation string             `json:"animation" ` //
-	StepTime  int                `json:"step_time" ` //飞行速度
-	CdTime    int                `json:"cd_time" `   //cd间隔
-	Buf       *model.BufferState `json:"-"`
-	TargetPos shape.Vector3      `json:"target_pos"`
+	Data         model.Spell        `json:"-"`
+	Id           int64              `json:"id"`
+	SpellId      int                `json:"-"`
+	Name         string             `json:"name" `          //
+	Description  string             `json:"description" `   //
+	FlyAnimation string             `json:"fly_animation" ` //
+	FlyStepTime  int                `json:"fly_step_time" ` //飞行速度
+	SpellType    int                `json:"spell_type" `    //飞行速度
+	CdTime       int                `json:"cd_time" `       //cd间隔
+	CurCdTime    int                `json:"cur_cd_time" `   //当前cd间隔
+	Buf          *model.BufferState `json:"-"`
+	TargetPos    shape.Vector3      `json:"target_pos"`
+	CasterId     int64              `json:"caster_id"`
+	CasterType   int                `json:"caster_type"`
+	TargetId     int64              `json:"target_id"`
+	TargetType   int                `json:"target_type"`
 }
 
 func NewSpellObject(data *model.Spell, buf *model.BufferState) *SpellObject {
@@ -136,8 +145,29 @@ func NewSpellObject(data *model.Spell, buf *model.BufferState) *SpellObject {
 		Buf:        buf,
 	}
 	//构造一个id
-	o.Id = time.Now().UnixMilli()%1000000*100 + int64(rand.Intn(100))
+	o.SpellId = data.Id
+	o.Name = data.Name
+	o.Description = data.Description
+	o.FlyAnimation = data.FlyAnimation
+	o.FlyStepTime = data.FlyStepTime
+	o.SpellType = data.SpellType
+	o.CdTime = data.CdTime
 	return o
+}
+
+func (s *SpellObject) GenId() {
+	s.Id = time.Now().UnixMilli()%1000000*100 + int64(rand.Intn(100))
+}
+
+func (s *SpellObject) ResetCDTime() {
+	s.CurCdTime = s.CdTime
+}
+
+func (s *SpellObject) Update(elapsedTime int64) {
+	s.CurCdTime -= int(elapsedTime)
+	if s.CurCdTime <= 0 {
+		s.CurCdTime = 0
+	}
 }
 
 type BufferObject struct {

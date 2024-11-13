@@ -78,6 +78,10 @@ func (m *movableEntity) SetViewRange(width int, height int) {
 	m.yViewMovableRange = height + 10
 }
 
+func (m *movableEntity) GetViewRange() (int, int) {
+	return m.xViewRange, m.yViewRange
+}
+
 func (m *movableEntity) GetViewList() map[string]IMovableEntity {
 	list := make(map[string]IMovableEntity)
 	m.viewList.Range(func(key, value interface{}) bool {
@@ -161,12 +165,13 @@ func (m *movableEntity) CanSee(target IEntity) bool {
 	return m.viewRect.Contains(int64(target.GetPos().X), int64(target.GetPos().Y))
 }
 
-func (m *movableEntity) addBuffer(state *model.BufferState) {
+func (m *movableEntity) addBuffer(owner IMovableEntity, state *model.BufferState) {
 	m.PushTask(func() {
 		if o, ok := m.buffers[state.Id]; ok {
+			//叠加
 			o.Add(state)
 		} else {
-			o := NewBuffer(m, state)
+			o := NewBuffer(owner, state)
 			m.buffers[state.Id] = o
 		}
 	})

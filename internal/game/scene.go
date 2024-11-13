@@ -8,6 +8,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
+	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/async"
 	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
@@ -16,6 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math"
 	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -161,6 +164,29 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 	if err != nil {
 		logger.Warningln("monster:%d 没有配置aiconfig", cfg.MonsterId)
 	}
+
+	spells := make([]*object.SpellObject, 0)
+	if aidata != nil {
+		spellIdsArr := strings.Split(aidata.Spells, ",")
+		if len(spellIdsArr) > 0 {
+			spellId, err := strconv.ParseInt(spellIdsArr[0], 10, 64)
+			if err != nil {
+				logger.Errorln("initMonsters spellId.ParseInt err::" + err.Error())
+				return err
+			}
+			spell, err := db.QuerySpell(int(spellId))
+			if err != nil {
+				logger.Errorln("initMonsters aiconfig配置的spellId不存在:::", aidata.Id, spellId)
+				return err
+			}
+			var buf *model.BufferState
+			if spell.BufId > 0 {
+				buf, err = db.QueryBufferState(spell.BufId)
+			}
+			spells = append(spells, object.NewSpellObject(spell, buf))
+		}
+	}
+
 	rect := shape.Rect{
 		X:      int64(cfg.Bornx - cfg.ARange),
 		Y:      int64(cfg.Borny - cfg.ARange),
@@ -205,6 +231,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		}
 		m.bornPos.Copy(m.GetPos())
 		m.SetMovableRect(rect)
+		m.SetSpells(spells)
 		if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
 		}
@@ -232,9 +259,10 @@ func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 		}
 		m.SetPos(rx, ry, shape.Coord(rm.Cfg.Bornz))
 	}
-	if rm.aidata != nil {
-		m.SetAiData(newMonsterAi(m, rm.aidata.(*model.Aiconfig)))
+	if rm.Aidata != nil {
+		m.SetAiData(newMonsterAi(m, rm.Aidata.(*model.Aiconfig)))
 	}
+	m.SetSpells(rm.Spells)
 	m.bornPos.Copy(m.GetPos())
 	s.addMonster(m)
 
@@ -330,11 +358,11 @@ func (s *Scene) addSpell(m *SpellEntity) {
 	m.onEnterScene(s)
 	s.spells.Store(m.GetUUID(), m)
 
-	s.aoiMgr.Enter(m)
+	//s.aoiMgr.Enter(m)
 }
 
 func (s *Scene) removeSpell(m *SpellEntity) {
-	s.aoiMgr.Leave(m)
+	//s.aoiMgr.Leave(m)
 
 	s.spells.Delete(m.GetUUID())
 	m.onExitScene(s)
@@ -438,7 +466,16 @@ func (s *Scene) refreshViewList() {
 	})
 }
 
+func (s *Scene) refreshEntityViewList(entity IMovableEntity) {
+	s.PushTask(func() {
+		s._refreshEntityViewList(entity)
+	})
+}
+
 func (s *Scene) _refreshEntityViewList(entity IMovableEntity) {
+	if entity.GetEntityType() == constants.ENTITY_TYPE_SPELL {
+		return
+	}
 	s.updateEntityViewList(entity)
 
 	entites := s.aoiMgr.Search(entity.GetPos().X, entity.GetPos().Y)
@@ -475,8 +512,6 @@ func (s *Scene) updateEntityViewList(entity IMovableEntity) {
 	case *Hero:
 		em = &val.movableEntity
 	case *Monster:
-		em = &val.movableEntity
-	case *SpellEntity:
 		em = &val.movableEntity
 	}
 	//检查当前视野内的对象是否已离开
@@ -535,4 +570,11 @@ func (s *Scene) getEntitiesByRange(cx, cy, arange shape.Coord) map[string]IMovab
 
 func (s *Scene) GetRandomXY(rect shape.Rect, cnt int) (shape.Coord, shape.Coord, error) {
 	return s.blockInfo.GetRandomXY(rect, cnt)
+}
+
+func (s *Scene) CreateSpellEntity(caster IMovableEntity, spell *object.SpellObject, target IMovableEntity) *SpellEntity {
+	e := NewSpellEntity(spell, caster)
+	e.SetTarget(target)
+	s.addSpell(e)
+	return e
 }

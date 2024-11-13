@@ -13,6 +13,7 @@ const (
 	OnMonsterMoveTrace    = "OnMonsterMoveTrace"
 	OnMonsterMoveStopped  = "OnMonsterMoveStopped"
 	OnMonsterCommonAttack = "OnMonsterCommonAttack"
+	OnReleaseSpell        = "OnReleaseSpell"
 	OnLifeChanged         = "OnLifeChanged"
 	OnManaChanged         = "OnManaChanged"
 	OnEntityDie           = "OnEntityDie"

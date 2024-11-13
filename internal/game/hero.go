@@ -184,10 +184,9 @@ func (h *Hero) onEnterView(target IMovableEntity) {
 	h.movableEntity.onEnterView(target)
 	var data interface{}
 	var buffers []*object.BufferObject
-	ttype := -1
+	ttype := target.GetEntityType()
 	switch val := target.(type) {
 	case *Hero:
-		ttype = constants.ENTITY_TYPE_HERO
 		buffers = val.GetBuffers()
 		data = val.HeroObject
 		//有对象进入自己的视野了，推送给前端创建对象
@@ -198,7 +197,6 @@ func (h *Hero) onEnterView(target IMovableEntity) {
 		})
 		logger.Debugf("hero::%d-%s 进入hero:%d-%s视野\n", val.GetID(), val._name, h.GetID(), h._name)
 	case *Monster:
-		ttype = constants.ENTITY_TYPE_MONSTER
 		data = val.MonsterObject
 		//buffers = val.GetBuffers()
 		//有对象进入自己的视野了，推送给前端创建对象
@@ -209,14 +207,6 @@ func (h *Hero) onEnterView(target IMovableEntity) {
 			Buffers:    buffers,
 		})
 		val.sendDataToHero(h)
-	case *SpellEntity:
-		ttype = constants.ENTITY_TYPE_SPELL
-		//有对象进入自己的视野了，推送给前端创建对象
-		h.SendMsg(protocol.OnEnterView, &protocol.TargetEnterViewResponse{
-			EntityType: ttype,
-			Data:       data,
-			Buffers:    buffers,
-		})
 	}
 }
 
@@ -228,8 +218,6 @@ func (h *Hero) onExitView(target IMovableEntity) {
 		ttype = constants.ENTITY_TYPE_HERO
 	case *Monster:
 		ttype = constants.ENTITY_TYPE_MONSTER
-	case *SpellEntity:
-		ttype = constants.ENTITY_TYPE_SPELL
 	}
 	logger.Debugf("对象:%d-%d离开hero:%d_%s视野:", target.GetID(), ttype, h.GetID(), h._name)
 	if ttype > -1 {

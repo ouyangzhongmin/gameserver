@@ -19,8 +19,9 @@ type rebornMonster struct {
 	PreparePaths    *path.SerialPaths
 	MovableRect     shape.Rect
 	PathFinder      *PathFinder
-	aidata          interface{}
+	Aidata          interface{}
 	Cfg             *model.SceneMonsterConfig
+	Spells          []*object.SpellObject
 	RebornTimestamp int64
 }
 
@@ -36,6 +37,7 @@ type Monster struct {
 	preparePaths   *path.SerialPaths //预制的移动路径
 	cfg            *model.SceneMonsterConfig
 	bornPos        shape.Vector3
+	spells         []*object.SpellObject
 }
 
 func NewMonster(data *model.Monster, offset int) *Monster {
@@ -65,6 +67,17 @@ func (m *Monster) SetViewRange(width int, height int) {
 
 func (m *Monster) SetAiData(aimgr IAiManager) {
 	m.aimgr = aimgr
+}
+
+func (m *Monster) SetSpells(spells []*object.SpellObject) {
+	m.spells = make([]*object.SpellObject, 0)
+	if spells != nil {
+		for _, spell := range spells {
+			// 需要拷贝对象，不能直接用指针，否则cd会共用一个指针
+			var spell2 = *spell
+			m.spells = append(m.spells, &spell2)
+		}
+	}
 }
 
 func (m *Monster) SetPreparePaths(p *path.SerialPaths) {
@@ -215,8 +228,9 @@ func (m *Monster) Die() {
 		PreparePaths:    m.preparePaths,
 		MovableRect:     m.movableRect,
 		PathFinder:      m.pathFinder,
-		aidata:          m.aimgr.GetAiData(),
+		Aidata:          m.aimgr.GetAiData(),
 		Cfg:             m.cfg,
+		Spells:          m.spells,
 		RebornTimestamp: time.Now().UnixMilli() + int64(m.cfg.Reborn)*1000,
 	})
 
@@ -235,6 +249,13 @@ func (m *Monster) update(curMilliSecond int64, elapsedTime int64) error {
 		err = m.aimgr.update(curMilliSecond, elapsedTime)
 		if err != nil {
 			logger.Errorln("aimgr update err:", err)
+		}
+	}
+	if m.spells != nil {
+		for _, spell := range m.spells {
+			if spell.CurCdTime > 0 {
+				spell.Update(elapsedTime)
+			}
 		}
 	}
 	return err
@@ -490,4 +511,31 @@ func (m *Monster) getStepTime() int {
 		stepTime = m.Data.ChaseStepTime
 	}
 	return stepTime
+}
+
+func (m *Monster) GetCanUseSpell(spellType int) *object.SpellObject {
+	if m.spells == nil || len(m.spells) == 0 {
+		return nil
+	}
+	for _, spell := range m.spells {
+		if spell.SpellType == spellType && spell.CurCdTime <= 0 && m.Mana >= spell.Data.Mana {
+			return spell
+		}
+	}
+	return nil
+}
+
+func (m *Monster) IsInSpellAttackRange(spell *object.SpellObject, x, y shape.Coord) bool {
+	return int(math.Abs(float64(x-m.GetPos().X))) <= spell.Data.AttackRange && int(math.Abs(float64(y-m.GetPos().Y))) <= spell.Data.AttackRange
+}
+
+func (m *Monster) SpellAttack(spell *object.SpellObject, target IMovableEntity) error {
+	//logger.Debugf("monster:%d attack SpellAttack:%d-%d \n", m.GetID(),  a.readyUseSpell.Id, a.readyUseSpell.Name)
+	if m.haveStepsToGo() {
+		m.Stop()
+	}
+	m.AttackAction()
+	spell.ResetCDTime()
+	m.scene.CreateSpellEntity(m, spell, target)
+	return nil
 }

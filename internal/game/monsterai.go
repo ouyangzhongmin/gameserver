@@ -3,6 +3,7 @@ package game
 import (
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
+	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"math/rand"
 	"time"
@@ -16,6 +17,7 @@ type monsterai struct {
 	chaseRect     shape.Rect
 	behaviorState constants.BEHAVIOR
 	preparePathId int
+	readyUseSpell *object.SpellObject
 
 	nextBehaviorTime   int64
 	nextRandomMoveTime int64
@@ -33,6 +35,7 @@ func newMonsterAi(m *Monster, aidata *model.Aiconfig) *monsterai {
 	a.refreshNextBehaviorTime()
 	a.refreshNextRandomMoveTime()
 	a.refreshNextScanEnemyTime()
+
 	return a
 }
 
@@ -142,6 +145,23 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 			}
 		}
 
+		if a.readyUseSpell == nil {
+			if float32(a.monster.Life)/float32(a.monster.MaxLife) < 0.3 {
+				a.readyUseSpell = a.monster.GetCanUseSpell(1)
+			} else {
+				a.readyUseSpell = a.monster.GetCanUseSpell(0)
+			}
+		}
+
+		if a.readyUseSpell != nil && a.readyUseSpell.SpellType == 1 {
+			//对自己用的
+			return a.useSpellToSelf()
+		}
+
+		if a.readyUseSpell != nil && a.monster.IsInSpellAttackRange(a.readyUseSpell, a.enemy.GetPos().X, a.enemy.GetPos().Y) {
+			return a.spellAttackEnemy()
+		}
+
 		if a.monster.IsInAttackRange(a.enemy.GetPos().X, a.enemy.GetPos().Y) {
 			//如果在攻击范围
 			if a.nextAttackTime <= curMilliSecond {
@@ -210,6 +230,22 @@ func (a *monsterai) attackEnemy() {
 	a.refreshNextAttackTime()
 }
 
+func (a *monsterai) spellAttackEnemy() error {
+	//logger.Debugf("monster:%d attack spellAttackEnemy:%d-%d \n", a.monster.GetID(),  a.readyUseSpell.Id, a.readyUseSpell.Name)
+	err := a.monster.SpellAttack(a.readyUseSpell, a.enemy)
+	a.refreshNextAttackTime()
+	a.readyUseSpell = nil
+	return err
+}
+
+func (a *monsterai) useSpellToSelf() error {
+	//logger.Debugf("monster:%d useSpellToSelf:%d-%d \n", a.monster.GetID(), a.readyUseSpell.Id, a.readyUseSpell.Name)
+	err := a.monster.SpellAttack(a.readyUseSpell, a.monster)
+	a.refreshNextAttackTime()
+	a.readyUseSpell = nil
+	return err
+}
+
 func (a *monsterai) scanEnemy() IMovableEntity {
 	entities := a.monster.scene.getEntitiesByRange(a.monster.GetPos().X, a.monster.GetPos().Y, shape.Coord(a.aidata.AlertRange))
 	var dist float64 = 10000000
@@ -250,7 +286,7 @@ func (a *monsterai) backOrigin() error {
 }
 
 func (a *monsterai) refreshNextBehaviorTime() {
-	a.nextBehaviorTime = time.Now().UnixMilli() + 500
+	a.nextBehaviorTime = time.Now().UnixMilli() + 200
 }
 
 func (a *monsterai) refreshNextAttackTime() {
@@ -262,7 +298,7 @@ func (a *monsterai) refreshNextRandomMoveTime() {
 }
 
 func (a *monsterai) refreshNextScanEnemyTime() {
-	a.nextScanEnemyTime = time.Now().UnixMilli() + 1500
+	a.nextScanEnemyTime = time.Now().UnixMilli() + 1200
 }
 
 func (a *monsterai) onBeenAttacked(target IMovableEntity) {
@@ -286,6 +322,7 @@ func (a *monsterai) setEnemy(target IMovableEntity) {
 		a.monster.Stop()
 	}
 	a.behaviorState = constants.BEHAVIOR_STATE_ATTACK
+	a.readyUseSpell = a.monster.GetCanUseSpell(0) //找到准备对敌使用的技能
 }
 
 func (a *monsterai) clearChaseRect() {

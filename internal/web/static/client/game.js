@@ -165,6 +165,9 @@ class Game {
             nano.on("OnEntityDie", function(data){
                 that.OnEntityDie(data)
             })
+            nano.on("OnReleaseSpell", function(data){
+                that.OnReleaseSpell(data)
+            })
             nano.on("OnBufferAdd", function(data){
                 that.OnBufferAdd(data)
             })
@@ -224,8 +227,6 @@ class Game {
         }else if(entityType === 1){
             //monster
             this.scene.addMonster(entityData);
-        }else if(entityType === 2){
-            //spell
         }
     }
 
@@ -239,8 +240,6 @@ class Game {
         }else if(entityType === 1){
             //monster
             this.scene.removeMonster(id)
-        }else if(entityType === 2){
-            //spell
         }
     }
 
@@ -281,6 +280,11 @@ class Game {
     OnEntityDie(data){
         console.log("OnEntityDie:::", data)
         this.scene.entityDie(data)
+    }
+
+    OnReleaseSpell(data){
+        console.log("OnReleaseSpell:::", data)
+        this.scene.OnReleaseSpell(data);
     }
 
     OnBufferAdd(data){

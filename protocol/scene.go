@@ -98,6 +98,10 @@ type AttackRequest struct {
 	Action     string `json:"action"`      // 0 monster , 1 hero
 }
 
+type ReleaseSpellResponse struct {
+	SpellObject *object.SpellObject `json:"spell_object"`
+}
+
 type LifeChangedResponse struct {
 	ID         int64 `json:"id"`
 	EntityType int   `json:"entity_type"`

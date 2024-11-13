@@ -18,6 +18,7 @@ type Aiconfig struct {
 }
 type BufferState struct {
 	Id                  int       `json:"id" db:"id" `                                       //
+	Name                string    `json:"name" db:"name" `                                   //
 	Animation           string    `json:"animation" db:"animation" `                         //
 	BufType             int       `json:"buf_type" db:"buf_type" `                           //0 伤害类型，1治疗类型
 	Damage              int       `json:"damage" db:"damage" `                               //负数就是治疗，正数为伤害
@@ -170,14 +171,17 @@ type SceneNpcConfig struct {
 }
 type Spell struct {
 	Id            int       `json:"id" db:"id" `                           //
-	Animation     string    `json:"animation" db:"animation" `             //
+	Name          string    `json:"name" db:"name" `                       //
+	FlyAnimation  string    `json:"fly_animation" db:"fly_animation" `     //
 	Damage        int64     `json:"damage" db:"damage" `                   //
 	Mana          int64     `json:"mana" db:"mana" `                       //消耗
-	StepTime      int       `json:"step_time" db:"step_time" `             //飞行速度
+	FlyStepTime   int       `json:"fly_step_time" db:"fly_step_time" `     //飞行速度
 	CdTime        int       `json:"cd_time" db:"cd_time" `                 //cd间隔
 	BufId         int       `json:"buf_id" db:"buf_id" `                   //
 	IsRangeAttack int       `json:"is_range_attack" db:"is_range_attack" ` //是否范围攻击
 	AttackRange   int       `json:"attack_range" db:"attack_range" `       //攻击范围，单体为0
+	SpellType     int       `json:"spell_type" db:"spell_type" `           //技能类型: 0 对敌人，1，对自己, 2，对友军
+	Description   string    `json:"description" db:"description" `         //
 	CreateAt      time.Time `json:"-" db:"create_at" `                     //
 	UpdateAt      time.Time `json:"-" db:"update_at" `                     //
 }

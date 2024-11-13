@@ -39,6 +39,9 @@ func (e *Entity) _tasksFunc() {
 		select {
 		case <-e._chDestroy:
 			logger.Printf("destroy entity:%d-%s\n", e.GetID(), e._name)
+			e._id = 0
+			e.scene = nil
+			e._name += "_destroyed"
 			e._destroyed.Store(true)
 			return
 		case task := <-e._chTasks:
@@ -72,9 +75,9 @@ func (e *Entity) PushTask(task scheduler.Task) {
 }
 
 func (e *Entity) Destroy() {
-	e._id = 0
-	e._name += "_destroyed"
-	e.scene = nil
+	if e._destroyed.Load() {
+		return
+	}
 	close(e._chDestroy)
 }
 

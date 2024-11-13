@@ -3,6 +3,7 @@
 class Scene {
     constructor(canvas) {
         this.monsters = {}
+        this.spells = {}
 		this.heros = {}
 		this.deads = []
 		this.selfHero = new Hero(1, 'HeroSelf', 200, 150, 150, 100, 'green');
@@ -142,6 +143,9 @@ class Scene {
 		for (let key in this.monsters) {
 			this.monsters[key].update(deltaTime, this.camera);
 		}
+		for (let key in this.spells) {
+			this.spells[key].update(deltaTime, this.camera);
+		}
 		if (this.deads.length > 0){
 			let ts = Date.now()
 			for (let i = this.deads.length -1;i >= 0 ; i--) {
@@ -167,6 +171,9 @@ class Scene {
 		}
 		for (let key in this.monsters) {
 			this.monsters[key].draw(ctx)
+		}
+		for (let key in this.spells) {
+			this.spells[key].draw(ctx);
 		}
 		if (this.deads.length > 0){
 			for (let i = this.deads.length -1;i >= 0 ; i--) {
@@ -230,6 +237,16 @@ class Scene {
 
 	removeMonster(monsterId){
 		delete this.monsters[monsterId]
+	}
+
+	addSpell(spellData,target){
+		let spell = new SpellEntity(spellData,target, this)
+		this.spells[spellData.id] = spell
+		console.log("addSpell:", spellData, "当前数量:", Object.keys(this.spells).length)
+	}
+
+	removeSpell(spellId){
+		delete this.spells[spellId]
 	}
 
 	heroMove(heroId, tracePaths, stepTime){
@@ -356,6 +373,22 @@ class Scene {
 			monster.die()
 			this.deads.push(monster)
 		}
+	}
+
+	OnReleaseSpell(data){
+		let target = null
+		if (data.target_id > 0){
+			if (data.target_type === 0){
+				target = this.heros[data.target_id]
+			}else if (data.target_type === 1){
+				target = this.monsters[data.target_id]
+			}
+			if (!target){
+				console.error("技能目标不存在:", data.target_id, data.target_type)
+			}
+		}
+
+		this.addSpell(data.spell_object, target)
 	}
 
 	heroTextMessage(heroId, msg){
