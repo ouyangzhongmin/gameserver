@@ -11,7 +11,7 @@
  Target Server Version : 50740
  File Encoding         : 65001
 
- Date: 13/11/2024 16:01:34
+ Date: 14/11/2024 17:33:17
 */
 
 SET NAMES utf8mb4;
@@ -100,7 +100,7 @@ CREATE TABLE `hero`  (
   `update_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `uid_nk`(`uid`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '角色' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 36 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '角色' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of hero
@@ -127,6 +127,19 @@ INSERT INTO `hero` VALUES (19, '普拉蒂尼掐指一算', 'https://img2.baidu.c
 INSERT INTO `hero` VALUES (20, '知性的贝利', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 20, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-13 15:51:49', '2024-11-13 15:51:49');
 INSERT INTO `hero` VALUES (21, '美好的永恩', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 21, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-13 15:59:13', '2024-11-13 15:59:13');
 INSERT INTO `hero` VALUES (22, '永恩求而不得', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 22, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-13 15:59:32', '2024-11-13 15:59:32');
+INSERT INTO `hero` VALUES (23, '包容的内马尔', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 23, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 15:07:16', '2024-11-14 15:07:16');
+INSERT INTO `hero` VALUES (24, '大罗一眼定情', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 24, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 15:08:44', '2024-11-14 15:08:44');
+INSERT INTO `hero` VALUES (25, '巴蒂斯图塔爆射世界杯', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 25, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 15:13:42', '2024-11-14 15:13:42');
+INSERT INTO `hero` VALUES (26, '托尼求而不得', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 26, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:04:42', '2024-11-14 17:04:42');
+INSERT INTO `hero` VALUES (27, '文静的一休', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 27, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 2, 0, 0, 0, 3, '2024-11-14 17:05:40', '2024-11-14 17:09:41');
+INSERT INTO `hero` VALUES (28, '朝气蓬勃的尤西比奥', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 28, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:06:23', '2024-11-14 17:06:23');
+INSERT INTO `hero` VALUES (29, '肖申克心花怒放', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 29, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:09:54', '2024-11-14 17:09:54');
+INSERT INTO `hero` VALUES (30, '害怕的哈吉', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 30, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:27:50', '2024-11-14 17:27:50');
+INSERT INTO `hero` VALUES (31, '罗马里奥完成了帽子戏法', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 31, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:27:56', '2024-11-14 17:27:56');
+INSERT INTO `hero` VALUES (32, '保罗舞力四射', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 32, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:28:43', '2024-11-14 17:28:43');
+INSERT INTO `hero` VALUES (33, '卡卡横扫千军', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 33, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:29:21', '2024-11-14 17:29:21');
+INSERT INTO `hero` VALUES (34, '贝克汉姆完成了帽子戏法', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 34, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 1, 0, 0, 0, 3, '2024-11-14 17:31:53', '2024-11-14 17:31:53');
+INSERT INTO `hero` VALUES (35, '拼搏的雅典娜', 'https://img2.baidu.com/it/u=3171875674,3530712457&fm=253&fmt=auto&app=120&f=JPEG?w=800&h=800', 0, 35, 0, 1, 1420, 1300, 44, 78, 1000, 1000, 5, 22, 28, 22, 20, 300, 2, 0, 0, 0, 3, '2024-11-14 17:31:57', '2024-11-14 17:31:57');
 
 -- ----------------------------
 -- Table structure for login
@@ -147,7 +160,7 @@ CREATE TABLE `login`  (
   `create_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `uid_nk`(`uid`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 288 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 305 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of login
@@ -439,6 +452,23 @@ INSERT INTO `login` VALUES (284, 19, '127.0.0.1:63429', '127.0.0.1', '', '', '',
 INSERT INTO `login` VALUES (285, 20, '127.0.0.1:63022', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731484307, 0, '2024-11-13 15:51:47');
 INSERT INTO `login` VALUES (286, 21, '127.0.0.1:64717', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731484752, 0, '2024-11-13 15:59:12');
 INSERT INTO `login` VALUES (287, 22, '127.0.0.1:64718', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731484771, 0, '2024-11-13 15:59:31');
+INSERT INTO `login` VALUES (288, 23, '127.0.0.1:51085', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731568035, 0, '2024-11-14 15:07:15');
+INSERT INTO `login` VALUES (289, 24, '127.0.0.1:51085', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731568123, 0, '2024-11-14 15:08:43');
+INSERT INTO `login` VALUES (290, 25, '127.0.0.1:51085', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731568421, 0, '2024-11-14 15:13:41');
+INSERT INTO `login` VALUES (291, 26, '127.0.0.1:64135', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575081, 0, '2024-11-14 17:04:41');
+INSERT INTO `login` VALUES (292, 27, '127.0.0.1:64136', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575138, 0, '2024-11-14 17:05:38');
+INSERT INTO `login` VALUES (293, 28, '127.0.0.1:64135', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575182, 0, '2024-11-14 17:06:22');
+INSERT INTO `login` VALUES (294, 29, '127.0.0.1:64136', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575393, 0, '2024-11-14 17:09:53');
+INSERT INTO `login` VALUES (295, 27, '127.0.0.1:64135', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575436, 0, '2024-11-14 17:10:36');
+INSERT INTO `login` VALUES (296, 27, '127.0.0.1:64136', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575505, 0, '2024-11-14 17:11:45');
+INSERT INTO `login` VALUES (297, 27, '127.0.0.1:64135', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575528, 0, '2024-11-14 17:12:08');
+INSERT INTO `login` VALUES (298, 27, '127.0.0.1:64136', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731575561, 0, '2024-11-14 17:12:41');
+INSERT INTO `login` VALUES (299, 30, '127.0.0.1:58048', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731576469, 0, '2024-11-14 17:27:49');
+INSERT INTO `login` VALUES (300, 31, '127.0.0.1:58049', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731576475, 0, '2024-11-14 17:27:55');
+INSERT INTO `login` VALUES (301, 32, '127.0.0.1:58048', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731576522, 0, '2024-11-14 17:28:42');
+INSERT INTO `login` VALUES (302, 33, '127.0.0.1:58049', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731576560, 0, '2024-11-14 17:29:20');
+INSERT INTO `login` VALUES (303, 34, '127.0.0.1:58048', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731576712, 0, '2024-11-14 17:31:52');
+INSERT INTO `login` VALUES (304, 35, '127.0.0.1:58049', '127.0.0.1', '', '', '', 'aagame', 'yyb', 1731576716, 0, '2024-11-14 17:31:56');
 
 -- ----------------------------
 -- Table structure for monster
@@ -470,14 +500,15 @@ CREATE TABLE `monster`  (
   `create_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
   `update_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of monster
 -- ----------------------------
 INSERT INTO `monster` VALUES (1, 'm1', 'monster1', 0, 1, 0, 0, 100, 100, 2, 5, 5, 2, 2, 2, 250, 300, 200, 250, 3, 2000, 'monster1', '2024-10-17 18:46:38', '2024-11-13 15:49:16');
 INSERT INTO `monster` VALUES (2, 'm2', 'monster2', 0, 2, 0, 1, 150, 120, 4, 10, 0, 3, 3, 3, 250, 300, 200, 250, 3, 2000, 'monster2', '2024-10-25 15:29:50', '2024-11-13 15:49:19');
-INSERT INTO `monster` VALUES (3, 'n1', 'npc1', 1, 100, 0, 0, 10000, 10000, 1000, 5000, 0, 200, 200, 200, 250, 300, 200, 250, 3, 1000, 'npc1', '2024-10-17 18:46:38', '2024-11-13 10:43:56');
+INSERT INTO `monster` VALUES (3, '场景1npc', 'npc1', 1, 100, 0, 0, 10000, 10000, 1000, 5000, 0, 200, 200, 200, 250, 300, 200, 250, 3, 1000, 'npc1', '2024-10-17 18:46:38', '2024-11-14 17:22:39');
+INSERT INTO `monster` VALUES (4, '场景2npc', 'npc1', 1, 100, 0, 0, 10000, 10000, 1000, 5000, 0, 200, 200, 200, 250, 300, 200, 250, 3, 1000, 'npc1', '2024-10-17 18:46:38', '2024-11-14 17:22:39');
 
 -- ----------------------------
 -- Table structure for online
@@ -516,7 +547,7 @@ CREATE TABLE `register`  (
   `update_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk`(`appid`, `imei`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 36 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of register
@@ -543,6 +574,19 @@ INSERT INTO `register` VALUES (19, 19, '', '', '4b15-fe22-4ef8-9ba3-9930-99a9', 
 INSERT INTO `register` VALUES (20, 20, '', '', 'abce-aef0-46a6-9858-d7ce-898a', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-13 15:51:47', '2024-11-13 15:51:47');
 INSERT INTO `register` VALUES (21, 21, '', '', '5d74-20cd-44d3-beeb-c185-88b9', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-13 15:59:12', '2024-11-13 15:59:12');
 INSERT INTO `register` VALUES (22, 22, '', '', '4eea-5479-449f-b607-0796-89ba', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-13 15:59:31', '2024-11-13 15:59:31');
+INSERT INTO `register` VALUES (23, 23, '', '', '98c4-adef-45f8-8802-7785-a99a', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 15:07:15', '2024-11-14 15:07:15');
+INSERT INTO `register` VALUES (24, 24, '', '', '4b13-beac-4136-b81e-8c84-8998', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 15:08:43', '2024-11-14 15:08:43');
+INSERT INTO `register` VALUES (25, 25, '', '', 'eda5-916a-4e83-ab22-0f55-aabb', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 15:13:41', '2024-11-14 15:13:41');
+INSERT INTO `register` VALUES (26, 26, '', '', 'e39a-64d2-4694-b986-5438-aa99', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:04:41', '2024-11-14 17:04:41');
+INSERT INTO `register` VALUES (27, 27, '', '', 'aa8f-839a-4a7d-b0fe-4f14-abaa', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:05:38', '2024-11-14 17:05:38');
+INSERT INTO `register` VALUES (28, 28, '', '', 'e971-ac19-43c3-a5bf-40be-aa88', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:06:22', '2024-11-14 17:06:22');
+INSERT INTO `register` VALUES (29, 29, '', '', '052e-4e4e-4f49-9023-409b-abab', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:09:53', '2024-11-14 17:09:53');
+INSERT INTO `register` VALUES (30, 30, '', '', '59f9-d7a6-4acc-b1fe-9d5e-a8a8', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:27:49', '2024-11-14 17:27:49');
+INSERT INTO `register` VALUES (31, 31, '', '', 'd845-dc20-4248-8e67-9908-abaa', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:27:55', '2024-11-14 17:27:55');
+INSERT INTO `register` VALUES (32, 32, '', '', '333f-ec98-42a4-bfdf-4de6-aa88', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:28:42', '2024-11-14 17:28:42');
+INSERT INTO `register` VALUES (33, 33, '', '', '0e39-2bab-4ffc-bc56-7417-9b89', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:29:20', '2024-11-14 17:29:20');
+INSERT INTO `register` VALUES (34, 34, '', '', '1c7a-3a65-458a-a15a-cb93-baa8', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:31:52', '2024-11-14 17:31:52');
+INSERT INTO `register` VALUES (35, 35, '', '', '33a9-7272-47b4-a18b-ee7d-9bb8', '14.1', 'Iphone', 'aagame', 'yyb', 5, '2024-11-14 17:31:56', '2024-11-14 17:31:56');
 
 -- ----------------------------
 -- Table structure for scene
@@ -559,12 +603,13 @@ CREATE TABLE `scene`  (
   `create_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
   `update_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of scene
 -- ----------------------------
 INSERT INTO `scene` VALUES (1, 'xinshoucun', '0', 'xinshoucun', 10, 140, 0, '2024-10-17 18:35:00', '2024-10-17 18:35:00');
+INSERT INTO `scene` VALUES (2, 'xinshoucun2', '0', 'xinshoucun', 10, 140, 0, '2024-10-17 18:35:00', '2024-10-17 18:35:00');
 
 -- ----------------------------
 -- Table structure for scene_door
@@ -609,14 +654,15 @@ CREATE TABLE `scene_monster_config`  (
   `update_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `scene_id_nk`(`scene_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of scene_monster_config
 -- ----------------------------
 INSERT INTO `scene_monster_config` VALUES (1, 1, 1, 10, 60, 15, 140, 0, 50, '2024-10-17 18:47:30', '2024-11-08 18:50:08');
 INSERT INTO `scene_monster_config` VALUES (2, 1, 2, 10, 60, 100, 150, 0, 50, '2024-10-25 15:32:54', '2024-11-12 17:26:24');
-INSERT INTO `scene_monster_config` VALUES (3, 1, 3, 0, 60, 22, 140, 0, 1, '2024-10-17 18:47:30', '2024-11-08 17:53:13');
+INSERT INTO `scene_monster_config` VALUES (3, 1, 3, 1, 60, 22, 140, 0, 1, '2024-10-17 18:47:30', '2024-11-14 17:22:12');
+INSERT INTO `scene_monster_config` VALUES (4, 2, 4, 1, 60, 22, 140, 0, 1, '2024-11-14 17:22:09', '2024-11-14 17:22:09');
 
 -- ----------------------------
 -- Table structure for scene_npc_config
@@ -710,7 +756,7 @@ CREATE TABLE `user`  (
   `create_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
   `update_at` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 36 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of user
@@ -737,5 +783,18 @@ INSERT INTO `user` VALUES (19, '', '', 2, 10, 2, '', 1731484296, '', '', 1, 1, 1
 INSERT INTO `user` VALUES (20, '', '', 2, 10, 2, '', 1731484307, '', '', 1, 1, 1, '2024-11-13 15:51:47', '2024-11-13 15:51:47');
 INSERT INTO `user` VALUES (21, '', '', 2, 10, 2, '', 1731484752, '', '', 1, 1, 1, '2024-11-13 15:59:12', '2024-11-13 15:59:12');
 INSERT INTO `user` VALUES (22, '', '', 2, 10, 2, '', 1731484771, '', '', 1, 1, 1, '2024-11-13 15:59:31', '2024-11-13 15:59:31');
+INSERT INTO `user` VALUES (23, '', '', 2, 10, 2, '', 1731568035, '', '', 1, 1, 1, '2024-11-14 15:07:15', '2024-11-14 15:07:15');
+INSERT INTO `user` VALUES (24, '', '', 2, 10, 2, '', 1731568123, '', '', 1, 1, 1, '2024-11-14 15:08:43', '2024-11-14 15:08:43');
+INSERT INTO `user` VALUES (25, '', '', 2, 10, 2, '', 1731568421, '', '', 1, 1, 1, '2024-11-14 15:13:41', '2024-11-14 15:13:41');
+INSERT INTO `user` VALUES (26, '', '', 2, 10, 2, '', 1731575081, '', '', 1, 1, 1, '2024-11-14 17:04:41', '2024-11-14 17:04:41');
+INSERT INTO `user` VALUES (27, '', '', 2, 10, 2, '', 1731575561, '', '', 1, 1, 1, '2024-11-14 17:05:39', '2024-11-14 17:12:41');
+INSERT INTO `user` VALUES (28, '', '', 2, 10, 2, '', 1731575182, '', '', 1, 1, 1, '2024-11-14 17:06:22', '2024-11-14 17:06:22');
+INSERT INTO `user` VALUES (29, '', '', 2, 10, 2, '', 1731575393, '', '', 1, 1, 1, '2024-11-14 17:09:53', '2024-11-14 17:09:53');
+INSERT INTO `user` VALUES (30, '', '', 2, 10, 2, '', 1731576469, '', '', 1, 1, 1, '2024-11-14 17:27:49', '2024-11-14 17:27:49');
+INSERT INTO `user` VALUES (31, '', '', 2, 10, 2, '', 1731576475, '', '', 1, 1, 1, '2024-11-14 17:27:55', '2024-11-14 17:27:55');
+INSERT INTO `user` VALUES (32, '', '', 2, 10, 2, '', 1731576522, '', '', 1, 1, 1, '2024-11-14 17:28:42', '2024-11-14 17:28:42');
+INSERT INTO `user` VALUES (33, '', '', 2, 10, 2, '', 1731576560, '', '', 1, 1, 1, '2024-11-14 17:29:20', '2024-11-14 17:29:20');
+INSERT INTO `user` VALUES (34, '', '', 2, 10, 2, '', 1731576712, '', '', 1, 1, 1, '2024-11-14 17:31:52', '2024-11-14 17:31:52');
+INSERT INTO `user` VALUES (35, '', '', 2, 10, 2, '', 1731576716, '', '', 1, 1, 1, '2024-11-14 17:31:56', '2024-11-14 17:31:56');
 
 SET FOREIGN_KEY_CHECKS = 1;

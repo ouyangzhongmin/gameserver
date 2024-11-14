@@ -143,13 +143,22 @@ func (m *Manager) ChooseHero(s *session.Session, req *protocol.ChooseHeroRequest
 	if sceneId == 0 {
 		sceneId = constants.DEFAULT_SCENE
 	}
+	// todo 切换场景时需要记录这个值
+	s.Set("sceneId", sceneId)
+	err = s.RPC("GateService.RecordScene", &protocol.UserSceneId{
+		Uid:     uid,
+		SceneId: sceneId,
+	})
+	if err != nil {
+		logger.Errorf("rpc.Call(GateService.RecordScene) err: %v \n", err)
+	}
 
 	err = s.RPC("SceneManager.HeroEnterScene", &protocol.HeroEnterSceneRequest{
 		SceneId:  sceneId,
 		HeroData: heroData,
 	})
 	if err != nil {
-		logger.Errorln("rpc.Call(SceneManager.HeroEnterScene) err: ", err)
+		logger.Errorf("rpc.Call(SceneManager.HeroEnterScene) err: %v \n", err)
 	}
 	return err
 }
@@ -181,7 +190,14 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 			user.session.Close()
 		}
 	}
-	heroData := createRandomHero(uid, constants.DEFAULT_SCENE, req.Name, req.Avatar, req.AttrType)
+	// todo 这里测试集群用的
+	sceneId := 0
+	if uid%2 == 0 {
+		sceneId = constants.DEFAULT_SCENE
+	} else {
+		sceneId = constants.DEFAULT_SCENE2
+	}
+	heroData := createRandomHero(uid, sceneId, req.Name, req.Avatar, req.AttrType)
 	id, err := db.InsertHero(heroData)
 	if err != nil {
 		return err
@@ -195,20 +211,35 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	m.group.Add(s)
 
 	//进入场景
-	sceneId := heroData.SceneId
+	sceneId = heroData.SceneId
 	if sceneId == 0 {
-		sceneId = constants.DEFAULT_SCENE
+		// todo 这里测试集群用的
+		if uid%2 == 0 {
+			sceneId = constants.DEFAULT_SCENE
+		} else {
+			sceneId = constants.DEFAULT_SCENE2
+		}
 	}
 	res := &protocol.ChooseHeroResponse{
 		Hero: *heroData,
 	}
 	s.Response(res)
+	// todo 切换场景时需要记录这个值
+	s.Set("sceneId", sceneId)
+	err = s.RPC("GateService.RecordScene", &protocol.UserSceneId{
+		Uid:     uid,
+		SceneId: sceneId,
+	})
+	if err != nil {
+		logger.Errorf("rpc.Call(GateService.RecordScene) err: %v \n", err)
+	}
+
 	err = s.RPC("SceneManager.HeroEnterScene", &protocol.HeroEnterSceneRequest{
 		SceneId:  sceneId,
 		HeroData: heroData,
 	})
 	if err != nil {
-		logger.Errorln("rpc.Call(SceneManager.HeroEnterScene) err: ", err)
+		logger.Errorf("rpc.Call(SceneManager.HeroEnterScene) err: %v \n", err)
 	}
 	return err
 }

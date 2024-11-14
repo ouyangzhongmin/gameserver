@@ -20,6 +20,7 @@ class Game {
         //     localStorage.setItem("uniqueId", this.uniqueId)
         // }
         this.uniqueId = generateUniqueId();
+        // this.uniqueId = "aa8f-839a-4a7d-b0fe-4f14-abaa";
         const that = this;
         canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
         canvas.addEventListener('mousemove', this.onMousemove.bind(this));

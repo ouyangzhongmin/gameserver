@@ -17,18 +17,21 @@ func QueryScene(id int) (*model.Scene, error) {
 	return h, nil
 }
 
-func SceneList() ([]model.Scene, error) {
-	bean := &model.Scene{}
-
+func SceneList(sceneIds []int) ([]model.Scene, error) {
 	list := []model.Scene{}
-	if err := database.Find(&list, bean); err != nil {
-		return nil, err
+	if sceneIds != nil && len(sceneIds) > 0 {
+		if err := database.In("id", sceneIds).Find(&list); err != nil {
+			return nil, err
+		}
+	} else {
+		bean := &model.Scene{}
+		if err := database.Find(&list, bean); err != nil {
+			return nil, err
+		}
 	}
-
 	if len(list) < 1 {
 		return []model.Scene{}, nil
 	}
-
 	return list, nil
 }
 

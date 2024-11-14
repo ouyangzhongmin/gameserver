@@ -1,4 +1,6 @@
 /*.iml
 .idea
+*.exe
 dist/
+config2.toml
 cmd/kwxd/configs/config.local.toml

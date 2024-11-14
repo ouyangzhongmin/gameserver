@@ -40,6 +40,11 @@ func main() {
 			Value: "",
 			Usage: "load configuration from `FILE`",
 		},
+		cli.StringFlag{
+			Name:  "scenes, s",
+			Value: "1",
+			Usage: "配置要启动哪些scene",
+		},
 		cli.BoolFlag{
 			Name:  "cpuprofile",
 			Usage: "enable cpu profile",
@@ -99,6 +104,8 @@ func serve(c *cli.Context) error {
 		defer pprof.StopCPUProfile()
 	}
 
+	scenes := c.String("scenes")
+
 	async.Run(func() {
 		// service connections
 		//gops工具接入,若需要远程访问，可配置 agent.Options{Addr: "0.0.0.0:6060"}，否则默认仅允许本地访问
@@ -115,7 +122,7 @@ func serve(c *cli.Context) error {
 		// setup database
 		closer := db.Startup()
 		defer closer()
-		game.Startup()
+		game.Startup(scenes)
 	}() // 开启游戏服
 
 	wg.Wait()

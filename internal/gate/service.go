@@ -2,8 +2,8 @@ package gate
 
 import (
 	"github.com/lonng/nano/component"
-	"github.com/lonng/nano/examples/cluster/protocol"
 	"github.com/lonng/nano/session"
+	"github.com/ouyangzhongmin/gameserver/protocol"
 )
 
 var (
@@ -26,8 +26,9 @@ func newGateService() *GateService {
 	return &GateService{}
 }
 
-func (ts *GateService) Stats(s *session.Session, msg *protocol.MasterStats) error {
-	// It's OK to use map without lock because of this service running in main thread
-
+// 在进入场景的时候需要记录session和对应的sceneId， 在调用SceneManager时需要查找对应的node服务器
+func (ts *GateService) RecordScene(s *session.Session, msg *protocol.UserSceneId) error {
+	s.Bind(msg.Uid)
+	s.Set("sceneId", msg.SceneId)
 	return nil
 }

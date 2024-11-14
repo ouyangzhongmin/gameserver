@@ -17,7 +17,8 @@ const (
 type (
 	SceneManager struct {
 		component.Base
-		scenes map[int]*Scene
+		scenes   map[int]*Scene
+		sceneIds []int
 	}
 )
 
@@ -25,8 +26,13 @@ var defaultSceneManager = NewSceneManager()
 
 func NewSceneManager() *SceneManager {
 	return &SceneManager{
-		scenes: make(map[int]*Scene),
+		scenes:   make(map[int]*Scene),
+		sceneIds: make([]int, 0),
 	}
+}
+
+func (manager *SceneManager) setSceneIds(sceneIds []int) {
+	manager.sceneIds = append(manager.sceneIds, sceneIds...)
 }
 
 func (manager *SceneManager) AfterInit() {
@@ -37,7 +43,7 @@ func (manager *SceneManager) AfterInit() {
 		}
 	})
 
-	scenes, err := db.SceneList()
+	scenes, err := db.SceneList(manager.sceneIds)
 	if err != nil {
 		panic(err)
 	}

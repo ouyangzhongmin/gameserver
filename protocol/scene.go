@@ -6,6 +6,11 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
+type UserSceneId struct {
+	Uid     int64 `json:"uid"`
+	SceneId int   `json:"scene_id"`
+}
+
 type HeroEnterSceneRequest struct {
 	SceneId  int `json:"scene_id"`
 	HeroData *model.Hero
