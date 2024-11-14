@@ -93,6 +93,12 @@ type CreateHeroRequest struct {
 	AttrType int    `json:"attr_type"`
 }
 
+type HeroChangeSceneRequest struct {
+	Uid     int64 `json:"uid"`
+	HeroId  int64 `json:"hero_id"`
+	SceneId int   `json:"scene_id"`
+}
+
 type EncryptTest struct {
 	Payload string `json:"payload"`
 	Key     string `json:"key"`

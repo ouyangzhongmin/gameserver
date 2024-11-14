@@ -16,6 +16,11 @@ type HeroEnterSceneRequest struct {
 	HeroData *model.Hero
 }
 
+type HeroLeaveSceneRequest struct {
+	SceneId int   `json:"scene_id"`
+	HeroId  int64 `json:"hero_id"`
+}
+
 type SceneInfoRequest struct {
 }
 

@@ -2,8 +2,10 @@ package master
 
 import (
 	"errors"
+	"fmt"
 	"github.com/lonng/nano/scheduler"
 	"github.com/ouyangzhongmin/gameserver/db"
+	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
 	"github.com/ouyangzhongmin/gameserver/pkg/async"
 	"github.com/ouyangzhongmin/gameserver/protocol"
@@ -190,13 +192,14 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 			user.session.Close()
 		}
 	}
+
+	sceneId := constants.DEFAULT_SCENE
 	// todo 这里测试集群用的
-	sceneId := 0
-	if uid%2 == 0 {
-		sceneId = constants.DEFAULT_SCENE
-	} else {
-		sceneId = constants.DEFAULT_SCENE2
-	}
+	//if uid%2 == 0 {
+	//	sceneId = constants.DEFAULT_SCENE
+	//} else {
+	//	sceneId = constants.DEFAULT_SCENE2
+	//}
 	heroData := createRandomHero(uid, sceneId, req.Name, req.Avatar, req.AttrType)
 	id, err := db.InsertHero(heroData)
 	if err != nil {
@@ -214,11 +217,11 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	sceneId = heroData.SceneId
 	if sceneId == 0 {
 		// todo 这里测试集群用的
-		if uid%2 == 0 {
-			sceneId = constants.DEFAULT_SCENE
-		} else {
-			sceneId = constants.DEFAULT_SCENE2
-		}
+		//if uid%2 == 0 {
+		sceneId = constants.DEFAULT_SCENE
+		//} else {
+		//	sceneId = constants.DEFAULT_SCENE2
+		//}
 	}
 	res := &protocol.ChooseHeroResponse{
 		Hero: *heroData,
@@ -241,6 +244,51 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	if err != nil {
 		logger.Errorf("rpc.Call(SceneManager.HeroEnterScene) err: %v \n", err)
 	}
+	return err
+}
+
+func (m *Manager) HeroChangeScene(s *session.Session, req *protocol.HeroChangeSceneRequest) error {
+	uid := req.Uid
+	log.Infof("玩家: %d切换场景: %+v", req.Uid, req)
+	sceneId := req.SceneId
+	user, ok := m.player(uid)
+	if !ok {
+		str := fmt.Sprintf("玩家: %d不在线", uid)
+		return errors.New(str)
+	}
+	oldSceneId := user.heroData.SceneId
+	if sceneId == oldSceneId {
+		return errors.New("已在当前场景")
+	}
+	// 离开上一个场景
+	err := s.RPC("SceneManager.HeroLeaveScene", &protocol.HeroLeaveSceneRequest{
+		SceneId: oldSceneId,
+		HeroId:  user.heroData.Id,
+	})
+	if err != nil {
+		return err
+	}
+	//进入新场景
+	user.heroData.SceneId = sceneId
+	s.Router().Delete("SceneManager")
+	// todo 切换场景时需要记录这个值
+	s.Set("sceneId", sceneId)
+	err = s.RPC("GateService.RecordScene", &protocol.UserSceneId{
+		Uid:     uid,
+		SceneId: sceneId,
+	})
+	if err != nil {
+		logger.Errorf("rpc.Call(GateService.RecordScene) err: %v \n", err)
+	}
+
+	err = s.RPC("SceneManager.HeroEnterScene", &protocol.HeroEnterSceneRequest{
+		SceneId:  sceneId,
+		HeroData: user.heroData,
+	})
+	if err != nil {
+		logger.Errorf("rpc.Call(SceneManager.HeroEnterScene) err: %v \n", err)
+	}
+	err = db.UpdateHero(&model.Hero{Id: user.heroData.Id, SceneId: user.heroData.SceneId})
 	return err
 }
 

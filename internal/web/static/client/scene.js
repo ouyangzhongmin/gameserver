@@ -2,18 +2,22 @@
 
 class Scene {
     constructor(canvas) {
-        this.monsters = {}
-        this.spells = {}
-		this.heros = {}
-		this.deads = []
+		this.init()
 		this.selfHero = new Hero(1, 'HeroSelf', 200, 150, 150, 100, 'green');
 		this.selfHero.isSelfHero = true;
 		this.sceneId = 0
 		this.sceneName = "";
-		this.camera = new Camera(canvas.width, canvas.height);
-		this.map = null;
 		this.gridShow = new GridShow();
     }
+
+	init(){
+		this.monsters = {}
+		this.spells = {}
+		this.heros = {}
+		this.deads = []
+		this.camera = new Camera(canvas.width, canvas.height);
+		this.map = null;
+	}
 
 	resize(w, h){
 		this.camera.resize(w, h)
@@ -21,6 +25,7 @@ class Scene {
 
 	changeScene(data){
 		console.log("scene.change::", data)
+		this.init()
 		this.sceneData = data.scene;
 		this.doorList = data.doors;
 		this.sceneId = this.sceneData.scene_id;

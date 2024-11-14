@@ -286,6 +286,26 @@ func (h *Hero) Destroy() {
 	close(h.destroyCh)
 }
 
+func (h *Hero) DestroyWithoutSession() {
+	if h.scene != nil {
+		h.scene.removeHero(h)
+	}
+	h.viewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitOtherView(h)
+		return true
+	})
+	h.canSeeMeViewList.Range(func(key, value interface{}) bool {
+		value.(IMovableEntity).onExitView(h)
+		return true
+	})
+	h.movableEntity.Destroy()
+	if h.session != nil {
+		h.session.Clear()
+		h.bindSession(nil)
+	}
+	close(h.destroyCh)
+}
+
 // 动作状态
 func (h *Hero) SetState(state constants.ActionState) {
 	h.State = state

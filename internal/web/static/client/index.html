@@ -135,6 +135,7 @@
     }
 
     messageBox.style.display = "none";
+    initTip();
     // 打开消息框
     openMessageBoxBtn.addEventListener('click', () => {
         if (messageBox.style.display === "none"){
@@ -159,6 +160,15 @@
             messageList.scrollTop = messageList.scrollHeight;
         }
     });
+
+    function initTip(){
+        let listItem = document.createElement('li');
+        listItem.textContent = "输入add-数量重置怪物数量;";
+        messageList.appendChild(listItem);
+        listItem = document.createElement('li');
+        listItem.textContent = "输入scene-2切换到场景2;";
+        messageList.appendChild(listItem);
+    }
 
 </script>
 </html>

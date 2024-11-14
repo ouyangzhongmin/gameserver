@@ -60,7 +60,7 @@ func Startup() {
 func customerRemoteServiceRoute(service string, session *session.Session, members []*clusterpb.MemberInfo) *clusterpb.MemberInfo {
 	if strings.Contains(service, "SceneManager") {
 		//根据用户id获取用户在哪个node上
-		curSceneId := session.Value("sceneId").(int)
+		curSceneId := session.Int("sceneId")
 		if curSceneId > 0 {
 			for _, m := range members {
 				label := m.Label

@@ -365,6 +365,18 @@ class Game {
             });
            return
         }
+        if (msg.indexOf("scene-") > -1){
+            let sceneId = parseInt(msg.replace("scene-", ""))
+            console.log("请求切换场景:", sceneId)
+            nano.request("Manager.HeroChangeScene",{
+                scene_id: sceneId,
+                uid : Global.selfHeroData.uid,
+                hero_id: Global.selfHeroData.id,
+            }, function(data){
+                console.log("HeroChangeScene:", data)
+            });
+            return
+        }
         nano.request("SceneManager.TextMessage", {
             hero_id: Global.selfHeroData.id,
             msg: msg,

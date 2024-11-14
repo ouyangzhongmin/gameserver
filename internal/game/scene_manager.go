@@ -98,6 +98,27 @@ func (manager *SceneManager) HeroEnterScene(s *session.Session, req *protocol.He
 	return nil
 }
 
+func (manager *SceneManager) HeroLeaveScene(s *session.Session, req *protocol.HeroLeaveSceneRequest) error {
+	if req.HeroId <= 0 {
+		logger.Errorf("scene:%d HeroLeaveScene err: req.HeroId == %d", req.SceneId, req.HeroId)
+		return errors.New("hero_id is 0")
+	}
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		logger.Errorf("scene:%d Hero:%d HeroLeaveScene err: scene not found", req.SceneId, req.HeroId)
+		return errors.New("scene not found")
+	}
+	v, ok := scene.heros.Load(req.HeroId)
+	if !ok {
+		logger.Errorf("scene:%d Hero:%d HeroLeaveScene err: hero not found", req.SceneId, req.HeroId)
+		return errors.New("hero not found")
+	}
+	hero := v.(*Hero)
+	logger.Debugf("hero:%d_%s 离开场景:%d", hero.GetID(), hero._name, req.SceneId)
+	hero.DestroyWithoutSession()
+	return nil
+}
+
 func (manager *SceneManager) HeroSetViewRange(s *session.Session, req *protocol.HeroSetViewRangeRequest) error {
 	p, err := heroWithSession(s)
 	if err != nil {
