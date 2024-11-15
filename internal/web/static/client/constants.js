@@ -1,9 +1,4 @@
 
-
-var HttpBaseUrl = "http://127.0.0.1:12307"
-if (isPrdEnv()) {
-    HttpBaseUrl = "http://47.99.180.185:12307"
-}
 const GRID_WIDTH = 16;
 const GRID_HEIGHT = 16;
 
@@ -37,25 +32,15 @@ const State = {
     SPECIAL: 12,
     HIT: 13, //受击 与BEENATTACK有歧义
 }
-
+var HttpBaseUrl = "http://127.0.0.1:12307"
 const Global = {
     block : new Block(),
     nano : window.nano,
+    WSAddr: "127.0.0.1",
+    WSPort: 33290,
     http: new HttpClient(HttpBaseUrl),
     userInfo: null,
     selfHeroData: null,
-}
-
-function isPrdEnv(){
-    // let test = true
-    // if(test){
-    //     return true
-    // }
-    var path = window.location.host;
-    if (path.includes('47.99.180.185') || path.includes('jsmx-test.zhiyun-tech.com')) {
-       return true
-    }
-    return false
 }
 
 function getPixelXByGrid(gridX) {
