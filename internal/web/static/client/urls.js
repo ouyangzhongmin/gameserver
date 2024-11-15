@@ -2,7 +2,7 @@
 if (isPrdEnv()) {
     //改成自己的地址
     Global.WSAddr = "47.99.**.**"
-    HttpBaseUrl = "http://127.0.0.1:12307"
+    Global.HttpBaseUrl = "http://47.99.**.**:12307"
 }
 
 function isPrdEnv(){

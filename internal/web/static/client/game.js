@@ -38,6 +38,7 @@ class Game {
     requestLogin(){
         const nano = this.nano;
         const that = this;
+        Global.http = new HttpClient(HttpBaseUrl)
         console.log("requestLogin:", that.uniqueId)
          Global.http.post("/v1/user/login/guest", {
             appId:'aagame',
@@ -63,7 +64,7 @@ class Game {
 
     initNano(){
         const that = this;
-        
+
         console.log("initNano", Global.WSAddr, window.location.host)
         that.nano.init({host: Global.WSAddr, port: Global.WSPort, log: true}, function(){
             that.connected = true;
