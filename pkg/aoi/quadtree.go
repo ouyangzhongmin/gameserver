@@ -1,6 +1,9 @@
 package aoi
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 const (
 	leftUp int = iota
@@ -185,6 +188,10 @@ func (n *Node) Search(x, y float64) []interface{} {
 	}()
 	n.search(x, y, &result)
 	return result
+}
+
+func (n *Node) Moved(x, y, oldx, oldy float64, key string, data interface{}) {
+	panic(errors.New("功能未实现"))
 }
 
 // search recursively searches for entities within the specified coordinates' range.

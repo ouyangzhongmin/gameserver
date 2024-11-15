@@ -368,11 +368,14 @@ func (s *Scene) removeSpell(m *SpellEntity) {
 	m.onExitScene(s)
 }
 
-func (s *Scene) entityMoved(e IMovableEntity, oldX, oldY shape.Coord) {
-	s.PushTask(func() {
-		s.aoiMgr.Moved(e, oldX, oldY)
-		s.addToBuildViewList(e)
-	})
+// 这里的x,y需要传递，防止e对象并发更新了新的坐标，导致aoi里部分存储没有删除掉
+func (s *Scene) entityMoved(e IMovableEntity, x, y, oldX, oldY shape.Coord) {
+	if oldX != x || oldY != y {
+		s.PushTask(func() {
+			s.aoiMgr.Moved(e, x, y, oldX, oldY)
+			s.addToBuildViewList(e)
+		})
+	}
 }
 
 func (s *Scene) update() error {

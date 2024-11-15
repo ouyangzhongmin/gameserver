@@ -38,8 +38,7 @@ func (e *Entity) _tasksFunc() {
 	for {
 		select {
 		case <-e._chDestroy:
-			logger.Printf("destroy entity:%d-%s\n", e.GetID(), e._name)
-			e._id = 0
+			logger.Printf("destroy entity:%d-%s-%s\n", e.GetID(), e._name, e._uuid)
 			e.scene = nil
 			e._name += "_destroyed"
 			e._destroyed.Store(true)

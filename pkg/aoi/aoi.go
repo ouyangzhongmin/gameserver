@@ -7,6 +7,7 @@ type AOI interface {
 	Add(x, y float64, name string, data interface{}) // Add an entity to the AOI
 	Delete(x, y float64, name string)                // Delete an entity from the AOI
 	Search(x, y float64) (result []interface{})      // Search for entities within a specified range
+	Moved(x, y, oldx, oldy float64, key string, data interface{})
 }
 
 // Entity represents an object with coordinates and a key.

@@ -94,9 +94,10 @@ func (m *Monster) SetPos(x, y, z shape.Coord) {
 	m.Posy = y
 	m.Posz = z
 	m.movableEntity.SetPos(x, y, z)
-	if m.scene != nil {
+	if m.scene != nil && (oldx != x || oldy != y) {
+		//fmt.Println("monster SetPos :", m._uuid, x, y, oldx, oldy)
 		//更新block数据 go的继承关系是组合关系，这个逻辑如果写在movableEntity会导致存储的对象是*moveableEntity，并不是*Monster
-		m.scene.entityMoved(m, oldx, oldy)
+		m.scene.entityMoved(m, x, y, oldx, oldy)
 	}
 }
 
@@ -161,6 +162,7 @@ func (m *Monster) Destroy() {
 	})
 	m.movableEntity.Destroy()
 	m.pathFinder = nil
+	m.aimgr = nil
 }
 
 func (m *Monster) IsNpc() bool {

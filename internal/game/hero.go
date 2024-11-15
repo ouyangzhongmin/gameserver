@@ -75,10 +75,10 @@ func (h *Hero) doMessageChFunc() {
 			}
 		case <-timer.C:
 			if len(mergeMessages) > 0 {
-				if h.session != nil {
-					ts = time.Now().UnixMilli()
-					i = 0
-					for ; i < 100; i++ {
+				ts = time.Now().UnixMilli()
+				i = 0
+				for ; i < 100; i++ {
+					if h.session != nil {
 						err := h.session.Push(protocol.OnMergeMessages, mergeMessages)
 						if err != nil {
 							if i >= 10 {
@@ -89,8 +89,8 @@ func (h *Hero) doMessageChFunc() {
 						}
 						break
 					}
-					logger.Debugf("hero: %s 发送合并消息体  useTime::%d, retryCnt :%d", h._name, time.Now().UnixMilli()-ts, i)
 				}
+				logger.Debugf("hero: %s 发送合并消息体  useTime::%d, retryCnt :%d", h._name, time.Now().UnixMilli()-ts, i)
 				mergeMessages = make([]routeMsg, 0)
 			}
 			mergeMode = false
@@ -120,9 +120,9 @@ func (h *Hero) SetPos(x, y, z shape.Coord) {
 	h.Posy = y
 	h.Posz = z
 	h.movableEntity.SetPos(x, y, z)
-	if h.scene != nil {
+	if h.scene != nil && (oldx != x || oldy != y) {
 		//更新block数据 go的继承关系是组合关系，这个逻辑如果写在movableEntity会导致存储的对象是*moveableEntity，并不是*Hero
-		h.scene.entityMoved(h, oldx, oldy)
+		h.scene.entityMoved(h, x, y, oldx, oldy)
 	}
 }
 

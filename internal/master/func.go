@@ -35,7 +35,7 @@ func createRandomHero(uid int64, sceneId int, name, avatar string, attrType int)
 		Uid:         uid,
 		Experience:  0,
 		Level:       1,
-		BaseLife:    1000,
+		BaseLife:    100000,
 		BaseMana:    1000,
 		StepTime:    300,
 		SceneId:     sceneId,

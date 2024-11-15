@@ -220,13 +220,16 @@ func (manager *SceneManager) DynamicResetMonsters(s *session.Session, req *proto
 	}
 	//先全部清除了
 	for _, sid := range sceneIds {
+		cnt := 0
 		manager.scenes[sid].monsters.Range(func(key, value any) bool {
-			manager.scenes[sid].removeMonster(value.(*Monster))
-			time.Sleep(10 * time.Millisecond)
+			value.(*Monster).Destroy()
+			cnt += 1
+			time.Sleep(5 * time.Millisecond)
 			return true
 		})
+		logger.Printf("总共删除场景:%d 数量:%dmonster", sid, cnt)
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	for _, c := range req.Configs {
 		err := manager.scenes[c.SceneId].initMonsterByConfig(c)
 		if err != nil {

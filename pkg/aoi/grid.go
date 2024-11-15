@@ -1,6 +1,9 @@
 package aoi
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 var (
 	// Define direction vectors for the eight directions by populating dx and dy arrays.
@@ -109,6 +112,7 @@ func (g *GridManager) Add(x, y float64, key string, data interface{}) {
 	ID := g.getGIDByPos(x, y)
 	grid := g.grids[ID]
 	grid.Entities.Store(key, entity)
+	//fmt.Println("GridManager add:", key, x, y)
 }
 
 // Delete removes an entity from the grid based on its coordinates.
@@ -121,6 +125,21 @@ func (g *GridManager) Delete(x, y float64, key string) {
 		grid.Entities.Delete(key)
 		entity.Data = nil //要清理掉引用
 		entityPool.Put(entity)
+		//fmt.Println("GridManager delete:", key, x, y)
+	} else {
+		fmt.Println("GridManager delete not find:", key, x, y)
+	}
+}
+
+func (g *GridManager) Moved(x, y, oldx, oldy float64, key string, data interface{}) {
+	oldGid := g.getGIDByPos(float64(oldx), float64(oldy))
+	newgid := g.getGIDByPos(float64(x), float64(y))
+	//fmt.Println("GridManager Moved :", key, x, y, oldx, oldy)
+	if oldGid != newgid {
+		if oldx > 0 && oldy > 0 {
+			g.Delete(oldx, oldy, key)
+		}
+		g.Add(x, y, key, data)
 	}
 }
 
