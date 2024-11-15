@@ -38,7 +38,7 @@ class Game {
     requestLogin(){
         const nano = this.nano;
         const that = this;
-        Global.http = new HttpClient(HttpBaseUrl)
+        Global.http = new HttpClient(Global.HttpBaseUrl)
         console.log("requestLogin:", that.uniqueId)
          Global.http.post("/v1/user/login/guest", {
             appId:'aagame',
