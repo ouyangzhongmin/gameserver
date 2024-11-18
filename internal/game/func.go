@@ -2,7 +2,7 @@ package game
 
 import (
 	"github.com/lonng/nano/session"
-	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
+	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/pkg/errutil"
 )
 

@@ -1,8 +1,9 @@
 package master
 
 import (
+	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
-	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
+	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/utils"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 )
@@ -24,6 +25,7 @@ func Recharge(uid, coin int64) {
 	defaultManager.chRecharge <- RechargeInfo{uid, coin}
 }
 
+// 测试用的
 func createRandomHero(uid int64, sceneId int, name, avatar string, attrType int) *model.Hero {
 	if name == "" {
 		name = utils.GetRandomHeroName()
@@ -60,9 +62,9 @@ func createRandomHero(uid int64, sceneId int, name, avatar string, attrType int)
 		h.Agility = 18
 		h.Intelligence = 35
 	}
-	h.MaxLife = constants.CaculateLife(h.BaseLife, h.Strength)
-	h.MaxMana = constants.CaculateLife(h.BaseMana, h.Intelligence)
-	h.Attack = constants.CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
-	h.Defense = constants.CaculateDefense(h.Defense, h.Agility)
+	h.MaxLife = object.CaculateLife(h.BaseLife, h.Strength)
+	h.MaxMana = object.CaculateLife(h.BaseMana, h.Intelligence)
+	h.Attack = object.CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
+	h.Defense = object.CaculateDefense(h.Defense, h.Agility)
 	return h
 }

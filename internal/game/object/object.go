@@ -2,8 +2,8 @@ package object
 
 // 用于与前端通信的对象数据
 import (
+	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
-	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"math/rand"
 	"time"
@@ -40,10 +40,10 @@ func NewHeroObject(data *model.Hero) *HeroObject {
 }
 
 func (h *HeroObject) UpdateProperty() {
-	h.MaxLife = constants.CaculateLife(h.BaseLife, h.Strength)
-	h.MaxMana = constants.CaculateLife(h.BaseMana, h.Intelligence)
-	h.Attack = constants.CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
-	h.Defense = constants.CaculateDefense(h.Defense, h.Agility)
+	h.MaxLife = CaculateLife(h.BaseLife, h.Strength)
+	h.MaxMana = CaculateLife(h.BaseMana, h.Intelligence)
+	h.Attack = CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
+	h.Defense = CaculateDefense(h.Defense, h.Agility)
 }
 
 func (h *HeroObject) IsAlive() bool {
@@ -94,11 +94,11 @@ func NewMonsterObject(data *model.Monster, offset int) *MonsterObject {
 }
 
 func (m *MonsterObject) UpdateProperty() {
-	m.MaxLife = constants.CaculateLife(m.Data.BaseLife, m.Data.Strength)
-	m.MaxMana = constants.CaculateLife(m.Data.BaseMana, m.Data.Intelligence)
+	m.MaxLife = CaculateLife(m.Data.BaseLife, m.Data.Strength)
+	m.MaxMana = CaculateLife(m.Data.BaseMana, m.Data.Intelligence)
 	//精确攻击力，不附带随机攻击力
-	m.Attack = constants.CaculateAttack(m.Data.AttrType, m.Data.BaseAttack, m.Data.Strength, m.Data.Agility, m.Data.Intelligence)
-	m.Defense = constants.CaculateDefense(m.Defense, m.Data.Agility)
+	m.Attack = CaculateAttack(m.Data.AttrType, m.Data.BaseAttack, m.Data.Strength, m.Data.Agility, m.Data.Intelligence)
+	m.Defense = CaculateDefense(m.Defense, m.Data.Agility)
 }
 
 func (m *MonsterObject) IsAlive() bool {
@@ -115,7 +115,7 @@ func (m *MonsterObject) GetAttack() int64 {
 }
 
 func (m *MonsterObject) GetDefense() int64 {
-	return m.Data.BaseDefense + m.Data.Agility*constants.DEFENSE_AGILITY_PERM
+	return m.Data.BaseDefense + m.Data.Agility*DEFENSE_AGILITY_PERM
 }
 
 type SpellObject struct {

@@ -3,8 +3,8 @@ package game
 import (
 	"fmt"
 	"github.com/lonng/nano/session"
+	constants2 "github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
-	"github.com/ouyangzhongmin/gameserver/internal/game/constants"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
@@ -35,7 +35,7 @@ func NewHero(s *session.Session, data *model.Hero) *Hero {
 		messagesCh: make(chan routeMsg, 2048),
 		destroyCh:  make(chan struct{}),
 	}
-	h.initEntity(h.HeroObject.Id, data.Name, constants.ENTITY_TYPE_HERO, 2048)
+	h.initEntity(h.HeroObject.Id, data.Name, constants2.ENTITY_TYPE_HERO, 2048)
 	h.GameObject.Uuid = h.GetUUID()
 	go h.doMessageChFunc()
 	return h
@@ -147,19 +147,19 @@ func (h *Hero) GetData() *object.HeroObject {
 }
 
 func (h *Hero) GetAttack() int64 {
-	h.Attack = constants.CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
+	h.Attack = object.CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
 	return h.Attack
 }
 
 func (h *Hero) GetDefense() int64 {
-	h.Defense = constants.CaculateDefense(h.BaseDefense, h.Agility)
+	h.Defense = object.CaculateDefense(h.BaseDefense, h.Agility)
 	return h.Defense
 }
 
 func (h *Hero) bindSession(s *session.Session) {
 	h.session = s
 	if h.session != nil {
-		h.session.Set(constants.KCurHero, h)
+		h.session.Set(constants2.KCurHero, h)
 	}
 }
 
@@ -215,9 +215,9 @@ func (h *Hero) onExitView(target IMovableEntity) {
 	ttype := -1
 	switch target.(type) {
 	case *Hero:
-		ttype = constants.ENTITY_TYPE_HERO
+		ttype = constants2.ENTITY_TYPE_HERO
 	case *Monster:
-		ttype = constants.ENTITY_TYPE_MONSTER
+		ttype = constants2.ENTITY_TYPE_MONSTER
 	}
 	logger.Debugf("对象:%d-%d离开hero:%d_%s视野:", target.GetID(), ttype, h.GetID(), h._name)
 	if ttype > -1 {
@@ -307,36 +307,36 @@ func (h *Hero) DestroyWithoutSession() {
 }
 
 // 动作状态
-func (h *Hero) SetState(state constants.ActionState) {
+func (h *Hero) SetState(state constants2.ActionState) {
 	h.State = state
 }
 
-func (h *Hero) GetState() constants.ActionState {
+func (h *Hero) GetState() constants2.ActionState {
 	return h.State
 }
 
 func (h *Hero) AttackAction() {
-	h.SetState(constants.ACTION_STATE_ATTACK)
+	h.SetState(constants2.ACTION_STATE_ATTACK)
 }
 
 func (h *Hero) Idle() {
-	h.SetState(constants.ACTION_STATE_IDLE)
+	h.SetState(constants2.ACTION_STATE_IDLE)
 }
 
 func (h *Hero) Walk() {
-	h.SetState(constants.ACTION_STATE_WALK)
+	h.SetState(constants2.ACTION_STATE_WALK)
 }
 
 func (h *Hero) Run() {
-	h.SetState(constants.ACTION_STATE_RUN)
+	h.SetState(constants2.ACTION_STATE_RUN)
 }
 
 func (h *Hero) Die() {
-	h.SetState(constants.ACTION_STATE_DIE)
+	h.SetState(constants2.ACTION_STATE_DIE)
 	logger.Debugf("hero:%d-%s die", h.GetID(), h._name)
 	h.Broadcast(protocol.OnEntityDie, &protocol.EntityDieResponse{
 		ID:         h.GetID(),
-		EntityType: constants.ENTITY_TYPE_HERO,
+		EntityType: constants2.ENTITY_TYPE_HERO,
 	}, true)
 }
 
@@ -457,7 +457,7 @@ func (h *Hero) onBeenHurt(damage int64) {
 		}
 		h.Broadcast(protocol.OnLifeChanged, &protocol.LifeChangedResponse{
 			ID:         h.GetID(),
-			EntityType: constants.ENTITY_TYPE_HERO,
+			EntityType: constants2.ENTITY_TYPE_HERO,
 			Damage:     damage,
 			Life:       h.Life,
 			MaxLife:    h.MaxLife,
@@ -487,7 +487,7 @@ func (h *Hero) manaCost(mana int64) {
 		}
 		h.Broadcast(protocol.OnManaChanged, &protocol.ManaChangedResponse{
 			ID:         h.GetID(),
-			EntityType: constants.ENTITY_TYPE_HERO,
+			EntityType: constants2.ENTITY_TYPE_HERO,
 			Cost:       mana,
 			Mana:       h.Mana,
 			MaxMana:    h.MaxMana,
