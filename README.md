@@ -14,7 +14,8 @@
 
 ## 目前问题:
 ```aiignore
-1.hero 推送消息在同屏数据量大时消息会堵塞,nano作者在agent.push内会丢弃超过agentWriteBacklog(16)缓冲区的数据，我加了个消息合并发送的方式
+1.hero 推送消息在同屏数据量大时消息会堵塞,nano作者在agent.push内会丢弃超过agentWriteBacklog(16)缓冲区的数据，我加了个消息合并发送的方式,
+目前测试使用的是json序列化，生产如果是mmrpg类建议改为bytes
 
 2.game服务器重启entity数据都丢失了，无法做到重启用户无感知，可以参考goworld方式将entity全部序列化到文件，重启时载入
 
