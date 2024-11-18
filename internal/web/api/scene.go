@@ -31,7 +31,7 @@ func sceneList(r *http.Request) ([]model.Scene, error) {
 	if !whitelist.VerifyIP(r.RemoteAddr) {
 		return nil, errutil.ErrPermissionDenied
 	}
-	list, err := db.SceneList()
+	list, err := db.SceneList(nil)
 	if err != nil {
 		return nil, err
 	}
