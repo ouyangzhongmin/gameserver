@@ -41,7 +41,7 @@ func NewHeroObject(data *model.Hero) *HeroObject {
 
 func (h *HeroObject) UpdateProperty() {
 	h.MaxLife = CaculateLife(h.BaseLife, h.Strength)
-	h.MaxMana = CaculateLife(h.BaseMana, h.Intelligence)
+	h.MaxMana = CaculateMana(h.BaseMana, h.Intelligence)
 	h.Attack = CaculateAttack(h.AttrType, h.BaseAttack, h.Strength, h.Agility, h.Intelligence)
 	h.Defense = CaculateDefense(h.Defense, h.Agility)
 }
@@ -95,7 +95,7 @@ func NewMonsterObject(data *model.Monster, offset int) *MonsterObject {
 
 func (m *MonsterObject) UpdateProperty() {
 	m.MaxLife = CaculateLife(m.Data.BaseLife, m.Data.Strength)
-	m.MaxMana = CaculateLife(m.Data.BaseMana, m.Data.Intelligence)
+	m.MaxMana = CaculateMana(m.Data.BaseMana, m.Data.Intelligence)
 	//精确攻击力，不附带随机攻击力
 	m.Attack = CaculateAttack(m.Data.AttrType, m.Data.BaseAttack, m.Data.Strength, m.Data.Agility, m.Data.Intelligence)
 	m.Defense = CaculateDefense(m.Defense, m.Data.Agility)
