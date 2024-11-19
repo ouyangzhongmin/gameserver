@@ -231,6 +231,9 @@ func (manager *SceneManager) DynamicResetMonsters(s *session.Session, req *proto
 	}
 	time.Sleep(500 * time.Millisecond)
 	for _, c := range req.Configs {
+		if c.Total > 5000 {
+			c.Total = 5000
+		}
 		err := manager.scenes[c.SceneId].initMonsterByConfig(c)
 		if err != nil {
 			return err
