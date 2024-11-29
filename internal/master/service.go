@@ -1,7 +1,7 @@
 package master
 
 import (
-	"github.com/lonng/nano/component"
+	"github.com/ouyangzhongmin/nano/component"
 )
 
 var (

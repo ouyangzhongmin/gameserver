@@ -1,4 +1,4 @@
-package game
+package ghost
 
 import (
 	"fmt"
@@ -15,33 +15,23 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	version     = "" // 游戏版本
-	forceUpdate = false
-)
-
 // Startup 初始化游戏服务器
 func Startup(scenes string) {
 	rand.Seed(time.Now().Unix())
-	version = viper.GetString("update.version")
-
 	heartbeat := viper.GetInt("core.heartbeat")
 	if heartbeat < 5 {
 		heartbeat = 5
 	}
 
-	forceUpdate = viper.GetBool("update.force")
+	// register game handler
+	sceneIds := parseScenes(scenes)
+	defaultGhostManager.setSceneIds(sceneIds)
+	comps := &component.Components{}
+	comps.Register(defaultGhostManager)
 
 	masterHost := viper.GetString("master.host")
 	masterPort := viper.GetInt("master.port")
 	masterAddr := fmt.Sprintf("%s:%d", masterHost, masterPort)
-
-	// register game handler
-	sceneIds := parseScenes(scenes)
-	defaultSceneManager.setSceneIds(sceneIds)
-	defaultSceneManager.setMasterAddr(masterAddr)
-	comps := &component.Components{}
-	comps.Register(defaultSceneManager)
 
 	// 加密管道
 	//c := crypto.NewCrypto()
@@ -49,15 +39,15 @@ func Startup(scenes string) {
 	//pip.Inbound().PushBack(c.Inbound)
 	//pip.Outbound().PushBack(c.Outbound)
 
-	listen := fmt.Sprintf(":%d", viper.GetInt("game-server.port"))
-	logger.Infof("当前游戏服务器版本: %s, 是否强制更新: %t, 当前心跳时间间隔: %d秒", version, forceUpdate, heartbeat)
-	logger.Info("game service starup:", listen)
+	listen := fmt.Sprintf(":%d", viper.GetInt("ghost-server.port"))
+	logger.Log.WithField("component", "ghost")
+	logger.Info("ghost service starup:", listen)
 	nano.Listen(listen,
-		nano.WithLabel("scene:"+scenes), //通过这个实现的消息对应场景服务器的处理
+		nano.WithLabel("ghost:"+scenes), //通过这个实现的消息对应场景服务器的处理
 		nano.WithAdvertiseAddr(masterAddr),
 		nano.WithDebugMode(),
 		//nano.WithPipeline(pip),
-		nano.WithLogger(log.WithField("component", "game")),
+		nano.WithLogger(log.WithField("component", "ghost")),
 		nano.WithSerializer(json.NewSerializer()),
 		nano.WithComponents(comps),
 	)

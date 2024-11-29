@@ -101,6 +101,25 @@ func (m *MonsterObject) UpdateProperty() {
 	m.Defense = CaculateDefense(m.Defense, m.Data.Agility)
 }
 
+func (m *MonsterObject) Copy(obj *MonsterObject) {
+	m.Posx = obj.Posx
+	m.Posy = obj.Posy
+	m.Posz = obj.Posz
+	m.Name = obj.Name
+	m.Avatar = obj.Avatar
+	m.MonsterType = obj.MonsterType
+	m.Level = obj.Level
+	m.Grade = obj.Grade
+	m.MaxLife = obj.MaxLife
+	m.MaxMana = obj.MaxMana
+	m.Life = obj.Life
+	m.Mana = obj.Mana
+	m.Defense = obj.Defense
+	m.Attack = obj.Attack
+	m.Dir = obj.Dir
+	m.State = obj.State
+}
+
 func (m *MonsterObject) IsAlive() bool {
 	return m.Life > 0
 }

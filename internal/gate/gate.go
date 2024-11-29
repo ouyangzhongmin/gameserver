@@ -2,19 +2,16 @@ package gate
 
 import (
 	"fmt"
-	"github.com/lonng/nano"
-	"github.com/lonng/nano/cluster/clusterpb"
-	"github.com/lonng/nano/serialize/json"
-	"github.com/lonng/nano/session"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
+	"github.com/ouyangzhongmin/nano"
+	"github.com/ouyangzhongmin/nano/cluster/clusterpb"
+	"github.com/ouyangzhongmin/nano/serialize/json"
+	"github.com/ouyangzhongmin/nano/session"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"net/http"
 	"strings"
 	"time"
-)
-
-var (
-	logger = log.WithField("component", "gate")
 )
 
 // Startup 初始化gate服务器

@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/lonng/nano/pipeline"
-	"github.com/lonng/nano/session"
+	"github.com/ouyangzhongmin/nano/pipeline"
+	"github.com/ouyangzhongmin/nano/session"
 	"github.com/xxtea/xxtea-go/xxtea"
 )
 

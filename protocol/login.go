@@ -2,6 +2,10 @@ package protocol
 
 import (
 	"github.com/ouyangzhongmin/gameserver/db/model"
+	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/path"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/nano/session"
 )
 
 type ThirdUserLoginRequest struct {
@@ -97,6 +101,85 @@ type HeroChangeSceneRequest struct {
 	Uid     int64 `json:"uid"`
 	HeroId  int64 `json:"hero_id"`
 	SceneId int   `json:"scene_id"`
+}
+
+type RegisterSceneCellRequest struct {
+	SceneId int `json:"scene_id"`
+	Width   int `json:"width"`
+	Height  int `json:"height"`
+	Enterx  int `json:"enter_x"`
+	EnterY  int `json:"enter_y"`
+}
+
+type Cell struct {
+	CellID      int              `json:"cell_id"`
+	SceneId     int              `json:"scene_id"`
+	Bounds      shape.Rect       `json:"bounds"`    // 边界划分
+	EdgeSize    int              `json:"edge_size"` // 边缘宽度
+	RemoteAddr  string           `json:"remote_addr"`
+	IsFirstCell bool             `json:"is_first_cell"`
+	IsNew       bool             `json:"is_new"`
+	Session     *session.Session `json:"-"`
+}
+
+type SceneCelllsRequest struct {
+	SceneId int `json:"scene_id"`
+	CellId  int `json:"cell_id"`
+	Cells   []*Cell
+}
+
+type MigrateMonsterRequest struct {
+	SceneId       int                       `json:"scene_id"`
+	CellId        int                       `json:"cell_id"`
+	FromCellId    int                       `json:"from_cell_id"`
+	MonsterObject *object.MonsterObject     `json:"monster_object"`
+	MonsterData   *model.Monster            `json:"monster_data"`
+	Cfg           *model.SceneMonsterConfig `json:"cfg"`
+	AiData        *model.Aiconfig           `json:"ai_data"`
+	MovableRect   shape.Rect                `json:"movable_rect"`
+	PreparePaths  *path.SerialPaths         //预制的移动路径
+	XViewRange    int                       `json:"x_view_range"`
+	YViewRange    int                       `json:"y_view_range"`
+}
+
+type CreateGhostMonsterReq struct {
+	SceneId       int                       `json:"scene_id"`
+	CellId        int                       `json:"cell_id"`
+	FromCellId    int                       `json:"from_cell_id"`
+	MonsterObject *object.MonsterObject     `json:"monster_object"`
+	MonsterData   *model.Monster            `json:"monster_data"`
+	Cfg           *model.SceneMonsterConfig `json:"cfg"`
+	MovableRect   shape.Rect                `json:"movable_rect"`
+	XViewRange    int                       `json:"x_view_range"`
+	YViewRange    int                       `json:"y_view_range"`
+}
+
+type RemoveGhostMonsterReq struct {
+	SceneId   int   `json:"scene_id"`
+	CellId    int   `json:"cell_id"`
+	MonsterId int64 `json:"monster_id"`
+}
+
+type SyncGhostMonsterReq struct {
+	SceneId       int                   `json:"scene_id"`
+	CellId        int                   `json:"cell_id"`
+	MonsterId     int64                 `json:"monster_id"`
+	MonsterObject *object.MonsterObject `json:"monster_object"`
+}
+
+type GhostMonsterBeenHurtedReq struct {
+	SceneId   int   `json:"scene_id"`
+	CellId    int   `json:"cell_id"`
+	MonsterId int64 `json:"monster_id"`
+	Damage    int64 `json:"damage"`
+}
+
+type GhostMonsterBeenAttacedReq struct {
+	SceneId      int   `json:"scene_id"`
+	CellId       int   `json:"cell_id"`
+	MonsterId    int64 `json:"monster_id"`
+	AttackerId   int64 `json:"attacker_id"`
+	AttackerType int   `json:"attacker_type"`
 }
 
 type EncryptTest struct {

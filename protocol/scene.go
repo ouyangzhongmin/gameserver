@@ -183,3 +183,30 @@ type DynamicResetMonstersRequest struct {
 type ClientInitCompletedRequest struct {
 	IsReEnter bool `json:"isReenter"`
 }
+
+type CreateHeroGhostRequest struct {
+	Data *object.HeroObject `json:"data"`
+}
+
+type HeroGhostMovedRequest struct {
+	HeroId int64         `json:"hero_id"`
+	NewPos shape.Vector3 `json:"new_pos"`
+}
+
+type GhostEntity struct {
+	SceneID    int
+	Uuid       string
+	Id         int64
+	Name       string
+	EntityType int
+	Pos        shape.Vector3
+	//视野,屏幕可移动范围
+	ViewRect shape.Rect
+}
+
+// 简单的镜像体
+type GhostEntitySimple struct {
+	SceneID    int
+	Uuid       string
+	EntityType int
+}

@@ -4,6 +4,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"math/rand"
 	"time"
@@ -330,4 +331,11 @@ func (a *monsterai) clearChaseRect() {
 	a.chaseRect.Y = 0
 	a.chaseRect.Width = 0
 	a.chaseRect.Height = 0
+}
+
+func (a *monsterai) clear() {
+	a.readyUseSpell = nil
+	a.enemy = nil
+	a.monster = nil
+	a.aidata = nil
 }

@@ -36,6 +36,7 @@ type IMovableEntity interface {
 	GetViewRange() (int, int)
 	CanSee(target IEntity) bool
 	IsInViewList(target IMovableEntity) bool
+	IsGhost() bool
 }
 
 type IAiManager interface {
@@ -43,6 +44,7 @@ type IAiManager interface {
 	onBeenAttacked(target IMovableEntity)
 	GetAiData() interface{}
 	GetOwner() IMovableEntity
+	clear()
 }
 
 type IAoiManager interface {

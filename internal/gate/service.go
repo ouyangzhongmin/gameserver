@@ -1,9 +1,9 @@
 package gate
 
 import (
-	"github.com/lonng/nano/component"
-	"github.com/lonng/nano/session"
 	"github.com/ouyangzhongmin/gameserver/protocol"
+	"github.com/ouyangzhongmin/nano/component"
+	"github.com/ouyangzhongmin/nano/session"
 )
 
 var (

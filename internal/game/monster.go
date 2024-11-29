@@ -6,10 +6,12 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"math"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,16 +30,17 @@ type rebornMonster struct {
 type Monster struct {
 	*object.MonsterObject
 	movableEntity
-	tracePath      [][]int32 //当前移动路径
-	traceIndex     int       //当前已移动到第几步
-	traceTotalTime int64     //当前移动的总时间
-	movableRect    shape.Rect
-	aimgr          IAiManager
-	pathFinder     *PathFinder
-	preparePaths   *path.SerialPaths //预制的移动路径
-	cfg            *model.SceneMonsterConfig
-	bornPos        shape.Vector3
-	spells         []*object.SpellObject
+	tracePath       [][]int32 //当前移动路径
+	traceIndex      int       //当前已移动到第几步
+	traceTotalTime  int64     //当前移动的总时间
+	movableRect     shape.Rect
+	aimgr           IAiManager
+	pathFinder      *PathFinder
+	preparePaths    *path.SerialPaths //预制的移动路径
+	cfg             *model.SceneMonsterConfig
+	bornPos         shape.Vector3
+	spells          []*object.SpellObject
+	propertyChanged atomic.Bool
 }
 
 func NewMonster(data *model.Monster, offset int) *Monster {
@@ -46,6 +49,15 @@ func NewMonster(data *model.Monster, offset int) *Monster {
 	}
 	m.initEntity(m.MonsterObject.Id, data.Name, constants.ENTITY_TYPE_MONSTER, 128)
 	m.GameObject.Uuid = m.GetUUID()
+	return m
+}
+
+func NewMonster2(obj *object.MonsterObject, isGhost bool) *Monster {
+	m := &Monster{
+		MonsterObject: obj,
+	}
+	m.initEntity(m.MonsterObject.Id, obj.Name, constants.ENTITY_TYPE_MONSTER, 128)
+	m.isGhost = isGhost
 	return m
 }
 
@@ -98,6 +110,7 @@ func (m *Monster) SetPos(x, y, z shape.Coord) {
 		//fmt.Println("monster SetPos :", m._uuid, x, y, oldx, oldy)
 		//更新block数据 go的继承关系是组合关系，这个逻辑如果写在movableEntity会导致存储的对象是*moveableEntity，并不是*Monster
 		m.scene.entityMoved(m, x, y, oldx, oldy)
+		m.propertyChanged.Store(true)
 	}
 }
 
@@ -150,6 +163,7 @@ func (m *Monster) ToString() string {
 
 func (m *Monster) Destroy() {
 	if m.scene != nil {
+		m.scene.cellMgr.BeenDestroyed(m)
 		m.scene.removeMonster(m)
 	}
 	m.viewList.Range(func(key, value interface{}) bool {
@@ -162,7 +176,11 @@ func (m *Monster) Destroy() {
 	})
 	m.movableEntity.Destroy()
 	m.pathFinder = nil
+	if m.aimgr != nil {
+		m.aimgr.clear()
+	}
 	m.aimgr = nil
+
 }
 
 func (m *Monster) IsNpc() bool {
@@ -171,6 +189,9 @@ func (m *Monster) IsNpc() bool {
 
 // 广播给所有能看见自己的对象
 func (m *Monster) Broadcast(route string, msg interface{}) {
+	if m.IsGhost() {
+		return
+	}
 	m.PushTask(func() {
 		m.canSeeMeViewList.Range(func(key, value interface{}) bool {
 			switch val := value.(type) {
@@ -184,7 +205,10 @@ func (m *Monster) Broadcast(route string, msg interface{}) {
 
 // 动作状态
 func (m *Monster) SetState(state constants.ActionState) {
-	m.State = state
+	if m.State != state {
+		m.State = state
+		m.propertyChanged.Store(true)
+	}
 }
 
 func (m *Monster) GetState() constants.ActionState {
@@ -217,28 +241,29 @@ func (m *Monster) Escape() {
 
 func (m *Monster) Die() {
 	m.SetState(constants.ACTION_STATE_DIE)
-	logger.Debugf("hero:%d-%s die", m.GetID(), m._name)
-	m.Broadcast(protocol.OnEntityDie, &protocol.EntityDieResponse{
-		ID:         m.GetID(),
-		EntityType: constants.ENTITY_TYPE_MONSTER,
-	})
+	if !m.IsGhost() {
+		logger.Debugf("hero:%d-%s die", m.GetID(), m._name)
+		m.Broadcast(protocol.OnEntityDie, &protocol.EntityDieResponse{
+			ID:         m.GetID(),
+			EntityType: constants.ENTITY_TYPE_MONSTER,
+		})
+		// 加入复活队列中
+		m.scene.addRebornMonster(&rebornMonster{
+			Uid:             m.GetUUID(),
+			Data:            &m.MonsterObject.Data,
+			PreparePaths:    m.preparePaths,
+			MovableRect:     m.movableRect,
+			PathFinder:      m.pathFinder,
+			Aidata:          m.aimgr.GetAiData(),
+			Cfg:             m.cfg,
+			Spells:          m.spells,
+			RebornTimestamp: time.Now().UnixMilli() + int64(m.cfg.Reborn)*1000,
+		})
 
-	// 加入复活队列中
-	m.scene.addRebornMonster(&rebornMonster{
-		Uid:             m.GetUUID(),
-		Data:            &m.MonsterObject.Data,
-		PreparePaths:    m.preparePaths,
-		MovableRect:     m.movableRect,
-		PathFinder:      m.pathFinder,
-		Aidata:          m.aimgr.GetAiData(),
-		Cfg:             m.cfg,
-		Spells:          m.spells,
-		RebornTimestamp: time.Now().UnixMilli() + int64(m.cfg.Reborn)*1000,
-	})
-
-	m.PushTask(func() {
-		m.Destroy()
-	})
+		m.PushTask(func() {
+			m.Destroy()
+		})
+	}
 }
 
 // update都会在task携程内执行
@@ -259,6 +284,12 @@ func (m *Monster) update(curMilliSecond int64, elapsedTime int64) error {
 				spell.Update(elapsedTime)
 			}
 		}
+	}
+	if m.propertyChanged.Load() && m.HaveGhost() {
+		if m.scene != nil {
+			m.scene.cellMgr.PropertyChanged(m)
+		}
+		m.propertyChanged.Store(false)
 	}
 	return err
 }
@@ -285,6 +316,10 @@ func (m *Monster) updateMonsterPosition(curMilliSecond int64, elapsedTime int64)
 
 // 移动到目标位置
 func (m *Monster) MoveTo(x, y, z shape.Coord) error {
+	if m.IsGhost() {
+		logger.Warningln("Ghost can't MoveTo")
+		return nil
+	}
 	if m.GetPos().X == x && m.GetPos().Y == y {
 		//在目标点了
 		m.Idle()
@@ -301,6 +336,10 @@ func (m *Monster) MoveTo(x, y, z shape.Coord) error {
 }
 
 func (m *Monster) MoveByPaths(paths [][]int32) error {
+	if m.IsGhost() {
+		logger.Warningln("Ghost can't MoveByPaths")
+		return nil
+	}
 	if paths == nil || len(paths) == 0 {
 		return errors.New("monster没有路径可走")
 	}
@@ -372,14 +411,28 @@ func (m *Monster) IsInAttackRange(x, y shape.Coord) bool {
 	return int(math.Abs(float64(x-m.GetPos().X))) <= m.Data.AttackRange && int(math.Abs(float64(y-m.GetPos().Y))) <= m.Data.AttackRange
 }
 
-func (m *Monster) onBeenAttacked(target IMovableEntity) {
+func (m *Monster) onBeenAttacked(attacker IMovableEntity) {
 	if m.aimgr != nil {
-		m.aimgr.onBeenAttacked(target)
+		m.aimgr.onBeenAttacked(attacker)
+	}
+	if m.IsGhost() {
+		//  转发给real处理
+		if m.scene != nil {
+			m.scene.cellMgr.GhostBeenAttacked(m, attacker)
+		}
+		return
 	}
 }
 
 func (m *Monster) onBeenHurt(damage int64) {
 	m.PushTask(func() {
+		if m.IsGhost() {
+			//  转发给real处理
+			if m.scene != nil {
+				m.scene.cellMgr.GhostBeenHurted(m, damage)
+			}
+			return
+		}
 		if !m.IsAlive() {
 			logger.Warningln("hero is dead")
 			return
@@ -391,6 +444,7 @@ func (m *Monster) onBeenHurt(damage int64) {
 		if m.Life > m.MaxLife {
 			m.Life = m.MaxLife
 		}
+		m.propertyChanged.Store(true)
 		m.Broadcast(protocol.OnLifeChanged, &protocol.LifeChangedResponse{
 			ID:         m.GetID(),
 			EntityType: constants.ENTITY_TYPE_MONSTER,
@@ -407,6 +461,10 @@ func (m *Monster) onBeenHurt(damage int64) {
 
 func (m *Monster) manaCost(mana int64) {
 	m.PushTask(func() {
+		if m.IsGhost() {
+			logger.Warningln("Ghost can't manaCost")
+			return
+		}
 		if !m.IsAlive() {
 			logger.Warningln("monster is died")
 			return
@@ -418,6 +476,7 @@ func (m *Monster) manaCost(mana int64) {
 		if m.Mana > m.MaxMana {
 			m.Mana = m.MaxMana
 		}
+		m.propertyChanged.Store(true)
 		m.Broadcast(protocol.OnManaChanged, &protocol.ManaChangedResponse{
 			ID:         m.GetID(),
 			EntityType: constants.ENTITY_TYPE_MONSTER,
@@ -533,6 +592,10 @@ func (m *Monster) IsInSpellAttackRange(spell *object.SpellObject, x, y shape.Coo
 
 func (m *Monster) SpellAttack(spell *object.SpellObject, target IMovableEntity) error {
 	//logger.Debugf("monster:%d attack SpellAttack:%d-%d \n", m.GetID(),  a.readyUseSpell.Id, a.readyUseSpell.Name)
+	if m.IsGhost() {
+		logger.Warningln("Ghost can't SpellAttack")
+		return nil
+	}
 	if m.haveStepsToGo() {
 		m.Stop()
 	}

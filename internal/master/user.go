@@ -1,8 +1,8 @@
 package master
 
 import (
-	"github.com/lonng/nano/session"
 	"github.com/ouyangzhongmin/gameserver/db/model"
+	"github.com/ouyangzhongmin/nano/session"
 )
 
 type User struct {

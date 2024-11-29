@@ -2,12 +2,13 @@ package game
 
 import (
 	"fmt"
-	"github.com/lonng/nano/session"
 	constants2 "github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
+	"github.com/ouyangzhongmin/nano/session"
 	"time"
 )
 
@@ -231,14 +232,25 @@ func (h *Hero) onExitView(target IMovableEntity) {
 
 func (h *Hero) SendMsg(route string, msg interface{}) {
 	h.PushTask(func() {
-		if h.session != nil {
-			h.messagesCh <- routeMsg{
+		if h.isGhost {
+			//镜像体消息需要转发给real处理
+			err := h.session.RPC("SceneManager.GhostMessage", routeMsg{
 				Route: route,
 				Msg:   msg,
+			})
+			if err != nil {
+				logger.Errorln("rpc.SceneManager.GhostMessage err:", err)
 			}
-			//logger.Debugf("hero:%s msgchan len::%d", h._name, len(h.messagesCh))
 		} else {
-			logger.Warningln("hero.SendMsg err: hero is offline", route, msg)
+			if h.session != nil {
+				h.messagesCh <- routeMsg{
+					Route: route,
+					Msg:   msg,
+				}
+				//logger.Debugf("hero:%s msgchan len::%d", h._name, len(h.messagesCh))
+			} else {
+				logger.Warningln("hero.SendMsg err: hero is offline", route, msg)
+			}
 		}
 	})
 }
@@ -267,6 +279,7 @@ func (h *Hero) ToString() string {
 
 func (h *Hero) Destroy() {
 	if h.scene != nil {
+		h.scene.cellMgr.BeenDestroyed(h)
 		h.scene.removeHero(h)
 	}
 	h.viewList.Range(func(key, value interface{}) bool {
@@ -280,7 +293,9 @@ func (h *Hero) Destroy() {
 	h.movableEntity.Destroy()
 	if h.session != nil {
 		h.session.Clear()
-		h.session.Close()
+		if !h.isGhost {
+			h.session.Close()
+		}
 		h.bindSession(nil)
 	}
 	close(h.destroyCh)
@@ -332,6 +347,10 @@ func (h *Hero) Run() {
 }
 
 func (h *Hero) Die() {
+	if h.isGhost {
+		logger.Warnln("hero is Ghost, can't call Die:", h._id)
+		return
+	}
 	h.SetState(constants2.ACTION_STATE_DIE)
 	logger.Debugf("hero:%d-%s die", h.GetID(), h._name)
 	h.Broadcast(protocol.OnEntityDie, &protocol.EntityDieResponse{
@@ -381,6 +400,7 @@ func (h *Hero) clearTracePaths() {
 // 前端移动到目标位置
 func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error {
 	h.PushTask(func() {
+
 		//logger.Debugf("hero:%s moveByPaths:%v", h._name, paths)
 		if h.scene == nil {
 			return
@@ -400,17 +420,18 @@ func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error
 			firstStep := paths[0]
 			if h.GetPos().X != shape.Coord(firstStep[1]) || h.GetPos().Y != shape.Coord(firstStep[0]) {
 				h.SetPos(shape.Coord(firstStep[1]), shape.Coord(firstStep[0]), h.GetPos().Z)
-				//todo 这里看是否需要调用scene.refreshEntityViewList立即刷新视野
 			}
 		}
-		h.Broadcast(protocol.OnHeroMoveTrace, &protocol.HeroMoveTraceResponse{
-			ID:         h.GetID(),
-			TracePaths: paths,
-			StepTime:   h.StepTime,
-			PosX:       h.GetPos().X,
-			PosY:       h.GetPos().Y,
-			PosZ:       h.GetPos().Z,
-		}, false)
+		if !h.isGhost {
+			h.Broadcast(protocol.OnHeroMoveTrace, &protocol.HeroMoveTraceResponse{
+				ID:         h.GetID(),
+				TracePaths: paths,
+				StepTime:   h.StepTime,
+				PosX:       h.GetPos().X,
+				PosY:       h.GetPos().Y,
+				PosZ:       h.GetPos().Z,
+			}, false)
+		}
 	})
 	return nil
 }
@@ -419,22 +440,29 @@ func (h *Hero) MoveStop(x, y, z shape.Coord) error {
 	h.PushTask(func() {
 		h.clearTracePaths()
 		h.SetPos(x, y, z)
-		h.Broadcast(protocol.OnHeroMoveStopped, &protocol.HeroMoveStopResponse{
-			ID:   h.GetID(),
-			PosX: h.GetPos().X,
-			PosY: h.GetPos().Y,
-			PosZ: h.GetPos().Z,
-		}, false)
+		if !h.isGhost {
+			h.Broadcast(protocol.OnHeroMoveStopped, &protocol.HeroMoveStopResponse{
+				ID:   h.GetID(),
+				PosX: h.GetPos().X,
+				PosY: h.GetPos().Y,
+				PosZ: h.GetPos().Z,
+			}, false)
+		}
 	})
 	return nil
 }
 
 func (h *Hero) AttackTarget(targetId int64) error {
+	if !h.isGhost {
+
+	}
 	return nil
 }
 
 func (h *Hero) BeenAttacked(damage int64) (int, error) {
+	if !h.isGhost {
 
+	}
 	return 0, nil
 }
 
@@ -444,27 +472,31 @@ func (h *Hero) CanAttackTarget(target IEntity) bool {
 
 func (h *Hero) onBeenHurt(damage int64) {
 	h.PushTask(func() {
-		if !h.IsAlive() {
-			logger.Warningln("hero is dead")
-			return
-		}
-		h.Life -= damage
-		if h.Life < 0 {
-			h.Life = 0
-		}
-		if h.Life > h.MaxLife {
-			h.Life = h.MaxLife
-		}
-		h.Broadcast(protocol.OnLifeChanged, &protocol.LifeChangedResponse{
-			ID:         h.GetID(),
-			EntityType: constants2.ENTITY_TYPE_HERO,
-			Damage:     damage,
-			Life:       h.Life,
-			MaxLife:    h.MaxLife,
-		}, true)
-		if h.Life <= 0 {
-			h.Die()
-			//死亡了
+		if h.isGhost {
+
+		} else {
+			if !h.IsAlive() {
+				logger.Warningln("hero is dead")
+				return
+			}
+			h.Life -= damage
+			if h.Life < 0 {
+				h.Life = 0
+			}
+			if h.Life > h.MaxLife {
+				h.Life = h.MaxLife
+			}
+			h.Broadcast(protocol.OnLifeChanged, &protocol.LifeChangedResponse{
+				ID:         h.GetID(),
+				EntityType: constants2.ENTITY_TYPE_HERO,
+				Damage:     damage,
+				Life:       h.Life,
+				MaxLife:    h.MaxLife,
+			}, true)
+			if h.Life <= 0 {
+				h.Die()
+				//死亡了
+			}
 		}
 	})
 }
@@ -474,23 +506,27 @@ func (h *Hero) onBeenAttacked(target IMovableEntity) {
 
 func (h *Hero) manaCost(mana int64) {
 	h.PushTask(func() {
-		if !h.IsAlive() {
-			logger.Warningln("hero is dead")
-			return
+		if h.isGhost {
+
+		} else {
+			if !h.IsAlive() {
+				logger.Warningln("hero is dead")
+				return
+			}
+			h.Mana -= mana
+			if h.Mana < 0 {
+				h.Mana = 0
+			}
+			if h.Mana > h.MaxMana {
+				h.Mana = h.MaxMana
+			}
+			h.Broadcast(protocol.OnManaChanged, &protocol.ManaChangedResponse{
+				ID:         h.GetID(),
+				EntityType: constants2.ENTITY_TYPE_HERO,
+				Cost:       mana,
+				Mana:       h.Mana,
+				MaxMana:    h.MaxMana,
+			}, true)
 		}
-		h.Mana -= mana
-		if h.Mana < 0 {
-			h.Mana = 0
-		}
-		if h.Mana > h.MaxMana {
-			h.Mana = h.MaxMana
-		}
-		h.Broadcast(protocol.OnManaChanged, &protocol.ManaChangedResponse{
-			ID:         h.GetID(),
-			EntityType: constants2.ENTITY_TYPE_HERO,
-			Cost:       mana,
-			Mana:       h.Mana,
-			MaxMana:    h.MaxMana,
-		}, true)
 	})
 }

@@ -27,6 +27,10 @@ type movableEntity struct {
 	viewRect shape.Rect
 
 	buffers map[int]*Buffer
+
+	isGhost     bool //是否是镜像体, 针对超大无缝地图的英雄镜像实现
+	realCellId  int  // 记录本体在哪个cell
+	ghostCellId int  // 记录ghost在哪个cell
 }
 
 func (m *movableEntity) initEntity(id int64, name string, entityType int, bufSize int) {
@@ -167,19 +171,28 @@ func (m *movableEntity) CanSee(target IEntity) bool {
 
 func (m *movableEntity) addBuffer(owner IMovableEntity, state *model.BufferState) {
 	m.PushTask(func() {
-		if o, ok := m.buffers[state.Id]; ok {
-			//叠加
-			o.Add(state)
+		if m.isGhost {
+
 		} else {
-			o := NewBuffer(owner, state)
-			m.buffers[state.Id] = o
+			if o, ok := m.buffers[state.Id]; ok {
+				//叠加
+				o.Add(state)
+			} else {
+				o := NewBuffer(owner, state)
+				m.buffers[state.Id] = o
+			}
 		}
+
 	})
 }
 
 func (m *movableEntity) removeBuffer(bufId int) {
 	m.PushTask(func() {
-		delete(m.buffers, bufId)
+		if m.isGhost {
+
+		} else {
+			delete(m.buffers, bufId)
+		}
 	})
 }
 
@@ -195,4 +208,17 @@ func (m *movableEntity) GetBuffers() []*object.BufferObject {
 		result = append(result, buf.BufferObject)
 	}
 	return result
+}
+
+// 是否拥有镜像
+func (m *movableEntity) HaveGhost() bool {
+	return m.ghostCellId > 0
+}
+
+func (m *movableEntity) IsGhost() bool {
+	return m.isGhost
+}
+
+func (m *movableEntity) clearGhost() {
+	m.ghostCellId = 0
 }

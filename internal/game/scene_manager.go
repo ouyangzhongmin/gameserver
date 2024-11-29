@@ -3,22 +3,21 @@ package game
 import (
 	"errors"
 	"github.com/ouyangzhongmin/gameserver/db"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/protocol"
+	"github.com/ouyangzhongmin/nano"
 	"time"
 
-	"github.com/lonng/nano/component"
-	"github.com/lonng/nano/session"
-)
-
-const (
-	fieldDesk = "desk"
+	"github.com/ouyangzhongmin/nano/component"
+	"github.com/ouyangzhongmin/nano/session"
 )
 
 type (
 	SceneManager struct {
 		component.Base
-		scenes   map[int]*Scene
-		sceneIds []int
+		scenes        map[int]*Scene
+		sceneIds      []int
+		masterSession *session.Session // 用于直接调用master的rpc session
 	}
 )
 
@@ -33,6 +32,14 @@ func NewSceneManager() *SceneManager {
 
 func (manager *SceneManager) setSceneIds(sceneIds []int) {
 	manager.sceneIds = append(manager.sceneIds, sceneIds...)
+}
+
+func (manager *SceneManager) setMasterAddr(addr string) {
+	s, err := nano.NewRpcSession(addr)
+	if err != nil {
+		panic(err)
+	}
+	manager.masterSession = s
 }
 
 func (manager *SceneManager) AfterInit() {
@@ -60,24 +67,87 @@ func (manager *SceneManager) AfterInit() {
 			Scene:             sceneData,
 			DoorList:          doorList,
 			MonsterConfigList: configList,
-		})
+		}, manager.masterSession)
 		manager.scenes[sceneData.Id] = scene
+
+		err = manager.masterSession.RPC("Manager.RegisterSceneCell", &protocol.RegisterSceneCellRequest{
+			SceneId: scene.sceneId,
+			Width:   int(scene.GetWidth()),
+			Height:  int(scene.GetHeight()),
+			Enterx:  sceneData.Enterx,
+			EnterY:  sceneData.Entery,
+		})
+		if err != nil {
+			// 这里如果注册失败了，后面的逻辑都无法实现
+			panic(err)
+		}
 	}
+}
+
+func (manager *SceneManager) SceneCells(s *session.Session, req *protocol.SceneCelllsRequest) error {
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	err := scene.cellMgr.updateCells(req.CellId, req.Cells)
+	if err != nil {
+		panic(err)
+	}
+	//只有第一个服务器才能生成
+	if scene.cellMgr.curCell.IsFirstCell && scene.cellMgr.curCell.IsNew {
+		scene.initMonsters()
+	}
+	//迁移对象
+	err = scene.cellMgr.migrateEntities()
+	if err != nil {
+		panic(err)
+	}
+	return nil
+}
+
+func (manager *SceneManager) CheckHealth(s *session.Session, req interface{}) error {
+	// 这个只需要返回nil
+	return nil
+}
+
+// 迁移
+func (manager *SceneManager) MigrateMonster(s *session.Session, req *protocol.MigrateMonsterRequest) error {
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.migrateMonsterFromOtherCell(req)
+}
+
+// 创建镜像
+func (manager *SceneManager) CreateGhostMonster(s *session.Session, req *protocol.CreateGhostMonsterReq) error {
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.createGhostMonsterFromOtherCell(req)
+}
+
+// 删除镜像
+func (manager *SceneManager) RemoveGhostMonster(s *session.Session, req *protocol.RemoveGhostMonsterReq) error {
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.removeGhostMonsterFromOtherCell(req)
+}
+
+// 同步镜像数据
+func (manager *SceneManager) SyncGhostMonster(s *session.Session, req *protocol.SyncGhostMonsterReq) error {
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.updateGhostMonsterFromOtherCell(req)
 }
 
 func (manager *SceneManager) GetScene(sceneId int) *Scene {
 	return manager.scenes[sceneId]
-}
-
-func (manager *SceneManager) onPlayerDisconnect(s *session.Session) error {
-	p, err := heroWithSession(s)
-	if err != nil {
-		return err
-	}
-	logger.Println("SceneManager.onPlayerDisconnect: 玩家网络断开", p.scene)
-	p.bindSession(nil)
-	p.Destroy()
-	return nil
 }
 
 func (manager *SceneManager) HeroEnterScene(s *session.Session, req *protocol.HeroEnterSceneRequest) error {
@@ -116,6 +186,17 @@ func (manager *SceneManager) HeroLeaveScene(s *session.Session, req *protocol.He
 	hero := v.(*Hero)
 	logger.Debugf("hero:%d_%s 离开场景:%d", hero.GetID(), hero._name, req.SceneId)
 	hero.DestroyWithoutSession()
+	return nil
+}
+
+func (manager *SceneManager) onPlayerDisconnect(s *session.Session) error {
+	p, err := heroWithSession(s)
+	if err != nil {
+		return err
+	}
+	logger.Println("SceneManager.onPlayerDisconnect: 玩家网络断开", p.scene)
+	p.bindSession(nil)
+	p.Destroy()
 	return nil
 }
 
@@ -241,4 +322,14 @@ func (manager *SceneManager) DynamicResetMonsters(s *session.Session, req *proto
 		time.Sleep(300 * time.Millisecond)
 	}
 	return nil
+}
+
+// 创建镜像体
+func (manager *SceneManager) CreateHeroGhost(s *session.Session, req *protocol.CreateHeroGhostRequest) {
+
+}
+
+// 镜像体移动了
+func (manager *SceneManager) HeroGhostMoved(s *session.Session, req *protocol.HeroGhostMovedRequest) {
+
 }

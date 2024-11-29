@@ -1,9 +1,9 @@
 package game
 
 import (
-	"github.com/lonng/nano/session"
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/pkg/errutil"
+	"github.com/ouyangzhongmin/nano/session"
 )
 
 func heroWithSession(s *session.Session) (*Hero, error) {

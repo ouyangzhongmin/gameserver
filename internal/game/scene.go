@@ -3,18 +3,20 @@ package game
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/lonng/nano/scheduler"
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/async"
 	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
-	log "github.com/sirupsen/logrus"
+	"github.com/ouyangzhongmin/nano/scheduler"
+	"github.com/ouyangzhongmin/nano/session"
 	"math"
 	"math/rand"
 	"strconv"
@@ -34,7 +36,6 @@ type SceneData struct {
 }
 
 type Scene struct {
-	logger    *log.Entry
 	sceneId   int
 	sceneData *SceneData
 	blockInfo *BlockInfo
@@ -46,6 +47,7 @@ type Scene struct {
 	chStop          chan struct{}
 	toBuildViewList sync.Map
 	aoiMgr          *aoiMgr
+	cellMgr         *cellMgr
 
 	rebornMonsters sync.Map
 
@@ -56,15 +58,16 @@ type Scene struct {
 	//每次更新的时间戳
 	lastUpdateTimeStamp     int64
 	refreshViewListDelatime int64
+	masterSession           *session.Session
 }
 
-func NewScene(sceneData *SceneData) *Scene {
+func NewScene(sceneData *SceneData, masterSession *session.Session) *Scene {
 	s := &Scene{
-		sceneId:   sceneData.Scene.Id,
-		sceneData: sceneData,
-		logger:    log.WithField(fieldDesk, sceneData.Scene.Id),
-		chTasks:   make(chan scheduler.Task, SCENE_CHAN_BUFFER_SIZE),
-		chStop:    make(chan struct{}),
+		sceneId:       sceneData.Scene.Id,
+		sceneData:     sceneData,
+		chTasks:       make(chan scheduler.Task, SCENE_CHAN_BUFFER_SIZE),
+		chStop:        make(chan struct{}),
+		masterSession: masterSession,
 	}
 	s.blockInfo = NewBlockInfo()
 	buf, err := fileutil.ReadFile(fileutil.FindResourcePth(fmt.Sprintf("blocks/%s.block", s.sceneData.MapFile)))
@@ -78,11 +81,12 @@ func NewScene(sceneData *SceneData) *Scene {
 	w := s.blockInfo.GetWidth()
 
 	s.aoiMgr = newAoiMgr(int(w), int(w/constants.SCENE_AOI_GRID_SIZE))
+	s.cellMgr = newCellMgr(s)
 
 	s.updateTicker = time.NewTicker(100 * time.Millisecond)
 	go s._tasksFunc()
 	s.initTimer()
-	s.initMonsters()
+	//s.initMonsters()
 
 	s.lastUpdateTimeStamp = time.Now().UnixMilli()
 	return s
@@ -213,6 +217,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 
 	for i := 0; i < cfg.Total; i++ {
 		m := NewMonster(monsterData, i+1)
+		m.realCellId = s.cellMgr.curCell.CellID
 		m.SetSceneMonsterConfig(&cfg)
 		if spaths != nil && len(spaths) > 0 {
 			//预制路径
@@ -244,6 +249,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 // 复活一个monster
 func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 	m := NewMonster(rm.Data, 0)
+	m.realCellId = s.cellMgr.curCell.CellID
 	m.SetSceneMonsterConfig(rm.Cfg)
 	m.SetMovableRect(rm.MovableRect)
 	if rm.PreparePaths != nil {
@@ -265,7 +271,88 @@ func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 	m.SetSpells(rm.Spells)
 	m.bornPos.Copy(m.GetPos())
 	s.addMonster(m)
+}
 
+// 从其他cell迁移过来的对象
+func (s *Scene) migrateMonsterFromOtherCell(data *protocol.MigrateMonsterRequest) error {
+	if s.cellMgr.curCell.CellID != data.CellId {
+		return errors.New("migrateMonsterFromOtherCell err: cellId非法")
+	}
+	if tmp, ok := s.monsters.Load(data.MonsterObject.Id); ok {
+		tmpm := tmp.(*Monster)
+		logger.Warningln("migrateMonsterFromOtherCell: 当前cell已经存在monster:", data.MonsterObject.Id, tmpm.isGhost)
+		tmpm.Destroy()
+	}
+	data.MonsterObject.Data = *data.MonsterData
+	data.MonsterObject.Name = data.MonsterObject.Name + fmt.Sprintf("-cell-%d", data.CellId)
+	m := NewMonster2(data.MonsterObject, false)
+	m.realCellId = data.CellId
+	m.SetViewRange(data.XViewRange, data.YViewRange)
+	m.SetSceneMonsterConfig(data.Cfg)
+	m.SetMovableRect(data.MovableRect)
+	if data.PreparePaths != nil {
+		m.SetPreparePaths(data.PreparePaths)
+	}
+	m.SetPos(data.MonsterObject.Posx, data.MonsterObject.Posy, data.MonsterObject.Posz)
+	if data.AiData != nil {
+		m.SetAiData(newMonsterAi(m, data.AiData))
+	}
+	//m.SetSpells(rm.Spells)
+	m.bornPos.Copy(m.GetPos())
+	s.addMonster(m)
+	// 检测新迁移过来的对象是不是在边缘， 如果在边缘则反向cell内创建一个ghost
+	s.cellMgr.ghostMonsterIfInEdge(m)
+	return nil
+}
+
+// 从其他cell过来要构建的ghost
+func (s *Scene) createGhostMonsterFromOtherCell(data *protocol.CreateGhostMonsterReq) error {
+	if s.cellMgr.curCell.CellID != data.CellId {
+		return errors.New("createGhostMonsterFromOtherCell err: cellId非法")
+	}
+	if tmp, ok := s.monsters.Load(data.MonsterObject.Id); ok {
+		tmpm := tmp.(*Monster)
+		logger.Warningln("createGhostMonsterFromOtherCell: 当前cell已经存在monster:", data.MonsterObject.Id, tmpm.isGhost)
+		tmpm.Destroy()
+	}
+	data.MonsterObject.Data = *data.MonsterData
+	data.MonsterObject.Name = data.MonsterObject.Name + fmt.Sprintf("-cell-%d-ghost-from-cell:%d", data.CellId, data.FromCellId)
+	m := NewMonster2(data.MonsterObject, true)
+	m.realCellId = data.FromCellId // 这个需要记录下来
+	m.SetSceneMonsterConfig(data.Cfg)
+	m.SetMovableRect(data.MovableRect)
+	m.SetPos(data.MonsterObject.Posx, data.MonsterObject.Posy, data.MonsterObject.Posz)
+	//m.SetSpells(rm.Spells)
+	m.bornPos.Copy(m.GetPos())
+	s.addMonster(m)
+	return nil
+}
+
+// 其他cell通知清除掉Ghost
+func (s *Scene) removeGhostMonsterFromOtherCell(data *protocol.RemoveGhostMonsterReq) error {
+	if tmp, ok := s.monsters.Load(data.MonsterId); ok {
+		tmpm := tmp.(*Monster)
+		if !tmpm.isGhost {
+			logger.Warningln("removeGhostMonsterFromOtherCell: 当前cell不是Ghost状态", data.MonsterId, tmpm.isGhost)
+		}
+		tmpm.Destroy()
+		return nil
+	}
+	return errors.New("未找到monster ghost")
+}
+
+// 其他cell通知清除掉Ghost
+func (s *Scene) updateGhostMonsterFromOtherCell(data *protocol.SyncGhostMonsterReq) error {
+	if tmp, ok := s.monsters.Load(data.MonsterId); ok {
+		tmpm := tmp.(*Monster)
+		if !tmpm.isGhost {
+			logger.Warningln("updateGhostMonsterFromOtherCell: 当前cell不是Ghost状态", data.MonsterId, tmpm.isGhost)
+			return errors.New("找到的monster不是ghost")
+		}
+		tmpm.MonsterObject.Copy(data.MonsterObject)
+		return nil
+	}
+	return errors.New("未找到monster ghost")
 }
 
 func (s *Scene) GetSceneId() int {
@@ -291,7 +378,9 @@ func (s *Scene) Stop() {
 func (s *Scene) totalPlayerCount() int {
 	l := 0
 	s.heros.Range(func(k, v interface{}) bool {
-		l++
+		if v != nil && !v.(*Hero).isGhost {
+			l++
+		}
 		return true
 	})
 	return l
@@ -373,7 +462,16 @@ func (s *Scene) entityMoved(e IMovableEntity, x, y, oldX, oldY shape.Coord) {
 	if oldX != x || oldY != y {
 		s.PushTask(func() {
 			s.aoiMgr.Moved(e, x, y, oldX, oldY)
-			s.addToBuildViewList(e)
+
+			leaveCell, err := s.cellMgr.Moved(e, oldX, oldY)
+			if err != nil {
+				logger.Errorln(err)
+				return
+			}
+			if !leaveCell {
+				//还在本cell内
+				s.addToBuildViewList(e)
+			}
 		})
 	}
 }
@@ -451,6 +549,9 @@ func (s *Scene) save() error {
 }
 
 func (s *Scene) addToBuildViewList(e IMovableEntity) {
+	if e.IsGhost() {
+		return
+	}
 	s.PushTask(func() {
 		s.toBuildViewList.Store(e.GetUUID(), e)
 	})

@@ -3,8 +3,9 @@ package game
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/lonng/nano/scheduler"
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/nano/scheduler"
 	"sync/atomic"
 )
 

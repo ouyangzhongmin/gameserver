@@ -3,18 +3,19 @@ package master
 import (
 	"errors"
 	"fmt"
-	"github.com/lonng/nano/scheduler"
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/async"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
+	"github.com/ouyangzhongmin/nano/scheduler"
 	"sync"
 	"time"
 
-	"github.com/lonng/nano"
-	"github.com/lonng/nano/component"
-	"github.com/lonng/nano/session"
+	"github.com/ouyangzhongmin/nano"
+	"github.com/ouyangzhongmin/nano/component"
+	"github.com/ouyangzhongmin/nano/session"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,6 +36,7 @@ type (
 		chScene    chan int
 
 		scenesCount sync.Map
+		scenesCells map[int][]*protocol.Cell
 	}
 
 	RechargeInfo struct {
@@ -45,12 +47,13 @@ type (
 
 func NewManager() *Manager {
 	return &Manager{
-		group:      nano.NewGroup("_SYSTEM_MESSAGE_BROADCAST"),
-		players:    map[int64]*User{},
-		chKick:     make(chan int64, kickResetBacklog),
-		chReset:    make(chan int64, kickResetBacklog),
-		chRecharge: make(chan RechargeInfo, 32),
-		chScene:    make(chan int, 32),
+		group:       nano.NewGroup("_SYSTEM_MESSAGE_BROADCAST"),
+		players:     map[int64]*User{},
+		chKick:      make(chan int64, kickResetBacklog),
+		chReset:     make(chan int64, kickResetBacklog),
+		chRecharge:  make(chan RechargeInfo, 32),
+		chScene:     make(chan int, 32),
+		scenesCells: make(map[int][]*protocol.Cell),
 	}
 }
 
@@ -290,6 +293,82 @@ func (m *Manager) HeroChangeScene(s *session.Session, req *protocol.HeroChangeSc
 	}
 	err = db.UpdateHero(&model.Hero{Id: user.heroData.Id, SceneId: user.heroData.SceneId})
 	return err
+}
+
+func (m *Manager) RegisterSceneCell(s *session.Session, req *protocol.RegisterSceneCellRequest) error {
+	sceneId := req.SceneId
+	//停止的时候要考虑怎么清理掉
+	cells, ok := m.scenesCells[sceneId]
+	bounds := shape.Rect{0, 0, int64(req.Width), int64(req.Height)}
+	isFirstCell := false
+	if !ok {
+		cells = make([]*protocol.Cell, 0)
+		m.scenesCells[sceneId] = cells
+		isFirstCell = true
+	} else {
+		m.checkSceneCells(cells)
+		cellsLen := len(cells)
+		//这里只做竖向一刀切，不做横竖九宫格类似的
+		cutW := req.Width / (cellsLen + 1)
+		for i := 0; i < cellsLen; i++ {
+			//旧的也要变更
+			tmp := cells[i]
+			tmp.IsNew = false
+			tmp.Bounds = shape.Rect{int64(i * cutW), 0, int64(cutW), int64(req.Height)}
+		}
+		bounds = shape.Rect{int64(cellsLen * cutW), 0, int64(cutW), int64(req.Height)}
+	}
+	cellId := sceneId*10000 + len(cells) + 1
+	c := &protocol.Cell{
+		CellID:      cellId,
+		SceneId:     sceneId,
+		Bounds:      bounds,
+		EdgeSize:    60,
+		RemoteAddr:  s.RemoteAddr().String(),
+		IsFirstCell: isFirstCell,
+		IsNew:       true,
+		Session:     s,
+	}
+	s.Set("cellId", cellId)
+	s.Set("sceneId", sceneId)
+	cells = append(cells, c)
+	for i := 0; i < len(cells); i++ {
+		//通知到scene的具体的cell信息
+		tmp := cells[i]
+		err := tmp.Session.RPC("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
+			SceneId: tmp.SceneId,
+			CellId:  tmp.CellID,
+			Cells:   cells,
+		})
+		if err != nil {
+			// todo 这里需要确保能把cell信息通知到
+			logger.Warningln("cell.SceneManager.SceneCells err:", err)
+			continue
+		}
+	}
+	return nil
+}
+
+func (m *Manager) checkSceneCells(cells []*protocol.Cell) {
+	for i := len(cells) - 1; i >= 0; i-- {
+		//旧的也要变更
+		tmp := cells[i]
+		if tmp.Session == nil {
+			cells = append(cells[:i], cells[i+1:]...)
+			logger.Warningln("cell.Session == nil")
+			continue
+		}
+		err := tmp.Session.RPC("SceneManager.CheckHealth", nil)
+		if err != nil {
+			cells = append(cells[:i], cells[i+1:]...)
+			logger.Warningln("cell.SceneManager.CheckHealth err:", err)
+			continue
+		}
+	}
+}
+
+func (m *Manager) getSceneCellId(hero *model.Hero) {
+
 }
 
 func (m *Manager) player(uid int64) (*User, bool) {

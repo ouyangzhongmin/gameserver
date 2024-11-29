@@ -2,10 +2,10 @@ package master
 
 import (
 	"fmt"
-	"github.com/lonng/nano"
-	"github.com/lonng/nano/cluster/clusterpb"
-	"github.com/lonng/nano/serialize/json"
-	"github.com/lonng/nano/session"
+	"github.com/ouyangzhongmin/nano"
+	"github.com/ouyangzhongmin/nano/cluster/clusterpb"
+	"github.com/ouyangzhongmin/nano/serialize/json"
+	"github.com/ouyangzhongmin/nano/session"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"strings"
@@ -38,6 +38,7 @@ func Startup() {
 		nano.WithComponents(comps),
 		nano.WithCustomerRemoteServiceRoute(customerRemoteServiceRoute),
 	)
+
 }
 
 // 集群模式下，需要获取用户所在的game node调用rpc
