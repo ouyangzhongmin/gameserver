@@ -15,7 +15,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano/scheduler"
-	"github.com/ouyangzhongmin/nano/session"
 	"math"
 	"math/rand"
 	"strconv"
@@ -57,16 +56,16 @@ type Scene struct {
 	//每次更新的时间戳
 	lastUpdateTimeStamp     int64
 	refreshViewListDelatime int64
-	masterSession           *session.Session
+	masterAddr              string
 }
 
-func NewScene(sceneData *SceneData, masterSession *session.Session) *Scene {
+func NewScene(sceneData *SceneData, masterAddr string) *Scene {
 	s := &Scene{
-		sceneId:       sceneData.Scene.Id,
-		sceneData:     sceneData,
-		chTasks:       make(chan scheduler.Task, SCENE_CHAN_BUFFER_SIZE),
-		chStop:        make(chan struct{}),
-		masterSession: masterSession,
+		sceneId:    sceneData.Scene.Id,
+		sceneData:  sceneData,
+		chTasks:    make(chan scheduler.Task, SCENE_CHAN_BUFFER_SIZE),
+		chStop:     make(chan struct{}),
+		masterAddr: masterAddr,
 	}
 	s.blockInfo = NewBlockInfo()
 	buf, err := fileutil.ReadFile(fileutil.FindResourcePth(fmt.Sprintf("blocks/%s.block", s.sceneData.MapFile)))

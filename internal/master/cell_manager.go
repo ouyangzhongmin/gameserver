@@ -70,14 +70,14 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		}
 	}
 	cellId := sceneId*10000 + len(scell.Cells) + 1
-	newsession, err := nano.NewRpcSession(req.GateAddr)
-	if err != nil {
-		return err
-	}
-	newsession.Set("cellId", cellId)
-	newsession.Set("sceneId", sceneId)
-	newsession.Set("remoteAddr", req.RemoteAddr)
-	newsession.Router().Bind("SceneManager", req.RemoteAddr)
+	//newsession, err := nano.NewRpcSession(req.GateAddr)
+	//if err != nil {
+	//	return err
+	//}
+	//newsession.Set("cellId", cellId)
+	//newsession.Set("sceneId", sceneId)
+	//newsession.Set("remoteAddr", req.RemoteAddr)
+	//newsession.Router().Bind("SceneManager", req.RemoteAddr)
 	c := &protocol.Cell{
 		CellID:      cellId,
 		SceneId:     sceneId,
@@ -87,7 +87,7 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		GateAddr:    req.GateAddr,
 		IsFirstCell: len(scell.Cells) == 0,
 		IsNew:       true,
-		Session:     newsession,
+		//Session:     newsession,
 	}
 
 	scell.Cells = append(scell.Cells, c)
@@ -95,11 +95,11 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		//通知到scene的具体的cell信息
 		tmp := scell.Cells[i]
 		logger.Printf("当前场景cell:%d, remoteAddr:%s \n", tmp.CellID, tmp.RemoteAddr)
-		err := tmp.Session.RPC("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
+		err := nano.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
 			SceneId: tmp.SceneId,
 			CellId:  tmp.CellID,
 			Cells:   scell.Cells,
-		})
+		}, tmp.RemoteAddr)
 		if err != nil {
 			// todo 这里需要确保能把cell信息通知到
 			logger.Errorln("cell.SceneManager.SceneCells err:", err)
@@ -113,12 +113,12 @@ func (m *CellManager) checkSceneCells(scell *sceneCell, remoteAddr string) {
 	for i := len(scell.Cells) - 1; i >= 0; i-- {
 		//旧的也要变更
 		tmp := scell.Cells[i]
-		if tmp.Session == nil {
+		if tmp.RemoteAddr == "" {
 			scell.Cells = append(scell.Cells[:i], scell.Cells[i+1:]...)
 			logger.Errorln("cell.Session == nil")
 			continue
 		}
-		err := tmp.Session.RPC("SceneManager.CheckCellHealth", &protocol.CheckCellHealthRequest{V: 1})
+		err := nano.RPCWithAddr("SceneManager.CheckCellHealth", &protocol.CheckCellHealthRequest{V: 1}, tmp.RemoteAddr)
 		if err != nil {
 			scell.Cells = append(scell.Cells[:i], scell.Cells[i+1:]...)
 			logger.Errorln("cell.SceneManager.CheckHealth err:", err)
@@ -217,12 +217,12 @@ func (m *CellManager) updateCellWithMemberShutdown(remoteAddr string) {
 		for i := len(scell.Cells) - 1; i >= 0; i-- {
 			//旧的也要变更
 			tmp := scell.Cells[i]
-			if tmp.Session == nil {
+			if tmp.RemoteAddr == "" {
 				scell.Cells = append(scell.Cells[:i], scell.Cells[i+1:]...)
-				logger.Errorln("cell.Session == nil")
+				logger.Errorln("cell.RemoteAddr is empty")
 				continue
 			}
-			err := tmp.Session.RPC("SceneManager.CheckHealth", nil)
+			err := nano.RPCWithAddr("SceneManager.CheckHealth", &protocol.CheckCellHealthRequest{V: 1}, tmp.RemoteAddr)
 			if err != nil {
 				scell.Cells = append(scell.Cells[:i], scell.Cells[i+1:]...)
 				logger.Errorln("cell.SceneManager.CheckHealth err:", err)

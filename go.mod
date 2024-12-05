@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.6.2
 	github.com/lonng/nex v1.4.1
-	github.com/ouyangzhongmin/nano v0.5.7
+	github.com/ouyangzhongmin/nano v0.5.10
 	github.com/pborman/uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/viper v1.2.1

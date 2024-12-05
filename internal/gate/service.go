@@ -31,7 +31,10 @@ func (ts *GateService) RecordScene(s *session.Session, msg *protocol.UserSceneId
 	s.Bind(msg.Uid)
 	s.Set("sceneId", msg.SceneId)
 	s.Set("cellId", msg.CellId)
-	s.Set("remoteAddr", msg.RemoteAddr)
-	s.Router().Bind("SceneManager", msg.RemoteAddr)
+	if msg.RemoteAddr != "" {
+		s.Set("remoteAddr", msg.RemoteAddr)
+		s.Router().Bind("SceneManager", msg.RemoteAddr)
+	}
+
 	return nil
 }

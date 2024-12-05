@@ -364,7 +364,7 @@ func (m *Manager) SceneInfoCallBack(s *session.Session, req *protocol.SceneInfoR
 func (m *Manager) reqSceneInfo() {
 	for _, scene := range cellManager.scenesCells {
 		for _, scell := range scene.Cells {
-			err := scell.Session.RPC("SceneManager.SceneInfo", &protocol.SceneInfoRequest{})
+			err := nano.RPCWithAddr("SceneManager.SceneInfo", &protocol.SceneInfoRequest{}, scell.RemoteAddr)
 			if err != nil {
 				logger.Errorln(err)
 				return

@@ -15,12 +15,11 @@ import (
 type (
 	SceneManager struct {
 		component.Base
-		scenes        map[int]*Scene
-		sceneIds      []int
-		masterAddr    string
-		nodeAddr      string
-		gateAddr      string
-		masterSession *session.Session // 用于直接调用master的rpc session
+		scenes     map[int]*Scene
+		sceneIds   []int
+		masterAddr string
+		nodeAddr   string
+		gateAddr   string
 	}
 )
 
@@ -52,12 +51,6 @@ func (manager *SceneManager) AfterInit() {
 	})
 
 	time.AfterFunc(time.Millisecond*1000, func() {
-		s, err := nano.NewRpcSession(manager.masterAddr)
-		if err != nil {
-			panic(err)
-		}
-		manager.masterSession = s
-
 		scenes, err := db.SceneList(manager.sceneIds)
 		if err != nil {
 			panic(err)
@@ -75,10 +68,10 @@ func (manager *SceneManager) AfterInit() {
 				Scene:             sceneData,
 				DoorList:          doorList,
 				MonsterConfigList: configList,
-			}, manager.masterSession)
+			}, manager.masterAddr)
 			manager.scenes[sceneData.Id] = scene
 
-			err = manager.masterSession.RPC("CellManager.RegisterSceneCell", &protocol.RegisterSceneCellRequest{
+			err = nano.RPCWithAddr("CellManager.RegisterSceneCell", &protocol.RegisterSceneCellRequest{
 				SceneId:    scene.sceneId,
 				Width:      int(scene.GetWidth()),
 				Height:     int(scene.GetHeight()),
@@ -86,7 +79,7 @@ func (manager *SceneManager) AfterInit() {
 				EnterY:     sceneData.Entery,
 				RemoteAddr: manager.nodeAddr,
 				GateAddr:   manager.gateAddr,
-			})
+			}, manager.masterAddr)
 			if err != nil {
 				// 这里如果注册失败了，后面的逻辑都无法实现
 				panic(err)

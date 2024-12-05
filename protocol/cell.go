@@ -5,7 +5,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
-	"github.com/ouyangzhongmin/nano/session"
 )
 
 type ChooseHeroResponse struct {
@@ -42,15 +41,15 @@ type RegisterSceneCellRequest struct {
 }
 
 type Cell struct {
-	CellID      int              `json:"cell_id"`
-	SceneId     int              `json:"scene_id"`
-	Bounds      shape.Rect       `json:"bounds"`    // 边界划分
-	EdgeSize    int              `json:"edge_size"` // 边缘宽度
-	RemoteAddr  string           `json:"remote_addr"`
-	GateAddr    string           `json:"gate_addr"`
-	IsFirstCell bool             `json:"is_first_cell"`
-	IsNew       bool             `json:"is_new"`
-	Session     *session.Session `json:"-"`
+	CellID      int        `json:"cell_id"`
+	SceneId     int        `json:"scene_id"`
+	Bounds      shape.Rect `json:"bounds"`    // 边界划分
+	EdgeSize    int        `json:"edge_size"` // 边缘宽度
+	RemoteAddr  string     `json:"remote_addr"`
+	GateAddr    string     `json:"gate_addr"`
+	IsFirstCell bool       `json:"is_first_cell"`
+	IsNew       bool       `json:"is_new"`
+	//Session     *session.Session `json:"-"`
 }
 
 type SceneCelllsRequest struct {
