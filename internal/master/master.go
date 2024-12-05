@@ -3,6 +3,7 @@ package master
 import (
 	"fmt"
 	"github.com/ouyangzhongmin/nano"
+	"github.com/ouyangzhongmin/nano/cluster"
 	"github.com/ouyangzhongmin/nano/cluster/clusterpb"
 	"github.com/ouyangzhongmin/nano/serialize/json"
 	"github.com/ouyangzhongmin/nano/session"
@@ -37,24 +38,32 @@ func Startup() {
 		nano.WithSerializer(json.NewSerializer()),
 		nano.WithComponents(comps),
 		nano.WithCustomerRemoteServiceRoute(customerRemoteServiceRoute),
+		nano.WithUnregisterCallback(nodeUnregisterCallback),
 	)
-
 }
 
 // 集群模式下，需要获取用户所在的game node调用rpc
 func customerRemoteServiceRoute(service string, session *session.Session, members []*clusterpb.MemberInfo) *clusterpb.MemberInfo {
 	if strings.Contains(service, "SceneManager") {
 		//根据用户id获取用户在哪个node上
-		curSceneId := session.Int("sceneId")
-		if curSceneId > 0 {
+		if session.String("remoteAddr") != "" {
+			//根据用户id获取用户在哪个node上
 			for _, m := range members {
-				label := m.Label
-				if label != "" {
-					label = strings.ReplaceAll(label, "scene:", "")
-					tmpArr := strings.Split(label, ",")
-					for _, tmp := range tmpArr {
-						if tmp == fmt.Sprintf("%d", curSceneId) {
-							return m
+				if session.String("remoteAddr") == m.ServiceAddr {
+					return m
+				}
+			}
+		} else {
+			curSceneId := session.Int("sceneId")
+			if curSceneId > 0 {
+				for _, m := range members {
+					if m.Label != "" {
+						label := strings.ReplaceAll(m.Label, "scene:", "")
+						tmpArr := strings.Split(label, ",")
+						for _, tmp := range tmpArr {
+							if tmp == fmt.Sprintf("%d", curSceneId) {
+								return m
+							}
 						}
 					}
 				}
@@ -65,4 +74,9 @@ func customerRemoteServiceRoute(service string, session *session.Session, member
 	var index = session.UID() % count
 	fmt.Printf("remote service:%s route to :%v \n", service, members[index])
 	return members[index]
+}
+
+// 有节点关闭掉了
+func nodeUnregisterCallback(member cluster.Member) {
+	cellManager.updateCellWithMemberShutdown(member.MemberInfo().ServiceAddr)
 }

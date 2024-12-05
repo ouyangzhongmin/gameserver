@@ -6,9 +6,12 @@ import (
 
 var (
 	// All services in master server
-	Services = &component.Components{}
+	Services    = &component.Components{}
+	userManager = NewManager()
+	cellManager = NewCellManager()
 )
 
 func init() {
-	Services.Register(defaultManager)
+	Services.Register(userManager)
+	Services.Register(cellManager)
 }

@@ -175,6 +175,10 @@ class Game {
             nano.on("OnTextMessage", function(data){
                 that.OnTextMessage(data)
             })
+            nano.on("OnPropertyChanged", (data)=>{
+                console.log("OnPropertyChanged::", data)
+                that.scene.propertyChanged(data)
+            })
         });
     }
 

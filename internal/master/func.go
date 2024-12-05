@@ -9,20 +9,20 @@ import (
 )
 
 func BroadcastSystemMessage(message string) {
-	defaultManager.group.Broadcast("onBroadcast", &protocol.StringMessage{Message: message})
+	userManager.group.Broadcast("onBroadcast", &protocol.StringMessage{Message: message})
 }
 
 func Kick(uid int64) error {
-	defaultManager.chKick <- uid
+	userManager.chKick <- uid
 	return nil
 }
 
 func Reset(uid int64) {
-	defaultManager.chReset <- uid
+	userManager.chReset <- uid
 }
 
 func Recharge(uid, coin int64) {
-	defaultManager.chRecharge <- RechargeInfo{uid, coin}
+	userManager.chRecharge <- RechargeInfo{uid, coin}
 }
 
 // 测试用的

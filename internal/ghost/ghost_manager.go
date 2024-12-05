@@ -45,7 +45,7 @@ func (manager *GhostManager) SyncGhostEntity(s *session.Session, e *protocol.Gho
 	if scene == nil {
 		return errors.New(fmt.Sprintf("ghost secene:%d is not exit!", e.SceneID))
 	}
-	scene.updateEntity(e)
+	scene.updateEntity(s, e)
 	return nil
 }
 

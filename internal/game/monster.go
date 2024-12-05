@@ -180,7 +180,18 @@ func (m *Monster) Destroy() {
 		m.aimgr.clear()
 	}
 	m.aimgr = nil
+}
 
+func (m *Monster) Destroy2() {
+	if m.scene != nil {
+		m.scene.removeMonster(m)
+	}
+	m.movableEntity.Destroy()
+	m.pathFinder = nil
+	if m.aimgr != nil {
+		m.aimgr.clear()
+	}
+	m.aimgr = nil
 }
 
 func (m *Monster) IsNpc() bool {
@@ -189,9 +200,6 @@ func (m *Monster) IsNpc() bool {
 
 // 广播给所有能看见自己的对象
 func (m *Monster) Broadcast(route string, msg interface{}) {
-	if m.IsGhost() {
-		return
-	}
 	m.PushTask(func() {
 		m.canSeeMeViewList.Range(func(key, value interface{}) bool {
 			switch val := value.(type) {
@@ -200,6 +208,14 @@ func (m *Monster) Broadcast(route string, msg interface{}) {
 			}
 			return true
 		})
+		if m.scene != nil && !m.IsGhost() {
+			if m.HaveGhost() {
+				err := m.scene.cellMgr.BroadcastToGhost(m, route, msg)
+				if err != nil {
+					logger.Errorln(err)
+				}
+			}
+		}
 	})
 }
 

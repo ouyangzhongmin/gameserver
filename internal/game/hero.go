@@ -42,6 +42,19 @@ func NewHero(s *session.Session, data *model.Hero) *Hero {
 	return h
 }
 
+func NewHero2(s *session.Session, obj *object.HeroObject) *Hero {
+	h := &Hero{
+		HeroObject: obj,
+		session:    s,
+		messagesCh: make(chan routeMsg, 2048),
+		destroyCh:  make(chan struct{}),
+	}
+	h.initEntity(h.HeroObject.Id, obj.Name, constants2.ENTITY_TYPE_HERO, 2048)
+	h.GameObject.Uuid = h.GetUUID()
+	go h.doMessageChFunc()
+	return h
+}
+
 func (h *Hero) doMessageChFunc() {
 	i := 0
 	var ts int64 = 0
@@ -201,7 +214,7 @@ func (h *Hero) onEnterView(target IMovableEntity) {
 		data = val.MonsterObject
 		//buffers = val.GetBuffers()
 		//有对象进入自己的视野了，推送给前端创建对象
-		logger.Debugf("monster::%d-%s 进入hero:%d-%s视野\n", val.GetID(), val._name, h.GetID(), h._name)
+		logger.Debugf("monster::%d-%s isGhost:%v 进入hero:%d-%s视野\n", val.GetID(), val._name, val.isGhost, h.GetID(), h._name)
 		h.SendMsg(protocol.OnEnterView, &protocol.TargetEnterViewResponse{
 			EntityType: ttype,
 			Data:       data,
@@ -232,14 +245,13 @@ func (h *Hero) onExitView(target IMovableEntity) {
 
 func (h *Hero) SendMsg(route string, msg interface{}) {
 	h.PushTask(func() {
-		if h.isGhost {
+		if h.IsGhost() {
 			//镜像体消息需要转发给real处理
-			err := h.session.RPC("SceneManager.GhostMessage", routeMsg{
-				Route: route,
-				Msg:   msg,
-			})
-			if err != nil {
-				logger.Errorln("rpc.SceneManager.GhostMessage err:", err)
+			if h.scene != nil {
+				err := h.scene.cellMgr.GhostSendMsg(h, route, msg)
+				if err != nil {
+					logger.Errorln(err)
+				}
 			}
 		} else {
 			if h.session != nil {
@@ -270,6 +282,14 @@ func (h *Hero) Broadcast(route string, msg interface{}, includeSelf bool) {
 		}
 		return true
 	})
+	if h.scene != nil && !h.IsGhost() {
+		if h.HaveGhost() {
+			err := h.scene.cellMgr.BroadcastToGhost(h, route, msg)
+			if err != nil {
+				logger.Errorln(err)
+			}
+		}
+	}
 }
 
 func (h *Hero) ToString() string {
@@ -296,6 +316,18 @@ func (h *Hero) Destroy() {
 		if !h.isGhost {
 			h.session.Close()
 		}
+		h.bindSession(nil)
+	}
+	close(h.destroyCh)
+}
+
+func (h *Hero) Destroy2() {
+	if h.scene != nil {
+		h.scene.removeHero(h)
+	}
+	h.movableEntity.Destroy()
+	if h.session != nil {
+		h.session.Clear()
 		h.bindSession(nil)
 	}
 	close(h.destroyCh)
@@ -400,8 +432,7 @@ func (h *Hero) clearTracePaths() {
 // 前端移动到目标位置
 func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error {
 	h.PushTask(func() {
-
-		//logger.Debugf("hero:%s moveByPaths:%v", h._name, paths)
+		logger.Debugf("hero:%s moveByPaths:%v", h._name, paths)
 		if h.scene == nil {
 			return
 		}

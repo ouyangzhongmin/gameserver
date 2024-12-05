@@ -7,8 +7,10 @@ import (
 )
 
 type UserSceneId struct {
-	Uid     int64 `json:"uid"`
-	SceneId int   `json:"scene_id"`
+	Uid        int64  `json:"uid"`
+	SceneId    int    `json:"scene_id"`
+	CellId     int    `json:"cell_id"`
+	RemoteAddr string `json:"remote_addr"`
 }
 
 type HeroEnterSceneRequest struct {
@@ -30,6 +32,7 @@ type SceneInfoResponse struct {
 
 type SceneInfoItem struct {
 	SceneId    int `json:"scene_id"`
+	CellId     int `json:"cell_id"`
 	MonsterCnt int `json:"monster_cnt"`
 	HeroCnt    int `json:"hero_cnt"`
 }
@@ -180,33 +183,8 @@ type DynamicResetMonstersRequest struct {
 	Configs []model.SceneMonsterConfig `json:"configs"`
 }
 
-type ClientInitCompletedRequest struct {
-	IsReEnter bool `json:"isReenter"`
-}
-
-type CreateHeroGhostRequest struct {
-	Data *object.HeroObject `json:"data"`
-}
-
-type HeroGhostMovedRequest struct {
-	HeroId int64         `json:"hero_id"`
-	NewPos shape.Vector3 `json:"new_pos"`
-}
-
-type GhostEntity struct {
-	SceneID    int
-	Uuid       string
-	Id         int64
-	Name       string
-	EntityType int
-	Pos        shape.Vector3
-	//视野,屏幕可移动范围
-	ViewRect shape.Rect
-}
-
-// 简单的镜像体
-type GhostEntitySimple struct {
-	SceneID    int
-	Uuid       string
-	EntityType int
+type PropertyChangedRequest struct {
+	EntityId   int64                  `json:"entity_id"`
+	EntityType int                    `json:"entity_type"`
+	Data       map[string]interface{} `json:"data"`
 }

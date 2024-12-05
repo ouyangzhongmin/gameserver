@@ -30,5 +30,8 @@ func newGateService() *GateService {
 func (ts *GateService) RecordScene(s *session.Session, msg *protocol.UserSceneId) error {
 	s.Bind(msg.Uid)
 	s.Set("sceneId", msg.SceneId)
+	s.Set("cellId", msg.CellId)
+	s.Set("remoteAddr", msg.RemoteAddr)
+	s.Router().Bind("SceneManager", msg.RemoteAddr)
 	return nil
 }

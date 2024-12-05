@@ -57,16 +57,24 @@ func Startup() {
 func customerRemoteServiceRoute(service string, session *session.Session, members []*clusterpb.MemberInfo) *clusterpb.MemberInfo {
 	if strings.Contains(service, "SceneManager") {
 		//根据用户id获取用户在哪个node上
-		curSceneId := session.Int("sceneId")
-		if curSceneId > 0 {
+		if session.String("remoteAddr") != "" {
+			//根据用户id获取用户在哪个node上
 			for _, m := range members {
-				label := m.Label
-				if label != "" {
-					label = strings.ReplaceAll(label, "scene:", "")
-					tmpArr := strings.Split(label, ",")
-					for _, tmp := range tmpArr {
-						if tmp == fmt.Sprintf("%d", curSceneId) {
-							return m
+				if session.String("remoteAddr") == m.ServiceAddr {
+					return m
+				}
+			}
+		} else {
+			curSceneId := session.Int("sceneId")
+			if curSceneId > 0 {
+				for _, m := range members {
+					if m.Label != "" {
+						label := strings.ReplaceAll(m.Label, "scene:", "")
+						tmpArr := strings.Split(label, ",")
+						for _, tmp := range tmpArr {
+							if tmp == fmt.Sprintf("%d", curSceneId) {
+								return m
+							}
 						}
 					}
 				}

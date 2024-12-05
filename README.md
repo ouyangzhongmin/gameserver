@@ -22,4 +22,17 @@
 3.目前实现的视野刷新问题，如果同屏1万人在线，那么服务器的视野刷新处理计算非常高, 不适合大量同屏的处理
 
 4.目前的game主要实现的是aoi 同步等逻辑，业务功能模块可以再新加一个node进程来实现，更新重启也不会影响用户
+
+5.nano内部没有开放单独的rpc接口提供给内部不同node之间的相互调用，目前的nano为fork版本，单独修改了一个nano.NewRpcSession(gateAddr string)
+接口，但是使用时需要很多地方注意session的正确区别于用户的session使用，否则很容易出现难排查的问题，
+相同的场景需要通过cellId来路由对应的cell服务器
 ```
+
+## 无缝大地图实现逻辑:
+
+```aiignore
+动态分割成 n 个 区域（cell）只做竖向切割,每启动一个cell, 就将每个cell均匀分布，这些 cell 的面积是固定的。
+每个game进程内每个scene只能有一个cell, 由master的 CellManager 服务器管理。 
+cell边界通过Real->Ghost切换来实现无缝的逻辑。
+```
+![image](./cell时序图.jpg)

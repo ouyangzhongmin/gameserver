@@ -10,10 +10,11 @@ import (
 )
 
 type GameObject struct {
-	Posx shape.Coord `json:"pos_x"`
-	Posy shape.Coord `json:"pos_y"`
-	Posz shape.Coord `json:"pos_z"`
-	Uuid string      `json:"uuid"`
+	Posx   shape.Coord `json:"pos_x"`
+	Posy   shape.Coord `json:"pos_y"`
+	Posz   shape.Coord `json:"pos_z"`
+	CellId int         `json:"cell_id"`
+	Uuid   string      `json:"uuid"`
 }
 
 type HeroObject struct {

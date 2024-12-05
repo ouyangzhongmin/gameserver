@@ -19,6 +19,7 @@ const (
 	OnEntityDie           = "OnEntityDie"
 	OnBufferAdd           = "OnBufferAdd"
 	OnBufferRemove        = "OnBufferRemove"
+	OnPropertyChanged     = "OnPropertyChanged"
 
 	OnTextMessage = "OnTextMessage"
 )

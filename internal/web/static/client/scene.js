@@ -404,4 +404,28 @@ class Scene {
 		}
 		hero.bubble(msg, 3000, "white", false)
 	}
+
+	propertyChanged(data) {
+		let role
+		let roleId = data.entity_id
+		if (data.entity_type === 0){
+			const hero = this.heros[roleId]
+			if (!hero){
+				console.error(`hero:${roleId}不存在`)
+				return;
+			}
+			role = hero
+		}else{
+			const monster = this.monsters[roleId]
+			if (!monster){
+				console.error(`monster:${roleId}不存在`)
+				return;
+			}
+			role = monster
+		}
+
+		for (let key in data.data) {
+			role.data[key] = data.data[key]
+		}
+	}
 }

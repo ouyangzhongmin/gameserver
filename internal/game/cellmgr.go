@@ -7,6 +7,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano"
+	"github.com/ouyangzhongmin/nano/session"
 )
 
 type cell struct {
@@ -73,8 +74,24 @@ func (mgr *cellMgr) updateCells(curCellId int, cells []*protocol.Cell) error {
 	return nil
 }
 
+func (mgr *cellMgr) getSession(cell *protocol.Cell) (*session.Session, error) {
+	var err error
+	if cell.Session == nil {
+		cell.Session, err = nano.NewRpcSession(cell.GateAddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	cell.Session.Set("cellId", cell.CellID)
+	cell.Session.Set("sceneId", mgr.scene.sceneId)
+	cell.Session.Set("remoteAddr", cell.RemoteAddr)
+	cell.Session.Router().Bind("SceneManager", cell.RemoteAddr)
+	return cell.Session, nil
+}
+
 // 迁移对象到响应的cell服务器
 func (mgr *cellMgr) migrateEntities() error {
+	logger.Println("migrateEntities...")
 	mgr.scene.monsters.Range(func(k, v interface{}) bool {
 		m := v.(*Monster)
 		isInBounds := mgr.curCell.IsInCellBounds(m.GetPos())
@@ -94,6 +111,9 @@ func (mgr *cellMgr) migrateEntities() error {
 }
 
 func (mgr *cellMgr) ghostMonsterIfInEdge(m *Monster) {
+	if len(mgr.cells) <= 1 {
+		return
+	}
 	isInLeftEdge := mgr.curCell.IsInCellLeftEdge(m.GetPos())
 	isInRightEdge := mgr.curCell.IsInCellRightEdge(m.GetPos())
 	if isInLeftEdge || isInRightEdge {
@@ -106,18 +126,19 @@ func (mgr *cellMgr) ghostMonsterIfInEdge(m *Monster) {
 }
 
 func (mgr *cellMgr) migrateMonster(m *Monster) error {
-	var err error
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
+
 	for _, c := range mgr.cells {
 		if c.Bounds.Contains(int64(m.GetPos().X), int64(m.GetPos().Y)) {
 			//找到迁移的目标cell
-			addr := c.RemoteAddr
-			if c.Session == nil {
-				c.Session, err = nano.NewRpcSession(addr)
-				if err != nil {
-					return err
-				}
+			ss, err := mgr.getSession(c)
+			if err != nil {
+				return err
 			}
-			err = c.Session.RPC("SceneManager.MigrateMonster", &protocol.MigrateMonsterRequest{
+			logger.Debugf("向cell:%d迁移monster:%d \n", c.CellID, m.GetID())
+			err = ss.RPC("SceneManager.CreateMigrateMonster", &protocol.MigrateMonsterRequest{
 				SceneId:       mgr.scene.sceneId,
 				CellId:        c.CellID,
 				FromCellId:    mgr.curCell.CellID,
@@ -134,7 +155,7 @@ func (mgr *cellMgr) migrateMonster(m *Monster) error {
 				return err
 			}
 			//传输完成了需要销毁对象
-			m.Destroy()
+			m.Destroy2()
 			break
 		}
 	}
@@ -143,6 +164,9 @@ func (mgr *cellMgr) migrateMonster(m *Monster) error {
 
 // 像邻居cell传输镜像
 func (mgr *cellMgr) createGhostMonster(m *Monster, left, right bool) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
 	var err error
 	var ghostCell *protocol.Cell
 	for i, c := range mgr.cells {
@@ -166,15 +190,12 @@ func (mgr *cellMgr) createGhostMonster(m *Monster, left, right bool) error {
 		return nil
 	}
 
-	addr := ghostCell.RemoteAddr
-	if ghostCell.Session == nil {
-		ghostCell.Session, err = nano.NewRpcSession(addr)
-		if err != nil {
-			return err
-		}
+	ss, err := mgr.getSession(ghostCell)
+	if err != nil {
+		return err
 	}
-
-	err = ghostCell.Session.RPC("SceneManager.CreateGhostMonster", &protocol.CreateGhostMonsterReq{
+	logger.Debugf("向cell:%d创建monster Ghost:%d \n", ghostCell.CellID, m.GetID())
+	err = ss.RPC("SceneManager.CreateGhostMonster", &protocol.CreateGhostMonsterReq{
 		SceneId:       mgr.scene.sceneId,
 		CellId:        ghostCell.CellID,
 		FromCellId:    mgr.curCell.CellID,
@@ -204,19 +225,20 @@ func (mgr *cellMgr) getCell(cellId int) *protocol.Cell {
 }
 
 func (mgr *cellMgr) removeGhostMonster(m *Monster) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
 	var err error
 	var ghostCell = mgr.getCell(m.ghostCellId)
 	if ghostCell == nil {
 		return errors.New("没有找到Ghost的目标cell数据")
 	}
-	addr := ghostCell.RemoteAddr
-	if ghostCell.Session == nil {
-		ghostCell.Session, err = nano.NewRpcSession(addr)
-		if err != nil {
-			return err
-		}
+	ss, err := mgr.getSession(ghostCell)
+	if err != nil {
+		return err
 	}
-	err = ghostCell.Session.RPC("SceneManager.RemoveGhostMonster", &protocol.RemoveGhostMonsterReq{
+	logger.Debugf("向cell:%d删除monster Ghost:%d \n", ghostCell.CellID, m.GetID())
+	err = ss.RPC("SceneManager.RemoveGhostMonster", &protocol.RemoveGhostMonsterReq{
 		SceneId:   mgr.scene.sceneId,
 		CellId:    ghostCell.CellID,
 		MonsterId: m.GetID(),
@@ -230,19 +252,20 @@ func (mgr *cellMgr) removeGhostMonster(m *Monster) error {
 }
 
 func (mgr *cellMgr) updateGhostMonster(m *Monster) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
 	var err error
 	var ghostCell = mgr.getCell(m.ghostCellId)
 	if ghostCell == nil {
 		return errors.New("没有找到Ghost的目标cell数据")
 	}
-	addr := ghostCell.RemoteAddr
-	if ghostCell.Session == nil {
-		ghostCell.Session, err = nano.NewRpcSession(addr)
-		if err != nil {
-			return err
-		}
+	ss, err := mgr.getSession(ghostCell)
+	if err != nil {
+		return err
 	}
-	err = ghostCell.Session.RPC("SceneManager.SyncGhostMonster", &protocol.SyncGhostMonsterReq{
+	logger.Debugf("向cell:%d同步monster Ghost:%d \n", ghostCell.CellID, m.GetID())
+	err = ss.RPC("SceneManager.SyncGhostMonster", &protocol.SyncGhostMonsterReq{
 		SceneId:       mgr.scene.sceneId,
 		CellId:        ghostCell.CellID,
 		MonsterId:     m.GetID(),
@@ -257,19 +280,20 @@ func (mgr *cellMgr) updateGhostMonster(m *Monster) error {
 
 // Ghost受伤转发给Real处理
 func (mgr *cellMgr) ghostMonsterBeenHurted(m *Monster, damage int64) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
 	var err error
 	var ghostCell = mgr.getCell(m.realCellId)
 	if ghostCell == nil {
 		return errors.New("没有找到Real的目标cell数据")
 	}
-	addr := ghostCell.RemoteAddr
-	if ghostCell.Session == nil {
-		ghostCell.Session, err = nano.NewRpcSession(addr)
-		if err != nil {
-			return err
-		}
+
+	ss, err := mgr.getSession(ghostCell)
+	if err != nil {
+		return err
 	}
-	err = ghostCell.Session.RPC("SceneManager.GhostMonsterBeenHurted", &protocol.GhostMonsterBeenHurtedReq{
+	err = ss.RPC("SceneManager.GhostMonsterBeenHurted", &protocol.GhostMonsterBeenHurtedReq{
 		SceneId:   mgr.scene.sceneId,
 		CellId:    ghostCell.CellID,
 		MonsterId: m.GetID(),
@@ -283,19 +307,19 @@ func (mgr *cellMgr) ghostMonsterBeenHurted(m *Monster, damage int64) error {
 
 // Ghost被攻击转发给Real处理
 func (mgr *cellMgr) ghostMonsterBeenAttaced(m *Monster, target IMovableEntity) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
 	var err error
 	var ghostCell = mgr.getCell(m.realCellId)
 	if ghostCell == nil {
 		return errors.New("没有找到Real的目标cell数据")
 	}
-	addr := ghostCell.RemoteAddr
-	if ghostCell.Session == nil {
-		ghostCell.Session, err = nano.NewRpcSession(addr)
-		if err != nil {
-			return err
-		}
+	ss, err := mgr.getSession(ghostCell)
+	if err != nil {
+		return err
 	}
-	err = ghostCell.Session.RPC("SceneManager.GhostMonsterBeenAttaced", &protocol.GhostMonsterBeenAttacedReq{
+	err = ss.RPC("SceneManager.GhostMonsterBeenAttaced", &protocol.GhostMonsterBeenAttacedReq{
 		SceneId:      mgr.scene.sceneId,
 		CellId:       ghostCell.CellID,
 		MonsterId:    m.GetID(),
@@ -308,10 +332,140 @@ func (mgr *cellMgr) ghostMonsterBeenAttaced(m *Monster, target IMovableEntity) e
 	return nil
 }
 
+func (mgr *cellMgr) migrateHero(h *Hero) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
+
+	for _, c := range mgr.cells {
+		if c.Bounds.Contains(int64(h.GetPos().X), int64(h.GetPos().Y)) {
+			//找到迁移的目标cell
+			//ss, err := mgr.getSession(c)
+			//if err != nil {
+			//	return err
+			//}
+			logger.Debugf("向cell:%d迁移hero:%d \n", c.CellID, h.GetID())
+
+			viewListIds := make([]string, 0)
+			canSeeMeIds := make([]string, 0)
+			h.viewList.Range(func(key, value any) bool {
+				viewListIds = append(viewListIds, key.(string))
+				return true
+			})
+			h.canSeeMeViewList.Range(func(key, value any) bool {
+				canSeeMeIds = append(canSeeMeIds, key.(string))
+				return true
+			})
+
+			err := mgr.scene.masterSession.RPC("CellManager.MigrateHero", &protocol.MigrateHeroRequest{
+				SceneId:        mgr.scene.sceneId,
+				CellId:         c.CellID,
+				FromCellId:     mgr.curCell.CellID,
+				HeroObject:     h.HeroObject,
+				HeroData:       &h.HeroObject.Hero,
+				XViewRange:     h.xViewRange,
+				YViewRange:     h.yViewRange,
+				ViewListIds:    viewListIds,
+				CanSeemeIds:    canSeeMeIds,
+				TracePath:      h.tracePath,
+				TraceIndex:     h.traceIndex,
+				TraceTotalTime: h.traceTotalTime,
+				TargetX:        h.targetX,
+				TargetY:        h.targetY,
+				TargetZ:        h.targetZ,
+			})
+			if err != nil {
+				return err
+			}
+			//传输完成了需要销毁对象
+			h.Destroy2()
+			break
+		}
+	}
+	return nil
+}
+
+// Ghost的消息转发消息给real
+func (mgr *cellMgr) GhostSendMsg(h *Hero, route string, msg interface{}) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
+	if !h.IsGhost() {
+		return nil
+	}
+	cellId := h.realCellId
+	var err error
+	var realCell = mgr.getCell(cellId)
+	if realCell == nil {
+		return errors.New("没有找到Real的目标cell数据")
+	}
+	ss, err := mgr.getSession(realCell)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("Ghost向cell:%d Real转发消息:%d \n", realCell.CellID, h.GetID())
+	err = ss.RPC("SceneManager.SendMsgFromGhost", &protocol.SendMsgFromGhostReq{
+		SceneId: mgr.scene.sceneId,
+		CellId:  realCell.CellID,
+		HeroId:  h.GetID(),
+		Route:   route,
+		Msg:     msg,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Broadcast消息转发消息给Ghost
+func (mgr *cellMgr) BroadcastToGhost(e IMovableEntity, route string, msg interface{}) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
+	if e.IsGhost() {
+		return nil
+	}
+	cellId := 0
+	switch val := e.(type) {
+	case *Monster:
+		cellId = val.ghostCellId
+	case *Hero:
+		cellId = val.ghostCellId
+	}
+	var err error
+	var ghostCell = mgr.getCell(cellId)
+	if ghostCell == nil {
+		return errors.New("没有找到Real的目标cell数据")
+	}
+	ss, err := mgr.getSession(ghostCell)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("向cell:%d Ghost转发Broad消息:%d \n", ghostCell.CellID, e.GetID())
+	err = ss.RPC("SceneManager.BroadcastToGhost", &protocol.BroadcastToGhostReq{
+		SceneId:    mgr.scene.sceneId,
+		CellId:     ghostCell.CellID,
+		EntityId:   e.GetID(),
+		EntityType: e.GetEntityType(),
+		Route:      route,
+		Msg:        msg,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (mgr *cellMgr) Moved(e IMovableEntity, oldx, oldy shape.Coord) (bool, error) {
+	if len(mgr.cells) <= 1 {
+		return false, nil
+	}
 	leavedCell := false
 	switch val := e.(type) {
 	case *Monster:
+		if val.IsGhost() {
+			return false, nil
+		}
 		m := val
 		isInBounds := mgr.curCell.IsInCellBounds(m.GetPos())
 		if !isInBounds {
@@ -343,12 +497,46 @@ func (mgr *cellMgr) Moved(e IMovableEntity, oldx, oldy shape.Coord) (bool, error
 			}
 		}
 	case *Hero:
-
+		if val.IsGhost() {
+			return false, nil
+		}
+		isInBounds := mgr.curCell.IsInCellBounds(val.GetPos())
+		if !isInBounds {
+			//不在当前cell范围内，需要迁移
+			leavedCell = true
+			err := mgr.migrateHero(val)
+			if err != nil {
+				return leavedCell, err
+			}
+		} else {
+			isInLeftEdge := mgr.curCell.IsInCellLeftEdge(val.GetPos())
+			isInRightEdge := mgr.curCell.IsInCellRightEdge(val.GetPos())
+			if isInLeftEdge || isInRightEdge {
+				//在边缘，需要在邻居cell创建ghost
+				if !val.HaveGhost() {
+					//err := mgr.createGhostHero(val, isInLeftEdge, isInRightEdge)
+					//if err != nil {
+					//	return leavedCell, err
+					//}
+				}
+			} else {
+				if val.HaveGhost() {
+					//需要清理掉Ghost
+					//err := mgr.removeGhostHero(val)
+					//if err != nil {
+					//	return leavedCell, err
+					//}
+				}
+			}
+		}
 	}
 	return leavedCell, nil
 }
 
 func (mgr *cellMgr) BeenDestroyed(e IMovableEntity) error {
+	if len(mgr.cells) <= 1 {
+		return nil
+	}
 	switch val := e.(type) {
 	case *Monster:
 		if val.HaveGhost() {
@@ -363,6 +551,9 @@ func (mgr *cellMgr) BeenDestroyed(e IMovableEntity) error {
 }
 
 func (mgr *cellMgr) PropertyChanged(e IMovableEntity) {
+	if len(mgr.cells) <= 1 {
+		return
+	}
 	switch val := e.(type) {
 	case *Monster:
 		if val.HaveGhost() {
@@ -379,6 +570,9 @@ func (mgr *cellMgr) PropertyChanged(e IMovableEntity) {
 }
 
 func (mgr *cellMgr) GhostBeenHurted(e IMovableEntity, damage int64) {
+	if len(mgr.cells) <= 1 {
+		return
+	}
 	switch val := e.(type) {
 	case *Monster:
 		if val.HaveGhost() {
@@ -395,6 +589,9 @@ func (mgr *cellMgr) GhostBeenHurted(e IMovableEntity, damage int64) {
 }
 
 func (mgr *cellMgr) GhostBeenAttacked(e IMovableEntity, target IMovableEntity) {
+	if len(mgr.cells) <= 1 {
+		return
+	}
 	switch val := e.(type) {
 	case *Monster:
 		if val.HaveGhost() {

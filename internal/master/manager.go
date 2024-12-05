@@ -7,7 +7,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/async"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano/scheduler"
 	"sync"
@@ -20,8 +19,6 @@ import (
 )
 
 const kickResetBacklog = 8
-
-var defaultManager = NewManager()
 
 type (
 	Manager struct {
@@ -36,7 +33,13 @@ type (
 		chScene    chan int
 
 		scenesCount sync.Map
-		scenesCells map[int][]*protocol.Cell
+	}
+
+	User struct {
+		session  *session.Session
+		data     *model.User
+		Uid      int64
+		heroData *model.Hero
 	}
 
 	RechargeInfo struct {
@@ -47,22 +50,19 @@ type (
 
 func NewManager() *Manager {
 	return &Manager{
-		group:       nano.NewGroup("_SYSTEM_MESSAGE_BROADCAST"),
-		players:     map[int64]*User{},
-		chKick:      make(chan int64, kickResetBacklog),
-		chReset:     make(chan int64, kickResetBacklog),
-		chRecharge:  make(chan RechargeInfo, 32),
-		chScene:     make(chan int, 32),
-		scenesCells: make(map[int][]*protocol.Cell),
+		group:      nano.NewGroup("_SYSTEM_MESSAGE_BROADCAST"),
+		players:    map[int64]*User{},
+		chKick:     make(chan int64, kickResetBacklog),
+		chReset:    make(chan int64, kickResetBacklog),
+		chRecharge: make(chan RechargeInfo, 32),
+		chScene:    make(chan int, 32),
 	}
 }
 
 func (m *Manager) AfterInit() {
 	session.Lifetime.OnClosed(func(s *session.Session) {
 		m.group.Leave(s)
-		if s.UID() > 0 {
-			m.removePlayer(s.UID())
-		}
+		m.removePlayer(s.UID())
 	})
 
 	//这个timer与handler在同一条线程,所以这里players不需要处理并发问题
@@ -71,7 +71,7 @@ func (m *Manager) AfterInit() {
 		for {
 			select {
 			case uid := <-m.chKick:
-				p, ok := defaultManager.player(uid)
+				p, ok := userManager.player(uid)
 				if !ok || p.session == nil {
 					logger.Errorf("玩家%d不在线", uid)
 				}
@@ -80,7 +80,7 @@ func (m *Manager) AfterInit() {
 			case <-m.chScene:
 				m.reqSceneInfo()
 			case uid := <-m.chReset:
-				p, ok := defaultManager.player(uid)
+				p, ok := userManager.player(uid)
 				if !ok {
 					return
 				}
@@ -88,7 +88,7 @@ func (m *Manager) AfterInit() {
 					logger.Errorf("玩家正在游戏中，不能重置: %d", uid)
 					return
 				}
-				defaultManager.removePlayer(uid)
+				userManager.removePlayer(uid)
 				logger.Infof("重置玩家, UID=%d", uid)
 
 			default:
@@ -150,9 +150,18 @@ func (m *Manager) ChooseHero(s *session.Session, req *protocol.ChooseHeroRequest
 	}
 	// todo 切换场景时需要记录这个值
 	s.Set("sceneId", sceneId)
+	cell := cellManager.getSceneCell(user.heroData)
+	if cell == nil {
+		return errors.New("未匹配到任何cell")
+	}
+	s.Set("cellId", cell.CellID)
+	s.Set("remoteAddr", cell.RemoteAddr)
+	s.Router().Bind("SceneManager", cell.RemoteAddr)
 	err = s.RPC("GateService.RecordScene", &protocol.UserSceneId{
-		Uid:     uid,
-		SceneId: sceneId,
+		Uid:        uid,
+		SceneId:    sceneId,
+		CellId:     cell.CellID,
+		RemoteAddr: cell.RemoteAddr,
 	})
 	if err != nil {
 		logger.Errorf("rpc.Call(GateService.RecordScene) err: %v \n", err)
@@ -197,12 +206,6 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	}
 
 	sceneId := constants.DEFAULT_SCENE
-	// todo 这里测试集群用的
-	//if uid%2 == 0 {
-	//	sceneId = constants.DEFAULT_SCENE
-	//} else {
-	//	sceneId = constants.DEFAULT_SCENE2
-	//}
 	heroData := createRandomHero(uid, sceneId, req.Name, req.Avatar, req.AttrType)
 	id, err := db.InsertHero(heroData)
 	if err != nil {
@@ -210,6 +213,12 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	}
 	heroData.Id = id
 
+	if user.session != nil && user.session != s {
+		// 移除广播频道
+		m.group.Leave(user.session)
+		user.session.Clear()
+		user.session.Close()
+	}
 	// 绑定新session
 	user.session = s
 	user.heroData = heroData
@@ -219,12 +228,7 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	//进入场景
 	sceneId = heroData.SceneId
 	if sceneId == 0 {
-		// todo 这里测试集群用的
-		//if uid%2 == 0 {
 		sceneId = constants.DEFAULT_SCENE
-		//} else {
-		//	sceneId = constants.DEFAULT_SCENE2
-		//}
 	}
 	res := &protocol.ChooseHeroResponse{
 		Hero: *heroData,
@@ -232,9 +236,18 @@ func (m *Manager) CreateHero(s *session.Session, req *protocol.CreateHeroRequest
 	s.Response(res)
 	// todo 切换场景时需要记录这个值
 	s.Set("sceneId", sceneId)
+	cell := cellManager.getSceneCell(user.heroData)
+	if cell == nil {
+		return errors.New("未匹配到任何cell")
+	}
+	s.Set("cellId", cell.CellID)
+	s.Set("remoteAddr", cell.RemoteAddr)
+	s.Router().Bind("SceneManager", cell.RemoteAddr)
 	err = s.RPC("GateService.RecordScene", &protocol.UserSceneId{
-		Uid:     uid,
-		SceneId: sceneId,
+		Uid:        uid,
+		SceneId:    sceneId,
+		CellId:     cell.CellID,
+		RemoteAddr: cell.RemoteAddr,
 	})
 	if err != nil {
 		logger.Errorf("rpc.Call(GateService.RecordScene) err: %v \n", err)
@@ -259,6 +272,14 @@ func (m *Manager) HeroChangeScene(s *session.Session, req *protocol.HeroChangeSc
 		str := fmt.Sprintf("玩家: %d不在线", uid)
 		return errors.New(str)
 	}
+	if user.session != nil && user.session != s {
+		// 移除广播频道
+		m.group.Leave(user.session)
+		user.session.Clear()
+		user.session.Close()
+	}
+	user.session = s
+
 	oldSceneId := user.heroData.SceneId
 	if sceneId == oldSceneId {
 		return errors.New("已在当前场景")
@@ -276,9 +297,18 @@ func (m *Manager) HeroChangeScene(s *session.Session, req *protocol.HeroChangeSc
 	s.Router().Delete("SceneManager")
 	// todo 切换场景时需要记录这个值
 	s.Set("sceneId", sceneId)
+	cell := cellManager.getSceneCell(user.heroData)
+	if cell == nil {
+		return errors.New("未匹配到任何cell")
+	}
+	s.Set("cellId", cell.CellID)
+	s.Set("remoteAddr", cell.RemoteAddr)
+	s.Router().Bind("SceneManager", cell.RemoteAddr)
 	err = s.RPC("GateService.RecordScene", &protocol.UserSceneId{
-		Uid:     uid,
-		SceneId: sceneId,
+		Uid:        uid,
+		SceneId:    sceneId,
+		CellId:     cell.CellID,
+		RemoteAddr: cell.RemoteAddr,
 	})
 	if err != nil {
 		logger.Errorf("rpc.Call(GateService.RecordScene) err: %v \n", err)
@@ -295,91 +325,14 @@ func (m *Manager) HeroChangeScene(s *session.Session, req *protocol.HeroChangeSc
 	return err
 }
 
-func (m *Manager) RegisterSceneCell(s *session.Session, req *protocol.RegisterSceneCellRequest) error {
-	sceneId := req.SceneId
-	//停止的时候要考虑怎么清理掉
-	cells, ok := m.scenesCells[sceneId]
-	bounds := shape.Rect{0, 0, int64(req.Width), int64(req.Height)}
-	isFirstCell := false
-	if !ok {
-		cells = make([]*protocol.Cell, 0)
-		m.scenesCells[sceneId] = cells
-		isFirstCell = true
-	} else {
-		m.checkSceneCells(cells)
-		cellsLen := len(cells)
-		//这里只做竖向一刀切，不做横竖九宫格类似的
-		cutW := req.Width / (cellsLen + 1)
-		for i := 0; i < cellsLen; i++ {
-			//旧的也要变更
-			tmp := cells[i]
-			tmp.IsNew = false
-			tmp.Bounds = shape.Rect{int64(i * cutW), 0, int64(cutW), int64(req.Height)}
-		}
-		bounds = shape.Rect{int64(cellsLen * cutW), 0, int64(cutW), int64(req.Height)}
-	}
-	cellId := sceneId*10000 + len(cells) + 1
-	c := &protocol.Cell{
-		CellID:      cellId,
-		SceneId:     sceneId,
-		Bounds:      bounds,
-		EdgeSize:    60,
-		RemoteAddr:  s.RemoteAddr().String(),
-		IsFirstCell: isFirstCell,
-		IsNew:       true,
-		Session:     s,
-	}
-	s.Set("cellId", cellId)
-	s.Set("sceneId", sceneId)
-	cells = append(cells, c)
-	for i := 0; i < len(cells); i++ {
-		//通知到scene的具体的cell信息
-		tmp := cells[i]
-		err := tmp.Session.RPC("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
-			SceneId: tmp.SceneId,
-			CellId:  tmp.CellID,
-			Cells:   cells,
-		})
-		if err != nil {
-			// todo 这里需要确保能把cell信息通知到
-			logger.Warningln("cell.SceneManager.SceneCells err:", err)
-			continue
-		}
-	}
-	return nil
-}
-
-func (m *Manager) checkSceneCells(cells []*protocol.Cell) {
-	for i := len(cells) - 1; i >= 0; i-- {
-		//旧的也要变更
-		tmp := cells[i]
-		if tmp.Session == nil {
-			cells = append(cells[:i], cells[i+1:]...)
-			logger.Warningln("cell.Session == nil")
-			continue
-		}
-		err := tmp.Session.RPC("SceneManager.CheckHealth", nil)
-		if err != nil {
-			cells = append(cells[:i], cells[i+1:]...)
-			logger.Warningln("cell.SceneManager.CheckHealth err:", err)
-			continue
-		}
-	}
-}
-
-func (m *Manager) getSceneCellId(hero *model.Hero) {
-
-}
-
 func (m *Manager) player(uid int64) (*User, bool) {
 	p, ok := m.players[uid]
-
 	return p, ok
 }
 
 func (m *Manager) addPlayer(user *User) {
 	uid := user.Uid
-	_, ok := defaultManager.player(uid)
+	_, ok := userManager.player(uid)
 	if ok {
 		logger.Errorf("玩家%d已在线，正在覆盖", uid)
 	}
@@ -388,7 +341,7 @@ func (m *Manager) addPlayer(user *User) {
 }
 
 func (m *Manager) removePlayer(uid int64) {
-	_, ok := defaultManager.player(uid)
+	_, ok := userManager.player(uid)
 	if !ok {
 		return
 	}
@@ -403,25 +356,26 @@ func (m *Manager) sessionCount() int {
 
 func (m *Manager) SceneInfoCallBack(s *session.Session, req *protocol.SceneInfoResponse) error {
 	for _, scene := range req.Scenes {
-		m.scenesCount.Store(scene.SceneId, scene)
+		m.scenesCount.Store(fmt.Sprintf("%d-%d", scene.SceneId, scene.CellId), scene)
 	}
 	return nil
 }
 
 func (m *Manager) reqSceneInfo() {
-	for _, s := range m.players {
-		err := s.session.RPC("SceneManager.SceneInfo", &protocol.SceneInfoRequest{})
-		if err != nil {
-			logger.Errorln(err)
-			return
+	for _, scene := range cellManager.scenesCells {
+		for _, scell := range scene.Cells {
+			err := scell.Session.RPC("SceneManager.SceneInfo", &protocol.SceneInfoRequest{})
+			if err != nil {
+				logger.Errorln(err)
+				return
+			}
 		}
-		break
 	}
 }
 
 func (m *Manager) dumpSceneInfo() {
 	logger.Infof("在线人数: %d  当前时间: %s", m.sessionCount(), time.Now().Format("2006-01-02 15:04:05"))
-	sCount := defaultManager.sessionCount()
+	sCount := userManager.sessionCount()
 
 	async.Run(func() {
 		// 统计结果异步写入数据库

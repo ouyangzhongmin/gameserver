@@ -17,6 +17,9 @@ type (
 		component.Base
 		scenes        map[int]*Scene
 		sceneIds      []int
+		masterAddr    string
+		nodeAddr      string
+		gateAddr      string
 		masterSession *session.Session // 用于直接调用master的rpc session
 	}
 )
@@ -34,12 +37,10 @@ func (manager *SceneManager) setSceneIds(sceneIds []int) {
 	manager.sceneIds = append(manager.sceneIds, sceneIds...)
 }
 
-func (manager *SceneManager) setMasterAddr(addr string) {
-	s, err := nano.NewRpcSession(addr)
-	if err != nil {
-		panic(err)
-	}
-	manager.masterSession = s
+func (manager *SceneManager) setMasterAddr(addr, nodeAddr, gateAddr string) {
+	manager.masterAddr = addr
+	manager.nodeAddr = nodeAddr
+	manager.gateAddr = gateAddr
 }
 
 func (manager *SceneManager) AfterInit() {
@@ -50,38 +51,49 @@ func (manager *SceneManager) AfterInit() {
 		}
 	})
 
-	scenes, err := db.SceneList(manager.sceneIds)
-	if err != nil {
-		panic(err)
-	}
-	for _, sceneData := range scenes {
-		doorList, err := db.SceneDoorList(sceneData.Id)
+	time.AfterFunc(time.Millisecond*1000, func() {
+		s, err := nano.NewRpcSession(manager.masterAddr)
 		if err != nil {
 			panic(err)
 		}
-		configList, err := db.SceneMonsterConfigList(sceneData.Id)
-		if err != nil {
-			panic(err)
-		}
-		scene := NewScene(&SceneData{
-			Scene:             sceneData,
-			DoorList:          doorList,
-			MonsterConfigList: configList,
-		}, manager.masterSession)
-		manager.scenes[sceneData.Id] = scene
+		manager.masterSession = s
 
-		err = manager.masterSession.RPC("Manager.RegisterSceneCell", &protocol.RegisterSceneCellRequest{
-			SceneId: scene.sceneId,
-			Width:   int(scene.GetWidth()),
-			Height:  int(scene.GetHeight()),
-			Enterx:  sceneData.Enterx,
-			EnterY:  sceneData.Entery,
-		})
+		scenes, err := db.SceneList(manager.sceneIds)
 		if err != nil {
-			// 这里如果注册失败了，后面的逻辑都无法实现
 			panic(err)
 		}
-	}
+		for _, sceneData := range scenes {
+			doorList, err := db.SceneDoorList(sceneData.Id)
+			if err != nil {
+				panic(err)
+			}
+			configList, err := db.SceneMonsterConfigList(sceneData.Id)
+			if err != nil {
+				panic(err)
+			}
+			scene := NewScene(&SceneData{
+				Scene:             sceneData,
+				DoorList:          doorList,
+				MonsterConfigList: configList,
+			}, manager.masterSession)
+			manager.scenes[sceneData.Id] = scene
+
+			err = manager.masterSession.RPC("CellManager.RegisterSceneCell", &protocol.RegisterSceneCellRequest{
+				SceneId:    scene.sceneId,
+				Width:      int(scene.GetWidth()),
+				Height:     int(scene.GetHeight()),
+				Enterx:     sceneData.Enterx,
+				EnterY:     sceneData.Entery,
+				RemoteAddr: manager.nodeAddr,
+				GateAddr:   manager.gateAddr,
+			})
+			if err != nil {
+				// 这里如果注册失败了，后面的逻辑都无法实现
+				panic(err)
+			}
+		}
+	})
+
 }
 
 func (manager *SceneManager) SceneCells(s *session.Session, req *protocol.SceneCelllsRequest) error {
@@ -97,26 +109,30 @@ func (manager *SceneManager) SceneCells(s *session.Session, req *protocol.SceneC
 	if scene.cellMgr.curCell.IsFirstCell && scene.cellMgr.curCell.IsNew {
 		scene.initMonsters()
 	}
-	//迁移对象
-	err = scene.cellMgr.migrateEntities()
-	if err != nil {
-		panic(err)
+	if len(scene.cellMgr.cells) > 1 {
+		//迁移对象
+		err = scene.cellMgr.migrateEntities()
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	return nil
 }
 
-func (manager *SceneManager) CheckHealth(s *session.Session, req interface{}) error {
+func (manager *SceneManager) CheckCellHealth(s *session.Session, req *protocol.CheckCellHealthRequest) error {
 	// 这个只需要返回nil
 	return nil
 }
 
 // 迁移
-func (manager *SceneManager) MigrateMonster(s *session.Session, req *protocol.MigrateMonsterRequest) error {
+func (manager *SceneManager) CreateMigrateMonster(s *session.Session, req *protocol.MigrateMonsterRequest) error {
+	logger.Debugln("CreateMigrateMonster:", *req)
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
 		return errors.New("scene not found")
 	}
-	return scene.migrateMonsterFromOtherCell(req)
+	return scene.cellMgr.createMigrateMonsterFromOtherCell(req)
 }
 
 // 创建镜像
@@ -125,25 +141,57 @@ func (manager *SceneManager) CreateGhostMonster(s *session.Session, req *protoco
 	if scene == nil {
 		return errors.New("scene not found")
 	}
-	return scene.createGhostMonsterFromOtherCell(req)
+	return scene.cellMgr.createGhostMonsterFromOtherCell(req)
 }
 
 // 删除镜像
 func (manager *SceneManager) RemoveGhostMonster(s *session.Session, req *protocol.RemoveGhostMonsterReq) error {
+	logger.Debugln("RemoveGhostMonster:", *req)
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
 		return errors.New("scene not found")
 	}
-	return scene.removeGhostMonsterFromOtherCell(req)
+	return scene.cellMgr.removeGhostMonsterFromOtherCell(req)
 }
 
 // 同步镜像数据
 func (manager *SceneManager) SyncGhostMonster(s *session.Session, req *protocol.SyncGhostMonsterReq) error {
+	logger.Debugln("SyncGhostMonster:", *req)
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
 		return errors.New("scene not found")
 	}
-	return scene.updateGhostMonsterFromOtherCell(req)
+	return scene.cellMgr.updateGhostMonsterFromOtherCell(req)
+}
+
+// 来自Ghost的消息转发
+func (manager *SceneManager) SendMsgFromGhost(s *session.Session, req *protocol.SendMsgFromGhostReq) error {
+	logger.Debugln("SendMsgFromGhost:", *req)
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.cellMgr.ghostSendMsgFromOtherCell(req)
+}
+
+// real通知Ghost的消息广播
+func (manager *SceneManager) BroadcastToGhost(s *session.Session, req *protocol.BroadcastToGhostReq) error {
+	logger.Debugln("BroadcastToGhostGhost:", *req)
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.cellMgr.broadcastToGhostFromOtherCell(req)
+}
+
+// 创建迁移过来的hero
+func (manager *SceneManager) CreateMigrateHero(s *session.Session, req *protocol.MigrateHeroRequest) error {
+	logger.Debugln("CreateMigrateHero:", *req, "pos:", req.HeroObject.Posx, req.HeroObject.Posy)
+	scene := manager.scenes[req.SceneId]
+	if scene == nil {
+		return errors.New("scene not found")
+	}
+	return scene.cellMgr.createMigrateHeroFromOtherCell(s, req)
 }
 
 func (manager *SceneManager) GetScene(sceneId int) *Scene {
@@ -162,6 +210,8 @@ func (manager *SceneManager) HeroEnterScene(s *session.Session, req *protocol.He
 	}
 	hero := NewHero(s, req.HeroData)
 	s.Bind(req.HeroData.Uid)
+	hero.CellId = scene.cellMgr.curCell.CellID
+	hero.realCellId = hero.CellId
 	hero.bindSession(s)
 	scene.addHero(hero)
 	logger.Debugf("hero:%d_%s 进入场景:%d", hero.GetID(), hero._name, req.SceneId)
@@ -240,6 +290,7 @@ func (manager *SceneManager) SceneInfo(s *session.Session, req *protocol.SceneIn
 			scene.GetSceneId(), scene.totalPlayerCount(), scene.totalMonsterCount())
 		items = append(items, protocol.SceneInfoItem{
 			SceneId:    scene.GetSceneId(),
+			CellId:     scene.cellMgr.curCell.CellID,
 			MonsterCnt: scene.totalMonsterCount(),
 			HeroCnt:    scene.totalPlayerCount(),
 		})
@@ -322,14 +373,4 @@ func (manager *SceneManager) DynamicResetMonsters(s *session.Session, req *proto
 		time.Sleep(300 * time.Millisecond)
 	}
 	return nil
-}
-
-// 创建镜像体
-func (manager *SceneManager) CreateHeroGhost(s *session.Session, req *protocol.CreateHeroGhostRequest) {
-
-}
-
-// 镜像体移动了
-func (manager *SceneManager) HeroGhostMoved(s *session.Session, req *protocol.HeroGhostMovedRequest) {
-
 }

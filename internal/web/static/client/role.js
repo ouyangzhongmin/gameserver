@@ -100,7 +100,7 @@ class Role extends RoleState{
         ctx.fillStyle = 'black';
         ctx.font = '11px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.name+`【${this.data.level}级】`, this.screenX, this.screenY - this.radius - 5);
+        ctx.fillText( `${this.id}-${this.name}【cell: ${this.data.from_cell_id ? this.data.from_cell_id+'->' : ''} ${this.data.cell_id}】`, this.screenX, this.screenY - this.radius - 5);
 
         if (this.bubbleMsgs){
             //绘制冒泡
