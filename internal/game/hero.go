@@ -6,7 +6,7 @@ import (
 	constants2 "github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"time"
 )
@@ -114,7 +114,7 @@ func (h *Hero) onExitScene(scene *Scene) {
 	h.movableEntity.onExitScene(scene)
 }
 
-func (h *Hero) SetPos(x, y, z shape.Coord) {
+func (h *Hero) SetPos(x, y, z coord.Coord) {
 	oldx, oldy := h.GetPos().X, h.GetPos().Y
 	h.Posx = x
 	h.Posy = y
@@ -362,7 +362,7 @@ func (h *Hero) updateHeroPosition(curMilliSecond int64, elapsedTime int64) {
 	//根据路径预测更新用户在的位置
 	step := h.tracePath[h.traceIndex]
 	//寻路返回的0是y坐标，1是X坐标，注意了
-	h.SetPos(shape.Coord(step[1]), shape.Coord(step[0]), 0)
+	h.SetPos(coord.Coord(step[1]), coord.Coord(step[0]), 0)
 }
 
 func (h *Hero) haveStepsToGo() bool {
@@ -398,8 +398,8 @@ func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error
 		h.targetZ = targetz
 		if len(paths) > 0 {
 			firstStep := paths[0]
-			if h.GetPos().X != shape.Coord(firstStep[1]) || h.GetPos().Y != shape.Coord(firstStep[0]) {
-				h.SetPos(shape.Coord(firstStep[1]), shape.Coord(firstStep[0]), h.GetPos().Z)
+			if h.GetPos().X != coord.Coord(firstStep[1]) || h.GetPos().Y != coord.Coord(firstStep[0]) {
+				h.SetPos(coord.Coord(firstStep[1]), coord.Coord(firstStep[0]), h.GetPos().Z)
 				//todo 这里看是否需要调用scene.refreshEntityViewList立即刷新视野
 			}
 		}
@@ -415,7 +415,7 @@ func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error
 	return nil
 }
 
-func (h *Hero) MoveStop(x, y, z shape.Coord) error {
+func (h *Hero) MoveStop(x, y, z coord.Coord) error {
 	h.PushTask(func() {
 		h.clearTracePaths()
 		h.SetPos(x, y, z)

@@ -6,6 +6,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
@@ -36,7 +37,7 @@ type Monster struct {
 	pathFinder     *PathFinder
 	preparePaths   *path.SerialPaths //预制的移动路径
 	cfg            *model.SceneMonsterConfig
-	bornPos        shape.Vector3
+	bornPos        coord.Vector3
 	spells         []*object.SpellObject
 }
 
@@ -88,7 +89,7 @@ func (m *Monster) SetSceneMonsterConfig(cfg *model.SceneMonsterConfig) {
 	m.cfg = cfg
 }
 
-func (m *Monster) SetPos(x, y, z shape.Coord) {
+func (m *Monster) SetPos(x, y, z coord.Coord) {
 	oldx, oldy := m.GetPos().X, m.GetPos().Y
 	m.Posx = x
 	m.Posy = y
@@ -280,11 +281,11 @@ func (m *Monster) updateMonsterPosition(curMilliSecond int64, elapsedTime int64)
 	}
 	step := m.tracePath[m.traceIndex]
 	//寻路返回的0是y坐标，1是X坐标，注意了
-	m.SetPos(shape.Coord(step[1]), shape.Coord(step[0]), 0)
+	m.SetPos(coord.Coord(step[1]), coord.Coord(step[0]), 0)
 }
 
 // 移动到目标位置
-func (m *Monster) MoveTo(x, y, z shape.Coord) error {
+func (m *Monster) MoveTo(x, y, z coord.Coord) error {
 	if m.GetPos().X == x && m.GetPos().Y == y {
 		//在目标点了
 		m.Idle()
@@ -365,7 +366,7 @@ func (m *Monster) CanAttackTarget(target IEntity) bool {
 	return false
 }
 
-func (m *Monster) IsInAttackRange(x, y shape.Coord) bool {
+func (m *Monster) IsInAttackRange(x, y coord.Coord) bool {
 	if m.Data.AttackRange > 50 {
 		return true
 	}
@@ -470,22 +471,22 @@ func (m *Monster) doAttackTarget(target IMovableEntity) {
 }
 
 // 返回对目标点的可攻击位置
-func (m *Monster) GetCanAttackPos(target IEntity, offset int) (v shape.Vector3, err error) {
+func (m *Monster) GetCanAttackPos(target IEntity, offset int) (v coord.Vector3, err error) {
 	if offset >= 20 {
 		return v, errors.New("附近没有可以站立的位置")
 	}
-	var tx shape.Coord = 0
-	var ty shape.Coord = 0
+	var tx coord.Coord = 0
+	var ty coord.Coord = 0
 	if m.GetPos().X < target.GetPos().X {
 		// +-1是为了一定能到attackRange范围去
-		tx = target.GetPos().X - shape.Coord(m.Data.AttackRange) + shape.Coord(offset)
+		tx = target.GetPos().X - coord.Coord(m.Data.AttackRange) + coord.Coord(offset)
 	} else {
-		tx = target.GetPos().X + shape.Coord(m.Data.AttackRange) - shape.Coord(offset)
+		tx = target.GetPos().X + coord.Coord(m.Data.AttackRange) - coord.Coord(offset)
 	}
 	if m.GetPos().Y < target.GetPos().Y {
-		ty = target.GetPos().Y - shape.Coord(m.Data.AttackRange) + shape.Coord(offset)
+		ty = target.GetPos().Y - coord.Coord(m.Data.AttackRange) + coord.Coord(offset)
 	} else {
-		ty = target.GetPos().Y + shape.Coord(m.Data.AttackRange) - shape.Coord(offset)
+		ty = target.GetPos().Y + coord.Coord(m.Data.AttackRange) - coord.Coord(offset)
 	}
 	if tx < 0 {
 		tx = 0
@@ -496,7 +497,7 @@ func (m *Monster) GetCanAttackPos(target IEntity, offset int) (v shape.Vector3, 
 	if !m.scene.IsWalkable(tx, ty) {
 		return m.GetCanAttackPos(target, offset+1)
 	}
-	return shape.Vector3{
+	return coord.Vector3{
 		X: tx,
 		Y: ty,
 		Z: 0,
@@ -527,7 +528,7 @@ func (m *Monster) GetCanUseSpell(spellType int) *object.SpellObject {
 	return nil
 }
 
-func (m *Monster) IsInSpellAttackRange(spell *object.SpellObject, x, y shape.Coord) bool {
+func (m *Monster) IsInSpellAttackRange(spell *object.SpellObject, x, y coord.Coord) bool {
 	return int(math.Abs(float64(x-m.GetPos().X))) <= spell.Data.AttackRange && int(math.Abs(float64(y-m.GetPos().Y))) <= spell.Data.AttackRange
 }
 

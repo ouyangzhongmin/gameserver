@@ -4,6 +4,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"math/rand"
 	"time"
@@ -11,10 +12,10 @@ import (
 
 type monsterai struct {
 	aidata        *model.Aiconfig
-	monster       *Monster
-	originX       shape.Coord
-	originY       shape.Coord
-	chaseRect     shape.Rect
+	monster   *Monster
+	originX   coord.Coord
+	originY   coord.Coord
+	chaseRect shape.Rect
 	behaviorState constants.BEHAVIOR
 	preparePathId int
 	readyUseSpell *object.SpellObject
@@ -179,8 +180,8 @@ func (a *monsterai) processAttackState(curMilliSecond int64, elapsedTime int64) 
 					//要回到预制路线的起点上去
 					a.preparePathId = a.preparePathId % len(a.monster.preparePaths.Paths)
 					paths := a.monster.preparePaths.Paths[a.preparePathId]
-					a.originX = shape.Coord(paths.Sx)
-					a.originY = shape.Coord(paths.Sy)
+					a.originX = coord.Coord(paths.Sx)
+					a.originY = coord.Coord(paths.Sy)
 				} else {
 					a.originX = a.monster.GetPos().X
 					a.originY = a.monster.GetPos().Y
@@ -247,7 +248,7 @@ func (a *monsterai) useSpellToSelf() error {
 }
 
 func (a *monsterai) scanEnemy() IMovableEntity {
-	entities := a.monster.scene.getEntitiesByRange(a.monster.GetPos().X, a.monster.GetPos().Y, shape.Coord(a.aidata.AlertRange))
+	entities := a.monster.scene.getEntitiesByRange(a.monster.GetPos().X, a.monster.GetPos().Y, coord.Coord(a.aidata.AlertRange))
 	var dist float64 = 10000000
 	var enemy IMovableEntity = nil
 	if entities != nil && len(entities) > 0 {

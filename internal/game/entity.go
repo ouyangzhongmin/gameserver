@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/lonng/nano/scheduler"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"sync/atomic"
 )
 
@@ -18,9 +18,9 @@ type Entity struct {
 	_uuid           string // 不存储在数据库，只作为运行对象的唯一值
 	_id             int64
 	_name           string
-	_entityType     int
-	_pos            shape.Vector3
-	_destroyed      atomic.Bool
+	_entityType int
+	_pos        coord.Vector3
+	_destroyed  atomic.Bool
 }
 
 func (e *Entity) initEntity(id int64, name string, entityType int, bufSize int) {
@@ -96,13 +96,13 @@ func (e *Entity) GetScene() *Scene {
 	return e.scene
 }
 
-func (e *Entity) SetPos(x, y, z shape.Coord) {
+func (e *Entity) SetPos(x, y, z coord.Coord) {
 	e._pos.X = x
 	e._pos.Y = y
 	e._pos.Z = z
 }
 
-func (e *Entity) GetPos() shape.Vector3 {
+func (e *Entity) GetPos() coord.Vector3 {
 	return e._pos
 }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ouyangzhongmin/gameserver/pkg/astar"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"io"
 	"math/rand"
@@ -93,7 +94,7 @@ func (b *BlockInfo) FindPath(sx, sy, ex, ey int32) (path [][]int32, block, turn 
 	return path, block, turn, err
 }
 
-func (b *BlockInfo) GetRandomXY(rect shape.Rect, cnt int) (shape.Coord, shape.Coord, error) {
+func (b *BlockInfo) GetRandomXY(rect shape.Rect, cnt int) (coord.Coord, coord.Coord, error) {
 	if cnt <= 0 {
 		return 0, 0, errors.New("没有找到可用的随机坐标")
 	}
@@ -106,7 +107,7 @@ func (b *BlockInfo) GetRandomXY(rect shape.Rect, cnt int) (shape.Coord, shape.Co
 		ry = 0
 	}
 	if b.IsWalkable(int32(rx), int32(ry)) {
-		return shape.Coord(rx), shape.Coord(ry), nil
+		return coord.Coord(rx), coord.Coord(ry), nil
 	}
 	return b.GetRandomXY(rect, cnt-1)
 }

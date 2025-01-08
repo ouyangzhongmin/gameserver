@@ -4,15 +4,15 @@ package object
 import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"math/rand"
 	"time"
 )
 
 type GameObject struct {
-	Posx shape.Coord `json:"pos_x"`
-	Posy shape.Coord `json:"pos_y"`
-	Posz shape.Coord `json:"pos_z"`
+	Posx coord.Coord `json:"pos_x"`
+	Posy coord.Coord `json:"pos_y"`
+	Posz coord.Coord `json:"pos_z"`
 	Uuid string      `json:"uuid"`
 }
 
@@ -29,9 +29,9 @@ func NewHeroObject(data *model.Hero) *HeroObject {
 		Hero:       *data,
 		GameObject: GameObject{},
 	}
-	o.Posx = shape.Coord(o.InitPosx)
-	o.Posy = shape.Coord(o.InitPosy)
-	o.Posz = shape.Coord(o.InitPosz)
+	o.Posx = coord.Coord(o.InitPosx)
+	o.Posy = coord.Coord(o.InitPosy)
+	o.Posz = coord.Coord(o.InitPosz)
 	o.UpdateProperty()
 	//初始化的时候满血满蓝
 	o.Life = o.MaxLife
@@ -130,9 +130,9 @@ type SpellObject struct {
 	SpellType    int                `json:"spell_type" `    //飞行速度
 	CdTime       int                `json:"cd_time" `       //cd间隔
 	CurCdTime    int                `json:"cur_cd_time" `   //当前cd间隔
-	Buf          *model.BufferState `json:"-"`
-	TargetPos    shape.Vector3      `json:"target_pos"`
-	CasterId     int64              `json:"caster_id"`
+	Buf       *model.BufferState `json:"-"`
+	TargetPos coord.Vector3      `json:"target_pos"`
+	CasterId  int64              `json:"caster_id"`
 	CasterType   int                `json:"caster_type"`
 	TargetId     int64              `json:"target_id"`
 	TargetType   int                `json:"target_type"`

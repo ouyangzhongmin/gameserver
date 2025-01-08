@@ -3,7 +3,7 @@ package game
 // AOI管理器
 import (
 	"github.com/ouyangzhongmin/gameserver/pkg/aoi"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 )
 
 type aoiMgr struct {
@@ -26,11 +26,11 @@ func (m *aoiMgr) Leave(entity IMovableEntity) {
 	m.aoi.Delete(float64(entity.GetPos().X), float64(entity.GetPos().Y), entity.GetUUID())
 }
 
-func (m *aoiMgr) Moved(entity IMovableEntity, x, y, oldX, oldY shape.Coord) {
+func (m *aoiMgr) Moved(entity IMovableEntity, x, y, oldX, oldY coord.Coord) {
 	m.aoi.Moved(float64(x), float64(y), float64(oldX), float64(oldY), entity.GetUUID(), entity)
 }
 
-func (m *aoiMgr) Search(x, y shape.Coord) []interface{} {
+func (m *aoiMgr) Search(x, y coord.Coord) []interface{} {
 	result := m.aoi.Search(float64(x), float64(y))
 	return result
 }
