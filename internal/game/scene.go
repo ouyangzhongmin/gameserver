@@ -9,6 +9,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/async"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
@@ -223,15 +224,15 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 			sindex := rand.Intn(len(spaths))
 			sp := spaths[sindex]
 			m.SetPreparePaths(sp)
-			m.SetPos(shape.Coord(sp.Paths[0].Sx), shape.Coord(sp.Paths[0].Sy), shape.Coord(cfg.Bornz))
+			m.SetPos(coord.Coord(sp.Paths[0].Sx), coord.Coord(sp.Paths[0].Sy), coord.Coord(cfg.Bornz))
 		} else {
 			//随机坐标
 			rx, ry, err := s.GetRandomXY(rect, 100)
 			if err != nil {
 				logger.Warningln("monster init pos err:", err)
-				rx, ry = shape.Coord(cfg.Bornx), shape.Coord(cfg.Borny)
+				rx, ry = coord.Coord(cfg.Bornx), coord.Coord(cfg.Borny)
 			}
-			m.SetPos(rx, ry, shape.Coord(cfg.Bornz))
+			m.SetPos(rx, ry, coord.Coord(cfg.Bornz))
 		}
 		m.bornPos.Copy(m.GetPos())
 		m.SetMovableRect(rect)
@@ -254,16 +255,16 @@ func (s *Scene) rebornOneMonster(rm *rebornMonster) {
 	m.SetMovableRect(rm.MovableRect)
 	if rm.PreparePaths != nil {
 		m.SetPreparePaths(rm.PreparePaths)
-		m.SetPos(shape.Coord(rm.PreparePaths.Paths[0].Sx), shape.Coord(rm.PreparePaths.Paths[0].Sy), shape.Coord(rm.Cfg.Bornz))
+		m.SetPos(coord.Coord(rm.PreparePaths.Paths[0].Sx), coord.Coord(rm.PreparePaths.Paths[0].Sy), coord.Coord(rm.Cfg.Bornz))
 	} else {
 		//随机坐标
 		rect := rm.MovableRect
 		rx, ry, err := s.GetRandomXY(rect, 100)
 		if err != nil {
 			logger.Warningln("monster init pos err:", err)
-			rx, ry = shape.Coord(rm.Cfg.Bornx), shape.Coord(rm.Cfg.Borny)
+			rx, ry = coord.Coord(rm.Cfg.Bornx), coord.Coord(rm.Cfg.Borny)
 		}
-		m.SetPos(rx, ry, shape.Coord(rm.Cfg.Bornz))
+		m.SetPos(rx, ry, coord.Coord(rm.Cfg.Bornz))
 	}
 	if rm.Aidata != nil {
 		m.SetAiData(newMonsterAi(m, rm.Aidata.(*model.Aiconfig)))
@@ -319,7 +320,7 @@ func (s *Scene) addHero(h *Hero) {
 	//这个要在前面执行，并发的update内可能会取到空的scene
 	if s.sceneData.Enterx > 0 && s.sceneData.Entery > 0 {
 		//使用场景的出生点
-		h.SetPos(shape.Coord(s.sceneData.Enterx), shape.Coord(s.sceneData.Entery), shape.Coord(s.sceneData.Enterz))
+		h.SetPos(coord.Coord(s.sceneData.Enterx), coord.Coord(s.sceneData.Entery), coord.Coord(s.sceneData.Enterz))
 	}
 
 	h.onEnterScene(s)
@@ -378,7 +379,7 @@ func (s *Scene) removeSpell(m *SpellEntity) {
 }
 
 // 这里的x,y需要传递，防止e对象并发更新了新的坐标，导致aoi里部分存储没有删除掉
-func (s *Scene) entityMoved(e IMovableEntity, x, y, oldX, oldY shape.Coord) {
+func (s *Scene) entityMoved(e IMovableEntity, x, y, oldX, oldY coord.Coord) {
 	if oldX != x || oldY != y {
 		s.PushTask(func() {
 			s.aoiMgr.Moved(e, x, y, oldX, oldY)
@@ -559,12 +560,12 @@ func (s *Scene) updateEntityViewList(entity IMovableEntity) {
 }
 
 // 这个是线程安全的，可并发调用, 注意区别PathFinder
-func (s *Scene) FindPath(sx, sy, ex, ey shape.Coord) ([][]int32, error) {
+func (s *Scene) FindPath(sx, sy, ex, ey coord.Coord) ([][]int32, error) {
 	path, _, _, err := s.blockInfo.FindPath(int32(sx), int32(sy), int32(ex), int32(ey))
 	return path, err
 }
 
-func (s *Scene) IsWalkable(x, y shape.Coord) bool {
+func (s *Scene) IsWalkable(x, y coord.Coord) bool {
 	if s.blockInfo != nil {
 		return s.blockInfo.IsWalkable(int32(x), int32(y))
 	}
@@ -572,7 +573,7 @@ func (s *Scene) IsWalkable(x, y shape.Coord) bool {
 }
 
 // 通过圆范围查找对象
-func (s *Scene) getEntitiesByRange(cx, cy, arange shape.Coord) map[string]IMovableEntity {
+func (s *Scene) getEntitiesByRange(cx, cy, arange coord.Coord) map[string]IMovableEntity {
 	result := make(map[string]IMovableEntity)
 	entites := s.aoiMgr.Search(cx, cy)
 	for _, e0 := range entites {
@@ -581,7 +582,7 @@ func (s *Scene) getEntitiesByRange(cx, cy, arange shape.Coord) map[string]IMovab
 		}
 		e := e0.(IMovableEntity)
 		//if shape.IsInsideCircle(float64(cx), float64(cy), float64(arange), float64(e.GetPos().X), float64(e.GetPos().Y)) {
-		if shape.Coord(math.Abs(float64(cx-e.GetPos().X))) <= arange && shape.Coord(math.Abs(float64(cy-e.GetPos().Y))) <= arange {
+		if coord.Coord(math.Abs(float64(cx-e.GetPos().X))) <= arange && coord.Coord(math.Abs(float64(cy-e.GetPos().Y))) <= arange {
 			//判定是否在警戒范围内
 			result[e.GetUUID()] = e
 		}
@@ -589,7 +590,7 @@ func (s *Scene) getEntitiesByRange(cx, cy, arange shape.Coord) map[string]IMovab
 	return result
 }
 
-func (s *Scene) GetRandomXY(rect shape.Rect, cnt int) (shape.Coord, shape.Coord, error) {
+func (s *Scene) GetRandomXY(rect shape.Rect, cnt int) (coord.Coord, coord.Coord, error) {
 	return s.blockInfo.GetRandomXY(rect, cnt)
 }
 

@@ -3,8 +3,8 @@ package game
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/nano/scheduler"
 	"sync/atomic"
 )
@@ -20,7 +20,7 @@ type Entity struct {
 	_id             int64
 	_name           string
 	_entityType     int
-	_pos            shape.Vector3
+	_pos            coord.Vector3
 	_destroyed      atomic.Bool
 }
 
@@ -97,13 +97,13 @@ func (e *Entity) GetScene() *Scene {
 	return e.scene
 }
 
-func (e *Entity) SetPos(x, y, z shape.Coord) {
+func (e *Entity) SetPos(x, y, z coord.Coord) {
 	e._pos.X = x
 	e._pos.Y = y
 	e._pos.Z = z
 }
 
-func (e *Entity) GetPos() shape.Vector3 {
+func (e *Entity) GetPos() coord.Vector3 {
 	return e._pos
 }
 

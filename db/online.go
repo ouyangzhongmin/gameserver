@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func InsertOnline(count int, scenes map[int]interface{}, ts int64) {
+func InsertOnline(count int, scenes map[string]interface{}, ts int64) {
 	jsonstr, err := json.Marshal(scenes)
 	if err != nil {
 		log.Errorf("统计在线人数失败: %s", err.Error())

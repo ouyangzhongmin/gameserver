@@ -3,7 +3,7 @@ package protocol
 import (
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 )
 
 type UserSceneId struct {
@@ -67,41 +67,41 @@ type HeroMoveRequest struct {
 
 type HeroMoveStopRequest struct {
 	Uid  int64       `json:"uid"`
-	PosX shape.Coord `json:"pos_x"`
-	PosY shape.Coord `json:"pos_y"`
-	PosZ shape.Coord `json:"pos_z"`
+	PosX coord.Coord `json:"pos_x"`
+	PosY coord.Coord `json:"pos_y"`
+	PosZ coord.Coord `json:"pos_z"`
 }
 
 type HeroMoveTraceResponse struct {
 	ID         int64       `json:"id"`
 	TracePaths [][]int32   `json:"trace_paths"` //trace_paths[0][0] 前面的是Y轴的数据，后面的是X轴的数据，trace_paths[y][x],前端要注意
 	StepTime   int         `json:"step_time"`
-	PosX       shape.Coord `json:"pos_x"`
-	PosY       shape.Coord `json:"pos_y"`
-	PosZ       shape.Coord `json:"pos_z"`
+	PosX       coord.Coord `json:"pos_x"`
+	PosY       coord.Coord `json:"pos_y"`
+	PosZ       coord.Coord `json:"pos_z"`
 }
 
 type HeroMoveStopResponse struct {
 	ID   int64       `json:"id"`
-	PosX shape.Coord `json:"pos_x"`
-	PosY shape.Coord `json:"pos_y"`
-	PosZ shape.Coord `json:"pos_z"`
+	PosX coord.Coord `json:"pos_x"`
+	PosY coord.Coord `json:"pos_y"`
+	PosZ coord.Coord `json:"pos_z"`
 }
 
 type MonsterMoveTraceResponse struct {
 	ID         int64       `json:"id"`
 	TracePaths [][]int32   `json:"trace_paths"`
 	StepTime   int         `json:"step_time"`
-	PosX       shape.Coord `json:"pos_x"`
-	PosY       shape.Coord `json:"pos_y"`
-	PosZ       shape.Coord `json:"pos_z"`
+	PosX       coord.Coord `json:"pos_x"`
+	PosY       coord.Coord `json:"pos_y"`
+	PosZ       coord.Coord `json:"pos_z"`
 }
 
 type MonsterMoveStopResponse struct {
 	ID   int64       `json:"id"`
-	PosX shape.Coord `json:"pos_x"`
-	PosY shape.Coord `json:"pos_y"`
-	PosZ shape.Coord `json:"pos_z"`
+	PosX coord.Coord `json:"pos_x"`
+	PosY coord.Coord `json:"pos_y"`
+	PosZ coord.Coord `json:"pos_z"`
 }
 
 type AttackRequest struct {
@@ -155,9 +155,9 @@ type MonsterAttackResponse struct {
 	Damage     int64       `json:"damage"`
 	TargetId   int64       `json:"target_id"`
 	EntityType int         `json:"entity_type"`
-	PosX       shape.Coord `json:"pos_x"`
-	PosY       shape.Coord `json:"pos_y"`
-	PosZ       shape.Coord `json:"pos_z"`
+	PosX       coord.Coord `json:"pos_x"`
+	PosY       coord.Coord `json:"pos_y"`
+	PosZ       coord.Coord `json:"pos_z"`
 }
 
 type TextMessageRequest struct {

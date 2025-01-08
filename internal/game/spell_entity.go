@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 )
@@ -53,7 +54,7 @@ func (e *SpellEntity) onExitScene(scene *Scene) {
 	e.movableEntity.onExitScene(scene)
 }
 
-func (e *SpellEntity) SetPos(x, y, z shape.Coord) {
+func (e *SpellEntity) SetPos(x, y, z coord.Coord) {
 	e.Posx = x
 	e.Posy = y
 	e.Posz = z
@@ -69,7 +70,7 @@ func (e *SpellEntity) SetTarget(target IMovableEntity) {
 }
 
 // 需要在添加到场景内之前执行
-func (e *SpellEntity) SetTargetPos(target shape.Vector3) {
+func (e *SpellEntity) SetTargetPos(target coord.Vector3) {
 	e.TargetPos.Copy(target)
 
 	// 计算两点距离 再算出需要移动的总时间
@@ -92,7 +93,7 @@ func (e *SpellEntity) update(curMilliSecond int64, elapsedTime int64) error {
 		//到达消失时间
 		var err error
 		if e.Data.IsRangeAttack != 0 {
-			entityes := e.scene.getEntitiesByRange(e.TargetPos.X, e.TargetPos.Y, shape.Coord(e.Data.AttackRange))
+			entityes := e.scene.getEntitiesByRange(e.TargetPos.X, e.TargetPos.Y, coord.Coord(e.Data.AttackRange))
 			if entityes != nil && len(entityes) > 0 {
 				for _, entity := range entityes {
 					if entity == e.caster {

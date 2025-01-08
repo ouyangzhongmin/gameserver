@@ -1,7 +1,7 @@
 package ghost
 
 import (
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano/session"
 )
@@ -12,7 +12,7 @@ type ghostEntity struct {
 	protocol.GhostEntity
 }
 
-func (e *ghostEntity) GetPos() shape.Vector3 {
+func (e *ghostEntity) GetPos() coord.Vector3 {
 	return e.Pos
 }
 

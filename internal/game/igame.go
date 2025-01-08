@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
@@ -8,8 +9,8 @@ type IEntity interface {
 	onEnterScene(s *Scene)
 	onExitScene(s *Scene)
 	GetScene() *Scene
-	SetPos(x, y, z shape.Coord)
-	GetPos() shape.Vector3
+	SetPos(x, y, z coord.Coord)
+	GetPos() coord.Vector3
 	GetID() int64
 	// 不存储在数据库，只作为运行对象的唯一值
 	GetUUID() string
@@ -50,5 +51,5 @@ type IAiManager interface {
 type IAoiManager interface {
 	Enter(entity IMovableEntity)
 	Leave(entity IMovableEntity)
-	Moved(entity IMovableEntity, oldX, oldY shape.Coord)
+	Moved(entity IMovableEntity, oldX, oldY coord.Coord)
 }

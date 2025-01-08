@@ -379,9 +379,9 @@ func (m *Manager) dumpSceneInfo() {
 
 	async.Run(func() {
 		// 统计结果异步写入数据库
-		scenesCount := make(map[int]interface{})
+		scenesCount := make(map[string]interface{})
 		m.scenesCount.Range(func(k, v interface{}) bool {
-			scenesCount[k.(int)] = v
+			scenesCount[k.(string)] = v
 			return true
 		})
 		db.InsertOnline(sCount, scenesCount, time.Now().UnixMilli())

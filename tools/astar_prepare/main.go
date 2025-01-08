@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ouyangzhongmin/gameserver/internal/game"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
@@ -90,8 +91,8 @@ func serve(c *cli.Context) error {
 			Paths: make([]path.PointPath, 0),
 		}
 		spaths = append(spaths, sp)
-		var sx shape.Coord
-		var sy shape.Coord
+		var sx coord.Coord
+		var sy coord.Coord
 		var err error
 		sx, sy, err = blockInfo.GetRandomXY(rect, 1000)
 		if err != nil {

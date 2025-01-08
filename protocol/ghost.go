@@ -1,6 +1,9 @@
 package protocol
 
-import "github.com/ouyangzhongmin/gameserver/pkg/shape"
+import (
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+)
 
 type GhostEntity struct {
 	SceneID    int
@@ -8,7 +11,7 @@ type GhostEntity struct {
 	Id         int64
 	Name       string
 	EntityType int
-	Pos        shape.Vector3
+	Pos        coord.Vector3
 	//视野,屏幕可移动范围
 	ViewRect shape.Rect
 }

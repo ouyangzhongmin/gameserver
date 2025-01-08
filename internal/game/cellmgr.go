@@ -3,6 +3,7 @@ package game
 import (
 	"errors"
 	"github.com/ouyangzhongmin/gameserver/db/model"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
@@ -16,20 +17,20 @@ type cell struct {
 }
 
 // 是否在cell左边缘
-func (c *cell) IsInCellLeftEdge(pos shape.Vector3) bool {
+func (c *cell) IsInCellLeftEdge(pos coord.Vector3) bool {
 	x, y := int64(pos.X), int64(pos.Y)
 	return x >= c.Bounds.X && x <= c.Bounds.X+int64(c.EdgeSize) &&
 		y >= c.Bounds.Y && y <= c.Bounds.Y+c.Bounds.Height
 }
 
 // 是否在cell右边缘
-func (c *cell) IsInCellRightEdge(pos shape.Vector3) bool {
+func (c *cell) IsInCellRightEdge(pos coord.Vector3) bool {
 	x, y := int64(pos.X), int64(pos.Y)
 	return x >= c.Bounds.X+c.Bounds.Width-int64(c.EdgeSize) && x <= c.Bounds.X+int64(c.Bounds.Width) &&
 		y >= c.Bounds.Y && y <= c.Bounds.Y+c.Bounds.Height
 }
 
-func (c *cell) IsInCellBounds(pos shape.Vector3) bool {
+func (c *cell) IsInCellBounds(pos coord.Vector3) bool {
 	return c.Bounds.Contains(int64(pos.X), int64(pos.Y))
 }
 
@@ -403,7 +404,7 @@ func (mgr *cellMgr) BroadcastToGhost(e IMovableEntity, route string, msg interfa
 	return nil
 }
 
-func (mgr *cellMgr) Moved(e IMovableEntity, oldx, oldy shape.Coord) (bool, error) {
+func (mgr *cellMgr) Moved(e IMovableEntity, oldx, oldy coord.Coord) (bool, error) {
 	if len(mgr.cells) <= 1 {
 		return false, nil
 	}

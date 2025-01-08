@@ -3,6 +3,7 @@ package game
 import (
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
+	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"sync"
 )
@@ -69,7 +70,7 @@ func (m *movableEntity) onExitOtherView(target IMovableEntity) {
 	m.canSeeMeViewList.Delete(target.GetUUID())
 }
 
-func (m *movableEntity) SetPos(x, y, z shape.Coord) {
+func (m *movableEntity) SetPos(x, y, z coord.Coord) {
 	m.Entity.SetPos(x, y, z)
 	m.updateViewRect()
 
