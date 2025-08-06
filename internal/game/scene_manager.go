@@ -2,11 +2,12 @@ package game
 
 import (
 	"errors"
+	"time"
+
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano"
-	"time"
 
 	"github.com/ouyangzhongmin/nano/component"
 	"github.com/ouyangzhongmin/nano/session"
@@ -89,6 +90,7 @@ func (manager *SceneManager) AfterInit() {
 
 }
 
+// master上进行cell切割后会返回到这里
 func (manager *SceneManager) SceneCells(s *session.Session, req *protocol.SceneCelllsRequest) error {
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
@@ -103,7 +105,7 @@ func (manager *SceneManager) SceneCells(s *session.Session, req *protocol.SceneC
 		scene.initMonsters()
 	}
 	if len(scene.cellMgr.cells) > 1 {
-		//迁移对象
+		//检测cell相邻之间迁移对象与边界ghost对象
 		err = scene.cellMgr.migrateEntities()
 		if err != nil {
 			panic(err)

@@ -2,6 +2,8 @@ package game
 
 import (
 	"fmt"
+	"time"
+
 	constants2 "github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
@@ -9,7 +11,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano/session"
-	"time"
 )
 
 type routeMsg struct {
@@ -226,13 +227,7 @@ func (h *Hero) onEnterView(target IMovableEntity) {
 
 func (h *Hero) onExitView(target IMovableEntity) {
 	h.movableEntity.onExitView(target)
-	ttype := -1
-	switch target.(type) {
-	case *Hero:
-		ttype = constants2.ENTITY_TYPE_HERO
-	case *Monster:
-		ttype = constants2.ENTITY_TYPE_MONSTER
-	}
+	ttype := target.GetEntityType()
 	logger.Debugf("对象:%d-%d离开hero:%d_%s视野:", target.GetID(), ttype, h.GetID(), h._name)
 	if ttype > -1 {
 		//有对象离开自己的视野了，推送给前端删除对象

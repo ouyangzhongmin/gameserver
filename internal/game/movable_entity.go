@@ -1,11 +1,12 @@
 package game
 
 import (
+	"sync"
+
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
-	"sync"
 )
 
 type movableEntity struct {
@@ -31,7 +32,7 @@ type movableEntity struct {
 
 	isGhost     bool //是否是镜像体, 针对超大无缝地图的英雄镜像实现
 	realCellId  int  // 记录本体在哪个cell
-	ghostCellId int  // 记录ghost在哪个cell
+	ghostCellId int  // 记录ghost在哪个cell 这里只做了横向的，所以只会出现左右交叉的边界
 }
 
 func (m *movableEntity) initEntity(id int64, name string, entityType int, bufSize int) {

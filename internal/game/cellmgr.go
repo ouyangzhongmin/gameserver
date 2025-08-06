@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
@@ -10,6 +11,7 @@ import (
 	"github.com/ouyangzhongmin/nano"
 )
 
+// 这里的地图切割只支持横向切割，不支持横向纵向切割
 type cell struct {
 	protocol.Cell
 	leftCellId  int //左边的cell, 这里只做竖向一刀切，不做横竖九宫格类似的
@@ -30,18 +32,20 @@ func (c *cell) IsInCellRightEdge(pos coord.Vector3) bool {
 		y >= c.Bounds.Y && y <= c.Bounds.Y+c.Bounds.Height
 }
 
+// 是否在当前cell范围内
 func (c *cell) IsInCellBounds(pos coord.Vector3) bool {
 	return c.Bounds.Contains(int64(pos.X), int64(pos.Y))
 }
 
+// 更新新的范围
 func (c *cell) UpdateBounds(newbounds shape.Rect) bool {
 	return false
 }
 
 type cellMgr struct {
 	scene   *Scene
-	cells   []*protocol.Cell
-	curCell *cell
+	cells   []*protocol.Cell // 所有的cell列表
+	curCell *cell            // 当前服务器的cell
 }
 
 func newCellMgr(scene *Scene) *cellMgr {
@@ -74,7 +78,7 @@ func (mgr *cellMgr) updateCells(curCellId int, cells []*protocol.Cell) error {
 	return nil
 }
 
-// 迁移对象到响应的cell服务器
+// 迁移对象到相邻的cell服务器
 func (mgr *cellMgr) migrateEntities() error {
 	logger.Println("migrateEntities...")
 	mgr.scene.monsters.Range(func(k, v interface{}) bool {
@@ -99,6 +103,7 @@ func (mgr *cellMgr) ghostMonsterIfInEdge(m *Monster) {
 	if len(mgr.cells) <= 1 {
 		return
 	}
+	// 这里的地图切割只支持横向切割，不支持横向纵向切割
 	isInLeftEdge := mgr.curCell.IsInCellLeftEdge(m.GetPos())
 	isInRightEdge := mgr.curCell.IsInCellRightEdge(m.GetPos())
 	if isInLeftEdge || isInRightEdge {
@@ -186,7 +191,7 @@ func (mgr *cellMgr) createGhostMonster(m *Monster, left, right bool) error {
 	if err != nil {
 		return err
 	}
-	// 这里需要记录哪个cell里有镜像
+	// 这里需要记录镜像在哪个cell里
 	m.ghostCellId = ghostCell.CellID
 	return nil
 }

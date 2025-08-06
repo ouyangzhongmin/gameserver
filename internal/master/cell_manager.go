@@ -3,6 +3,7 @@ package master
 import (
 	"errors"
 	"fmt"
+
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
@@ -33,6 +34,8 @@ func (m *CellManager) AfterInit() {
 
 }
 
+// 启动一个场景cell, 每次启动个新的都会都地图进行新的切片并迁移数据,
+// 比如10000宽度的地图，第一个cell启动就是cell1(10000,h),再启动第二个服务，则会有两个cell: cell1(5000,h),cell2(5000,h)
 func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.RegisterSceneCellRequest) error {
 	sceneId := req.SceneId
 	//停止的时候要考虑怎么清理掉
@@ -50,7 +53,7 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		m.scenesCells[sceneId] = scell
 	} else {
 		m.checkSceneCells(scell, req.RemoteAddr)
-		cellsLen := len(scell.Cells)
+		cellsLen := len(scell.Cells) // 当前地图被切成了多少个cell
 		if cellsLen > 0 {
 			// todo 第一个测试方便
 			firstW := 60
@@ -92,7 +95,7 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 
 	scell.Cells = append(scell.Cells, c)
 	for i := 0; i < len(scell.Cells); i++ {
-		//通知到scene的具体的cell信息
+		//更新到所有scene的具体的cell信息
 		tmp := scell.Cells[i]
 		logger.Printf("当前场景cell:%d, remoteAddr:%s \n", tmp.CellID, tmp.RemoteAddr)
 		err := nano.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{

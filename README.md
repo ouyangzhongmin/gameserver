@@ -29,10 +29,12 @@
 ```
 
 ## 无缝大地图实现逻辑:
-
+代码分支: `feature/cell`
 ```aiignore
-动态分割成 n 个 区域（cell）只做竖向切割,每启动一个cell, 就将每个cell均匀分布，这些 cell 的面积是固定的。
-每个game进程内每个scene只能有一个cell, 由master的 CellManager 服务器管理。 
+动态将scene分割成 n 个 区域（cell）只做横向切割。
+每个game进程内每个scene只能管理一个cell, 由master的 CellManager 服务器分配管理，
+每启动一个cell, 将scene 重新按宽度均匀分布切割为多1个cell，cell内将数据重新迁移分布。
 cell边界通过Real->Ghost切换来实现无缝的逻辑。
+建议每次启动新的cell时需要间隔小段时间等待数据迁移完成再启动下一个。
 ```
 ![image](./cell时序图.jpg)
