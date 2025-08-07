@@ -8,7 +8,7 @@ class CellsShow{
         if (!this.isShow()){
             return
         }
-        this.startX = getGridXByPixel(camera.x);
+        this.startX = camera.x;
         this.endX = this.startX + camera.width;
         /**
          * [
