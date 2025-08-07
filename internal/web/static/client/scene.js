@@ -8,6 +8,7 @@ class Scene {
 		this.sceneId = 0
 		this.sceneName = "";
 		this.gridShow = new GridShow();
+		this.cellsShow = new CellsShow();
     }
 
 	init(){
@@ -142,6 +143,10 @@ class Scene {
 		if (this.gridShow){
 			this.gridShow.update(deltaTime, this.camera);
 		}
+		if (this.cellsShow){
+			this.cellsShow.update(deltaTime, this.camera);
+		}
+
 		for (let key in this.heros) {
 			this.heros[key].update(deltaTime, this.camera);
 		}
@@ -171,6 +176,10 @@ class Scene {
 		if (this.gridShow){
 			this.gridShow.draw(ctx);
 		}
+		if (this.cellsShow){
+			this.cellsShow.draw(ctx);
+		}
+
 		for (let key in this.heros) {
 			this.heros[key].draw(ctx)
 		}
@@ -427,5 +436,10 @@ class Scene {
 		for (let key in data.data) {
 			role.data[key] = data.data[key]
 		}
+	}
+
+	//在屏幕上显示出cells的区域
+	OnEnterSceneCells(cells) {
+		this.cellsShow.show(cells)
 	}
 }

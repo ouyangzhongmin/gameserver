@@ -179,6 +179,10 @@ class Game {
                 console.log("OnPropertyChanged::", data)
                 that.scene.propertyChanged(data)
             })
+            nano.on("OnEnterSceneCells", (data)=>{
+                console.log("OnEnterSceneCells::", data)
+                that.scene.OnEnterSceneCells(data.cells)
+            })
         });
     }
 

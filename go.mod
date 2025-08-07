@@ -1,6 +1,8 @@
 module github.com/ouyangzhongmin/gameserver
 
-go 1.20
+go 1.23.3
+
+toolchain go1.23.8
 
 replace (
 	golang.org/x/crypto => github.com/golang/crypto v0.0.0-20181001203147-e3636079e1a4

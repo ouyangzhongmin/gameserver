@@ -332,6 +332,11 @@ func (s *Scene) addHero(h *Hero) {
 		Doors:    s.sceneData.DoorList,
 		HeroData: *h.GetData(),
 	})
+
+	// 发送给前端展示出来cells的各个区域
+	h.SendMsg(protocol.OnEnterSceneCells, &protocol.EnterSceneCellsResponse{
+		Cells: s.cellMgr.cells,
+	})
 }
 
 func (s *Scene) removeHero(h *Hero) {

@@ -43,6 +43,10 @@ type EnterSceneResponse struct {
 	HeroData object.HeroObject `json:"hero_data"`
 }
 
+type EnterSceneCellsResponse struct {
+	Cells []*Cell `json:"cells"`
+}
+
 type HeroSetViewRangeRequest struct {
 	HeroID int64 `json:"hero_id"`
 	Width  int   `json:"width"`

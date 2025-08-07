@@ -22,4 +22,7 @@ const (
 	OnPropertyChanged     = "OnPropertyChanged"
 
 	OnTextMessage = "OnTextMessage"
+
+	// 测试用的
+	OnEnterSceneCells = "OnEnterSceneCells"
 )

@@ -85,7 +85,7 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		CellID:      cellId,
 		SceneId:     sceneId,
 		Bounds:      bounds,
-		EdgeSize:    30,
+		EdgeSize:    15,
 		RemoteAddr:  req.RemoteAddr,
 		GateAddr:    req.GateAddr,
 		IsFirstCell: len(scell.Cells) == 0,

@@ -122,7 +122,8 @@ func (manager *SceneManager) CheckCellHealth(s *session.Session, req *protocol.C
 
 // 迁移
 func (manager *SceneManager) CreateMigrateMonster(s *session.Session, req *protocol.MigrateMonsterRequest) error {
-	logger.Debugln("CreateMigrateMonster:", *req)
+	logger.Debugln("CreateMigrateMonster:",
+		req.FromCellId, req.CellId, req.MonsterObject.Id, req.MonsterObject.Name)
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
 		return errors.New("scene not found")
@@ -136,12 +137,13 @@ func (manager *SceneManager) CreateGhostMonster(s *session.Session, req *protoco
 	if scene == nil {
 		return errors.New("scene not found")
 	}
+	logger.Debugln("CreateMigrateMonster:", req.FromCellId, req.CellId, req.MonsterObject.Id, req.MonsterObject.Name)
 	return scene.cellMgr.createGhostMonsterFromOtherCell(req)
 }
 
 // 删除镜像
 func (manager *SceneManager) RemoveGhostMonster(s *session.Session, req *protocol.RemoveGhostMonsterReq) error {
-	logger.Debugln("RemoveGhostMonster:", *req)
+	logger.Debugln("RemoveGhostMonster:", req.CellId, req.MonsterId)
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
 		return errors.New("scene not found")
@@ -151,7 +153,7 @@ func (manager *SceneManager) RemoveGhostMonster(s *session.Session, req *protoco
 
 // 同步镜像数据
 func (manager *SceneManager) SyncGhostMonster(s *session.Session, req *protocol.SyncGhostMonsterReq) error {
-	logger.Debugln("SyncGhostMonster:", *req)
+	logger.Debugln("SyncGhostMonster:", req.CellId, req.MonsterId, req.MonsterObject.Name)
 	scene := manager.scenes[req.SceneId]
 	if scene == nil {
 		return errors.New("scene not found")

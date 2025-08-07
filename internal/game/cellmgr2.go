@@ -2,10 +2,12 @@ package game
 
 import (
 	"errors"
+	"fmt"
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano/session"
+	"time"
 )
 
 // 从其他cell迁移过来的对象
@@ -19,7 +21,8 @@ func (mgr *cellMgr) createMigrateMonsterFromOtherCell(data *protocol.MigrateMons
 		tmpm.Destroy2()
 	}
 	data.MonsterObject.Data = *data.MonsterData
-	//data.MonsterObject.Name = data.MonsterObject.Name + fmt.Sprintf("-migrate-fromcell-%d", data.FromCellId)
+	//data.MonsterObject.Name = data.MonsterObject.Name + fmt.Sprintf("[mgf-%d]", data.CellId)
+	data.MonsterObject.Name = data.MonsterData.Name + fmt.Sprintf("[mgf-%d-fromc-%d]", data.CellId, data.FromCellId)
 	m := NewMonster2(data.MonsterObject, false)
 	m.CellId = data.CellId
 	m.realCellId = data.CellId
@@ -36,14 +39,19 @@ func (mgr *cellMgr) createMigrateMonsterFromOtherCell(data *protocol.MigrateMons
 	//m.SetSpells(rm.Spells)
 	m.bornPos.Copy(m.GetPos())
 	mgr.scene.addMonster(m)
-	// 检测新迁移过来的对象是不是在边缘， 如果在边缘则反向cell内创建一个ghost
-	mgr.ghostMonsterIfInEdge(m)
+
 	req := &protocol.PropertyChangedRequest{Data: make(map[string]interface{})}
 	req.EntityType = m.GetEntityType()
 	req.EntityId = m.GetID()
 	req.Data["cell_id"] = data.CellId
 	req.Data["from_cell_id"] = data.FromCellId
 	m.Broadcast(protocol.OnPropertyChanged, req)
+
+	go func() {
+		// 检测新迁移过来的对象是不是在边缘， 如果在边缘则反向cell内创建一个ghost
+		time.Sleep(100 * time.Millisecond)
+		mgr.ghostMonsterIfInEdge(m)
+	}()
 	return nil
 }
 
@@ -59,7 +67,8 @@ func (mgr *cellMgr) createGhostMonsterFromOtherCell(data *protocol.CreateGhostMo
 		tmpm.Destroy2()
 	}
 	data.MonsterObject.Data = *data.MonsterData
-	data.MonsterObject.Name = data.MonsterObject.Name + "【Ghost】"
+	//data.MonsterObject.Name = data.MonsterObject.Name + "【Ghost】"
+	data.MonsterObject.Name = data.MonsterData.Name + fmt.Sprintf("[Ghost-%d-fromc-%d]", data.CellId, data.FromCellId)
 	m := NewMonster2(data.MonsterObject, true)
 	m.CellId = data.CellId
 	m.realCellId = data.FromCellId // 这个需要记录下来
