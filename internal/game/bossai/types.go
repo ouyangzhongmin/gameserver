@@ -223,9 +223,6 @@ type BossConfig struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
-	// 基础属性
-	BaseAttributes map[string]int32 `json:"base_attributes"`
-
 	// 状态配置
 	States       []StateConfig `json:"states"`
 	InitialState BossStateID   `json:"initial_state"`

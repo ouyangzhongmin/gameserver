@@ -203,6 +203,7 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 	if rect.Y < 0 {
 		rect.Y = 0
 	}
+	// 看看是否有预生成的ai移动路径，用于monster的ai移动减少动态astar查询路径
 	fpath := fmt.Sprintf("blocks/%s_%d,%d,%d.paths", s.sceneData.MapFile, cfg.Bornx, cfg.Borny, cfg.ARange)
 	buf, err := fileutil.ReadFile(fileutil.FindResourcePth(fpath))
 	var spaths []*path.SerialPaths
@@ -238,12 +239,10 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		m.bornPos.Copy(m.GetPos())
 		m.SetMovableRect(rect)
 		m.SetSpells(spells)
-		if aidata != nil {
+		if monsterData.Grade == constants.MONSTER_GRADE_BOSS {
+			m.EnableBossAI(fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
+		} else if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
-		} else {
-			if monsterData.Grade == constants.MONSTER_GRADE_BOSS {
-				m.EnableBossAI(fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
-			}
 		}
 		logger.Debugf("newmonster:%d,%d,%d \n", m.GetID(), m.GetPos().X, m.GetPos().Y)
 		s.addMonster(m)

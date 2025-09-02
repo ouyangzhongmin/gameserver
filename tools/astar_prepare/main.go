@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/ouyangzhongmin/gameserver/internal/game"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/urfave/cli"
-	"os"
-	"strconv"
-	"strings"
 )
 
 func main() {
@@ -34,7 +35,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "rect,r",
-			Value: "15,140,50",
+			Value: "15,140,50", // 15,140为中心点，50为半径范围
 			Usage: "指定预生成路径的范围",
 		},
 		cli.IntFlag{

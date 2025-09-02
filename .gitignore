@@ -4,3 +4,5 @@
 dist/
 config2.toml
 cmd/kwxd/configs/config.local.toml
+_debug_bin.*
+*.log

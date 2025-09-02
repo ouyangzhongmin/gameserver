@@ -2,11 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/google/gops/agent"
-	"github.com/ouyangzhongmin/gameserver/db"
-	"github.com/ouyangzhongmin/gameserver/pkg/async"
-	"github.com/ouyangzhongmin/gameserver/pkg/env"
-	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +10,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/gops/agent"
+	"github.com/ouyangzhongmin/gameserver/db"
+	"github.com/ouyangzhongmin/gameserver/pkg/async"
+	"github.com/ouyangzhongmin/gameserver/pkg/env"
+	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/ouyangzhongmin/gameserver/internal/game"
@@ -42,7 +43,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "scenes, s",
-			Value: "1",
+			Value: "1,2,3",
 			Usage: "配置要启动哪些scene",
 		},
 		cli.BoolFlag{
