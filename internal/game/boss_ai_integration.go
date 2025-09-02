@@ -31,7 +31,7 @@ func NewBossAIManagerAdapter(monster *Monster, configPath string) (*BossAIManage
 	adapter := &BossAIManagerAdapter{
 		monster:    monster,
 		aiManager:  bossai.NewBossAIManager(),
-		updateRate: time.Millisecond * 100, // 10Hz更新频率
+		updateRate: time.Millisecond * 300, // 30Hz更新频率
 	}
 
 	// 创建Boss实体适配器
@@ -339,11 +339,40 @@ func (e *EntityAdapter) IsDestroyed() bool {
 
 func (b *BossEntityAdapter) GetNearestEnemy() bossai.IEntity {
 	// 获取最近的敌人
-	entities := b.GetEntitiesInRange(5)
+	entities := b.GetEntitiesInRange(500.0)
 	if len(entities) > 0 {
 		return entities[0] // 简化实现，实际应该计算距离
 	}
 	return nil
+}
+
+// 添加Monster状态控制方法的适配
+func (b *BossEntityAdapter) Idle() {
+	b.monster.Idle()
+}
+
+func (b *BossEntityAdapter) Walk() {
+	b.monster.Walk()
+}
+
+func (b *BossEntityAdapter) Run() {
+	b.monster.Run()
+}
+
+func (b *BossEntityAdapter) Chase() {
+	b.monster.Chase()
+}
+
+func (b *BossEntityAdapter) Escape() {
+	b.monster.Escape()
+}
+
+func (b *BossEntityAdapter) AttackAction() {
+	b.monster.AttackAction()
+}
+
+func (b *BossEntityAdapter) Die() {
+	b.monster.Die()
 }
 
 // 使用示例函数

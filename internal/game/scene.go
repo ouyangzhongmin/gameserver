@@ -4,6 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db"
 	"github.com/ouyangzhongmin/gameserver/db/model"
@@ -16,12 +23,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano/scheduler"
-	"math"
-	"math/rand"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -239,6 +240,10 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		m.SetSpells(spells)
 		if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
+		} else {
+			if monsterData.Grade == constants.MONSTER_GRADE_BOSS {
+				m.EnableBossAI(fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
+			}
 		}
 		logger.Debugf("newmonster:%d,%d,%d \n", m.GetID(), m.GetPos().X, m.GetPos().Y)
 		s.addMonster(m)

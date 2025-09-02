@@ -234,6 +234,9 @@ func (s *IdleState) OnEnter(ctx *BossContext) error {
 		return err
 	}
 
+	// 控制Monster真实状态
+	ctx.Boss.Idle()
+
 	// 清除战斗目标
 	ctx.Boss.SetCombatTarget(nil)
 	ctx.Target = nil
@@ -287,6 +290,17 @@ func NewPatrolState(points []Position) *PatrolState {
 	}
 }
 
+func (s *PatrolState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态
+	ctx.Boss.Walk()
+
+	return nil
+}
+
 func (s *PatrolState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 检查是否有敌人进入警戒范围
 	enemies := ctx.Boss.GetEntitiesInRange(s.alertRadius)
@@ -337,6 +351,17 @@ func NewChaseState() *ChaseState {
 		attackRange:   50.0,
 		maxChaseTime:  time.Second * 30,
 	}
+}
+
+func (s *ChaseState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态
+	ctx.Boss.Chase()
+
+	return nil
 }
 
 func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
@@ -437,6 +462,9 @@ func (s *AttackState) OnEnter(ctx *BossContext) error {
 		return err
 	}
 
+	// 控制Monster真实状态
+	ctx.Boss.AttackAction()
+
 	// 停止移动
 	ctx.Boss.Stop()
 	s.comboCount = 0
@@ -468,4 +496,173 @@ func calculateDistance(x1, y1, x2, y2 float64) float64 {
 	dx := x2 - x1
 	dy := y2 - y1
 	return math.Sqrt(dx*dx + dy*dy)
+}
+
+// RetreatState 返回/撤退状态
+type RetreatState struct {
+	*BaseBossState
+	spawnPoint   Position
+	moveSpeed    float64
+	healRate     float64
+	damageReduce float64
+}
+
+func NewRetreatState(spawnPoint Position) *RetreatState {
+	base := NewBaseBossState(StateRetreat, "Retreat")
+	return &RetreatState{
+		BaseBossState: base,
+		spawnPoint:    spawnPoint,
+		moveSpeed:     100.0, // 2倍速度
+		healRate:      0.05,  // 每秒恢复5%生命值
+		damageReduce:  0.5,   // 减少50%伤害
+	}
+}
+
+func (s *RetreatState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态
+	ctx.Boss.Escape()
+
+	// 清除战斗目标
+	ctx.Target = nil
+	ctx.Boss.SetCombatTarget(nil)
+
+	logger.Debugf("Boss %d retreating to spawn point (%f, %f)", 
+		ctx.Boss.GetID(), s.spawnPoint.X, s.spawnPoint.Y)
+
+	return nil
+}
+
+func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	currentPos := ctx.Boss.GetPos()
+	distance := calculateDistance(
+		float64(currentPos.X), float64(currentPos.Y),
+		s.spawnPoint.X, s.spawnPoint.Y,
+	)
+
+	// 检查是否到达出生点
+	if distance < 10.0 {
+		// 到达出生点，可以切换到巡逻状态
+		logger.Debugf("Boss %d reached spawn point, switching to patrol", ctx.Boss.GetID())
+		return nil
+	}
+
+	// 继续返回出生点
+	return ctx.Boss.MoveTo(
+		coord.Coord(s.spawnPoint.X), 
+		coord.Coord(s.spawnPoint.Y), 
+		coord.Coord(s.spawnPoint.Z),
+	)
+}
+
+func (s *RetreatState) OnExit(ctx *BossContext) error {
+	if err := s.BaseBossState.OnExit(ctx); err != nil {
+		return err
+	}
+
+	// 恢复到巡逻状态
+	ctx.Boss.Walk()
+
+	return nil
+}
+
+// StunnedState 眩晕状态
+type StunnedState struct {
+	*BaseBossState
+	stunDuration   time.Duration
+	damageReduction float64
+}
+
+func NewStunnedState(duration time.Duration) *StunnedState {
+	base := NewBaseBossState(StateStunned, "Stunned")
+	return &StunnedState{
+		BaseBossState:   base,
+		stunDuration:    duration,
+		damageReduction: 0.3, // 眩晕时减少30%伤害
+	}
+}
+
+func (s *StunnedState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态 - 眩晕时保持当前状态但停止移动
+	ctx.Boss.Stop()
+
+	logger.Debugf("Boss %d stunned for %v", ctx.Boss.GetID(), s.stunDuration)
+
+	return nil
+}
+
+func (s *StunnedState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	// 检查眩晕时间是否结束
+	if s.GetTimeInState(ctx.CurrentTime) >= s.stunDuration {
+		// 眩晕结束，可以切换到其他状态
+		logger.Debugf("Boss %d stun expired", ctx.Boss.GetID())
+		return nil
+	}
+
+	// 眩晕期间无法行动
+	return nil
+}
+
+func (s *StunnedState) OnExit(ctx *BossContext) error {
+	if err := s.BaseBossState.OnExit(ctx); err != nil {
+		return err
+	}
+
+	// 眩晕结束，恢复正常状态判断
+	if ctx.Target != nil && ctx.Target.IsAlive() {
+		ctx.Boss.Chase()
+	} else {
+		ctx.Boss.Idle()
+	}
+
+	return nil
+}
+
+// DyingState 死亡状态
+type DyingState struct {
+	*BaseBossState
+	deathDuration time.Duration
+}
+
+func NewDyingState() *DyingState {
+	base := NewBaseBossState(StateDying, "Dying")
+	return &DyingState{
+		BaseBossState: base,
+		deathDuration: time.Second * 5, // 5秒死亡动画
+	}
+}
+
+func (s *DyingState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态
+	ctx.Boss.Die()
+
+	logger.Debugf("Boss %d is dying", ctx.Boss.GetID())
+
+	return nil
+}
+
+func (s *DyingState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	// 死亡状态不需要更新逻辑，等待系统处理
+	return nil
+}
+
+func (s *DyingState) CanTransitionTo(stateID int32, ctx *BossContext) bool {
+	// 死亡状态不能转换到其他状态
+	return false
+}
+
+func (s *DyingState) GetNextState(ctx *BossContext) int32 {
+	// 保持死亡状态
+	return int32(StateDying)
 }

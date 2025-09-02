@@ -106,6 +106,43 @@ func (m *Monster) EnableBossAI(configPath string) error {
 	return nil
 }
 
+// IsBossAI 检查是否使用 Boss AI
+func (m *Monster) IsBossAI() bool {
+	if m.aimgr == nil {
+		return false
+	}
+	_, ok := m.aimgr.(*BossAIManagerAdapter)
+	return ok
+}
+
+// GetBossAI 获取 Boss AI 管理器
+func (m *Monster) GetBossAI() *BossAIManagerAdapter {
+	if m.aimgr == nil {
+		return nil
+	}
+	bossAI, ok := m.aimgr.(*BossAIManagerAdapter)
+	if !ok {
+		return nil
+	}
+	return bossAI
+}
+
+// SetBossAIDebug 设置 Boss AI 调试模式
+func (m *Monster) SetBossAIDebug(enabled bool) {
+	if bossAI := m.GetBossAI(); bossAI != nil {
+		bossAI.SetDebugEnabled(enabled)
+	}
+}
+
+// TransitionBossAIState 强制转换 Boss AI 状态
+func (m *Monster) TransitionBossAIState(stateID int32) error {
+	bossAI := m.GetBossAI()
+	if bossAI == nil {
+		return fmt.Errorf("monster %d is not using Boss AI", m.GetID())
+	}
+	return bossAI.TransitionTo(stateID)
+}
+
 func (m *Monster) SetSpells(spells []*object.SpellObject) {
 	m.spells = make([]*object.SpellObject, 0)
 	if spells != nil {

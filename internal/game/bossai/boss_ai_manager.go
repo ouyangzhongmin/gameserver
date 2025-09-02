@@ -42,8 +42,8 @@ type BossAIManager struct {
 	debugInfo   *AIDebugInfo
 
 	// 同步控制
-	mutex       sync.RWMutex
-	updateMutex sync.Mutex
+	mutex sync.RWMutex
+	// updateMutex sync.Mutex
 }
 
 // NewBossAIManager 创建Boss AI管理器
@@ -157,6 +157,9 @@ func (ai *BossAIManager) configureStateMachine() error {
 		NewPatrolState([]Position{}),
 		NewChaseState(),
 		NewAttackState(),
+		NewRetreatState(Position{X: 0, Y: 0, Z: 0}), // 默认出生点
+		NewStunnedState(time.Second * 3),              // 默认3秒眩晕
+		NewDyingState(),
 	}
 
 	for _, state := range states {
@@ -311,8 +314,9 @@ func (ai *BossAIManager) configurePlugins() error {
 
 // Update 更新Boss AI
 func (ai *BossAIManager) Update(deltaTime time.Duration) error {
-	ai.updateMutex.Lock()
-	defer ai.updateMutex.Unlock()
+	// monster中的update是来自于scene的update,已确保是在同一条线程调用的，如果这里加锁会导致性能很差
+	// ai.updateMutex.Lock()
+	// defer ai.updateMutex.Unlock()
 
 	if !ai.isInitialized || !ai.isRunning || ai.isPaused {
 		return nil

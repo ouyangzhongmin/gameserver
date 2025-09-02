@@ -19,10 +19,44 @@
           "priority": 5
         }
       ],
-      "behaviors": ["patrol", "scan_enemies"],
+      "behaviors": ["scan_enemies", "reset_combat_target"],
       "modifiers": {
         "movement_speed": 1.0,
-        "alert_radius": 200
+        "scan_interval": "2s",
+        "patrol_radius": 100.0
+      }
+    },
+    {
+      "id": 1,
+      "name": "Patrol",
+      "transitions": [
+        {
+          "to_state": 2,
+          "condition": {
+            "type": 3,
+            "params": {
+              "min_count": 1
+            }
+          },
+          "priority": 8
+        },
+        {
+          "to_state": 0,
+          "condition": {
+            "type": 3,
+            "params": {
+              "min_count": 0
+            }
+          },
+          "priority": 2
+        }
+      ],
+      "behaviors": ["patrol_movement", "enemy_detection"],
+      "modifiers": {
+        "movement_speed": 1.0,
+        "patrol_radius": 200.0,
+        "alert_radius": 150.0,
+        "move_speed": 50.0
       }
     },
     {
@@ -30,18 +64,27 @@
       "name": "Chase",
       "transitions": [
         {
-          "to_state": 5,
+          "to_state": 3,
           "condition": {
-            "type": 0,
+            "type": 4,
             "params": {
-              "threshold": 0.3,
-              "operator": "less_than"
+              "script_name": "in_attack_range"
             }
           },
           "priority": 10
         },
         {
-          "to_state": 4,
+          "to_state": 7,
+          "condition": {
+            "type": 4,
+            "params": {
+              "script_name": "chase_timeout_or_out_of_range"
+            }
+          },
+          "priority": 6
+        },
+        {
+          "to_state": 0,
           "condition": {
             "type": 3,
             "params": {
@@ -51,14 +94,16 @@
           "priority": 3
         }
       ],
-      "behaviors": ["chase_target", "basic_attack"],
+      "behaviors": ["chase_target", "range_check"],
       "modifiers": {
         "movement_speed": 1.5,
-        "chase_range": 500
+        "chase_radius": 300.0,
+        "attack_range": 50.0,
+        "max_chase_time": "30s"
       }
     },
     {
-      "id": 5,
+      "id": 3,
       "name": "Attack",
       "transitions": [
         {
@@ -66,28 +111,147 @@
           "condition": {
             "type": 0,
             "params": {
-              "threshold": 0.1,
+              "threshold": 0.2,
               "operator": "less_than"
+            }
+          },
+          "priority": 15
+        },
+        {
+          "to_state": 2,
+          "condition": {
+            "type": 4,
+            "params": {
+              "script_name": "target_out_of_attack_range"
+            }
+          },
+          "priority": 8
+        },
+        {
+          "to_state": 0,
+          "condition": {
+            "type": 3,
+            "params": {
+              "min_count": 0
+            }
+          },
+          "priority": 3
+        }
+      ],
+      "behaviors": ["basic_attack", "combo_attack", "skill_usage"],
+      "modifiers": {
+        "attack_cooldown": "1.5s",
+        "max_combo_count": 3,
+        "stop_movement": true
+      }
+    },
+    {
+      "id": 4,
+      "name": "CastSkill",
+      "transitions": [
+        {
+          "to_state": 3,
+          "condition": {
+            "type": 4,
+            "params": {
+              "script_name": "skill_cast_complete"
+            }
+          },
+          "priority": 10
+        }
+      ],
+      "behaviors": ["cast_skill", "channel_protection"],
+      "modifiers": {
+        "movement_speed": 0.0,
+        "interrupt_resistance": 0.8
+      }
+    },
+    {
+      "id": 5,
+      "name": "Stunned",
+      "transitions": [
+        {
+          "to_state": 2,
+          "condition": {
+            "type": 4,
+            "params": {
+              "script_name": "stun_expired"
             }
           },
           "priority": 15
         }
       ],
-      "behaviors": ["aggressive_attack", "use_skills"],
+      "behaviors": ["stunned_state"],
       "modifiers": {
-        "attack_speed": 1.3,
-        "skill_priority": "high"
+        "movement_speed": 0.0,
+        "damage_reduction": 0.3
       }
     },
     {
       "id": 6,
       "name": "Enraged",
-      "transitions": [],
-      "behaviors": ["berserk_attack", "area_skills"],
+      "transitions": [
+        {
+          "to_state": 8,
+          "condition": {
+            "type": 0,
+            "params": {
+              "threshold": 0.05,
+              "operator": "less_than"
+            }
+          },
+          "priority": 20
+        }
+      ],
+      "behaviors": ["berserk_attack", "area_skills", "rage_mode"],
       "modifiers": {
         "attack_speed": 2.0,
-        "damage_multiplier": 1.5,
-        "defense_multiplier": 0.8
+        "damage_multiplier": 1.8,
+        "defense_multiplier": 0.7,
+        "skill_cooldown_reduction": 0.5
+      }
+    },
+    {
+      "id": 7,
+      "name": "Retreat",
+      "transitions": [
+        {
+          "to_state": 1,
+          "condition": {
+            "type": 4,
+            "params": {
+              "script_name": "reached_spawn_point"
+            }
+          },
+          "priority": 10
+        },
+        {
+          "to_state": 2,
+          "condition": {
+            "type": 3,
+            "params": {
+              "min_count": 1
+            }
+          },
+          "priority": 8
+        }
+      ],
+      "behaviors": ["return_to_spawn", "health_regeneration"],
+      "modifiers": {
+        "movement_speed": 2.0,
+        "health_regen_rate": 0.05,
+        "damage_reduction": 0.5
+      }
+    },
+    {
+      "id": 8,
+      "name": "Dying",
+      "transitions": [],
+      "behaviors": ["death_animation", "final_skill"],
+      "modifiers": {
+        "movement_speed": 0.0,
+        "invulnerable": true,
+        "death_time": "5s"
       }
     }
   ],
@@ -175,9 +339,9 @@
     {
       "id": 1001,
       "name": "Fire Breath",
-      "cooldown": "3s",
+      "cooldown": "3000ms",
       "range": 150.0,
-      "cast_time": "1.5s",
+      "cast_time": "1500ms",
       "conditions": [
         {
           "type": 3,
@@ -204,7 +368,7 @@
     {
       "id": 1002,
       "name": "Tail Swipe",
-      "cooldown": "2s",
+      "cooldown": "2000ms",
       "range": 80.0,
       "cast_time": "800ms",
       "conditions": [
@@ -231,7 +395,7 @@
     {
       "id": 1003,
       "name": "Wing Gust",
-      "cooldown": "4s",
+      "cooldown": "4000ms",
       "range": 200.0,
       "cast_time": "1s",
       "conditions": [
@@ -259,9 +423,9 @@
     {
       "id": 1004,
       "name": "Flame Nova",
-      "cooldown": "8s",
+      "cooldown": "8000ms",
       "range": 250.0,
-      "cast_time": "2s",
+      "cast_time": "2000ms",
       "conditions": [
         {
           "type": 0,
@@ -288,9 +452,9 @@
     {
       "id": 1005,
       "name": "Roar of Intimidation", 
-      "cooldown": "15s",
+      "cooldown": "15000ms",
       "range": 300.0,
-      "cast_time": "1s",
+      "cast_time": "1000ms",
       "conditions": [
         {
           "type": 3,
@@ -317,9 +481,9 @@
     {
       "id": 1006,
       "name": "Meteor Strike",
-      "cooldown": "20s",
+      "cooldown": "20000ms",
       "range": 400.0,
-      "cast_time": "3s",
+      "cast_time": "3000ms",
       "conditions": [
         {
           "type": 0,
@@ -346,9 +510,9 @@
     {
       "id": 1007,
       "name": "Infernal Regeneration",
-      "cooldown": "30s",
+      "cooldown": "30000ms",
       "range": 0.0,
-      "cast_time": "2s",
+      "cast_time": "2000ms",
       "conditions": [
         {
           "type": 0,
@@ -375,9 +539,9 @@
     {
       "id": 1008,
       "name": "Apocalypse Flame",
-      "cooldown": "60s",
+      "cooldown": "60000ms",
       "range": 500.0,
-      "cast_time": "5s",
+      "cast_time": "5000ms",
       "conditions": [
         {
           "type": 0,
@@ -411,49 +575,65 @@
   
   "behavior_tree": {
     "root_node": {
-      "type": 1,
-      "name": "Combat Root",
+      "type": 3,
+      "name": "Boss AI Root",
       "children": [
         {
           "type": 1,
-          "name": "Emergency Actions",
+          "name": "Emergency Response",
           "children": [
             {
               "type": 0,
               "name": "Low Health Check",
               "params": {
-                "health_threshold": 0.2
+                "health_threshold": 0.15
               }
             },
             {
               "type": 0,
-              "name": "Use Healing Skill"
+              "name": "Use Healing Skill",
+              "params": {
+                "skill_id": 1007
+              }
             }
           ]
         },
         {
-          "type": 2,
-          "name": "Normal Combat",
+          "type": 3,
+          "name": "Phase Management",
           "children": [
             {
               "type": 0,
-              "name": "Target Check"
+              "name": "Check Phase Triggers"
+            },
+            {
+              "type": 0,
+              "name": "Update Phase State"
+            }
+          ]
+        },
+        {
+          "type": 3,
+          "name": "Combat Logic",
+          "children": [
+            {
+              "type": 0,
+              "name": "Target Validation",
+              "params": {
+                "max_range": 500.0
+              }
             },
             {
               "type": 1,
-              "name": "Attack Sequence",
+              "name": "Combat Actions",
               "children": [
                 {
                   "type": 0,
-                  "name": "Move to Target"
+                  "name": "Select Optimal Skill"
                 },
                 {
                   "type": 0,
-                  "name": "Select Attack"
-                },
-                {
-                  "type": 0,
-                  "name": "Execute Attack"
+                  "name": "Execute Action"
                 }
               ]
             }
@@ -461,7 +641,10 @@
         },
         {
           "type": 0,
-          "name": "Find New Target"
+          "name": "Patrol Behavior",
+          "params": {
+            "patrol_radius": 200.0
+          }
         }
       ]
     },

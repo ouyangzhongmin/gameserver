@@ -65,6 +65,15 @@ type IBossEntity interface {
 	// 视野相关
 	GetEntitiesInRange(radius float64) []IEntity
 	GetNearestEnemy() IEntity
+
+	// Monster状态控制方法（与原有系统的ActionState同步）
+	Idle()        // 空闲状态
+	Walk()        // 行走状态
+	Run()         // 跑步状态
+	Chase()       // 追击状态
+	Escape()      // 逃跑状态
+	AttackAction() // 攻击状态
+	Die()         // 死亡状态
 }
 
 // IBossState Boss状态接口
