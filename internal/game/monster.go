@@ -3,6 +3,10 @@ package game
 import (
 	"errors"
 	"fmt"
+	"math"
+	"sync/atomic"
+	"time"
+
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
@@ -11,9 +15,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/path"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
-	"math"
-	"sync/atomic"
-	"time"
 )
 
 type rebornMonster struct {
@@ -80,6 +81,29 @@ func (m *Monster) SetViewRange(width int, height int) {
 
 func (m *Monster) SetAiData(aimgr IAiManager) {
 	m.aimgr = aimgr
+}
+
+// Boss AI相关的扩展方法
+// EnableBossAI 为Monster启用Boss AI系统
+// 这个函数可以直接在Monster上调用，替换原有的AI系统
+func (m *Monster) EnableBossAI(configPath string) error {
+	// 如果已经有AI管理器，先清理
+	if m.aimgr != nil {
+		m.aimgr.clear()
+		m.aimgr = nil
+	}
+
+	// 创建Boss AI适配器
+	bossAI, err := NewBossAIManagerAdapter(m, configPath)
+	if err != nil {
+		return fmt.Errorf("failed to create boss AI: %w", err)
+	}
+
+	// 设置为新的AI管理器
+	m.SetAiData(bossAI)
+
+	logger.Debugf("Boss AI enabled for monster %d (%s)", m.GetID(), m._name)
+	return nil
 }
 
 func (m *Monster) SetSpells(spells []*object.SpellObject) {
