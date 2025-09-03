@@ -43,7 +43,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "scenes, s",
-			Value: "1,2,3",
+			Value: "3",
 			Usage: "配置要启动哪些scene",
 		},
 		cli.BoolFlag{

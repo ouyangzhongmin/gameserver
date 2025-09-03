@@ -1,8 +1,6 @@
 package bossai
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"time"
 
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
@@ -24,37 +22,6 @@ func ExampleUsage() {
 
 	logger.Debugln("Boss AI system example completed (see integration guide in README)")
 	logger.Debugln("=== Boss AI System Example Complete ===")
-}
-
-// LoadBossConfigFromFile 从文件加载Boss配置
-func LoadBossConfigFromFile(filename string) (*BossConfig, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	var config BossConfig
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	// 转换时间字符串
-	err = parseTimeStrings(&config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &config, nil
-}
-
-// parseTimeStrings 解析配置中的时间字符串
-// 注意：由于SkillConfig中的Cooldown和CastTime已经定义为time.Duration类型，
-// 这个函数主要用于处理从JSON文件加载时可能出现的字符串转换
-func parseTimeStrings(config *BossConfig) error {
-	// 由于类型定义已经是time.Duration，无需额外转换
-	// 如果需要从JSON字符串转换，应该在JSON unmarshal阶段处理
-	return nil
 }
 
 // CreateCustomBossAI 创建自定义Boss AI示例

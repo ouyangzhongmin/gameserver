@@ -339,9 +339,9 @@
     {
       "id": 1001,
       "name": "Fire Breath",
-      "cooldown": "3000ms",
+      "cooldown": "3s",
       "range": 150.0,
-      "cast_time": "1500ms",
+      "cast_time": "1.5s",
       "conditions": [
         {
           "type": 3,
@@ -368,7 +368,7 @@
     {
       "id": 1002,
       "name": "Tail Swipe",
-      "cooldown": "2000ms",
+      "cooldown": "2s",
       "range": 80.0,
       "cast_time": "800ms",
       "conditions": [
@@ -395,7 +395,7 @@
     {
       "id": 1003,
       "name": "Wing Gust",
-      "cooldown": "4000ms",
+      "cooldown": "4s",
       "range": 200.0,
       "cast_time": "1s",
       "conditions": [
@@ -423,9 +423,9 @@
     {
       "id": 1004,
       "name": "Flame Nova",
-      "cooldown": "8000ms",
+      "cooldown": "8s",
       "range": 250.0,
-      "cast_time": "2000ms",
+      "cast_time": "2s",
       "conditions": [
         {
           "type": 0,
@@ -452,9 +452,9 @@
     {
       "id": 1005,
       "name": "Roar of Intimidation", 
-      "cooldown": "15000ms",
+      "cooldown": "15s",
       "range": 300.0,
-      "cast_time": "1000ms",
+      "cast_time": "1s",
       "conditions": [
         {
           "type": 3,
@@ -481,9 +481,9 @@
     {
       "id": 1006,
       "name": "Meteor Strike",
-      "cooldown": "20000ms",
+      "cooldown": "20s",
       "range": 400.0,
-      "cast_time": "3000ms",
+      "cast_time": "3s",
       "conditions": [
         {
           "type": 0,
@@ -510,9 +510,9 @@
     {
       "id": 1007,
       "name": "Infernal Regeneration",
-      "cooldown": "30000ms",
+      "cooldown": "30s",
       "range": 0.0,
-      "cast_time": "2000ms",
+      "cast_time": "2s",
       "conditions": [
         {
           "type": 0,
@@ -539,9 +539,9 @@
     {
       "id": 1008,
       "name": "Apocalypse Flame",
-      "cooldown": "60000ms",
+      "cooldown": "60s",
       "range": 500.0,
-      "cast_time": "5000ms",
+      "cast_time": "5s",
       "conditions": [
         {
           "type": 0,
@@ -620,7 +620,7 @@
               "type": 0,
               "name": "Target Validation",
               "params": {
-                "max_range": 500.0
+                "max_range": 10.0
               }
             },
             {
@@ -643,12 +643,12 @@
           "type": 0,
           "name": "Patrol Behavior",
           "params": {
-            "patrol_radius": 200.0
+            "patrol_radius": 10.0
           }
         }
       ]
     },
-    "update_interval": "100ms"
+    "update_interval": "200ms"
   },
   
   "plugins": [

@@ -51,11 +51,20 @@ type IBossEntity interface {
 	GetMaxLife() int32
 	GetCurrentLife() int32
 	GetAttackPower() int32
+	GetSpawnPosition() coord.Vector3  // 获取出生点位置
+	GetPatrolPoints() []coord.Vector3 // 获取巡逻点列表
 
 	// 技能相关
 	CanUseSkill(skillID int32) bool
 	UseSkill(skillID int32, target IEntity) error
 	GetSkillCooldown(skillID int32) time.Duration
+
+	// 战斗功能（复用Monster基础功能）
+	DoAttackTarget(target IEntity) error                               // 复用Monster的doAttackTarget方法
+	GetCanAttackPos(target IEntity, offset int) (coord.Vector3, error) // 复用Monster的GetCanAttackPos方法
+	GetStepTime() int                                                  // 复用Monster的getStepTime方法
+	GetCanUseSpell(spellType int) interface{}                          // 复用Monster的GetCanUseSpell方法
+	IsInSpellAttackRange(spell interface{}, x, y coord.Coord) bool     // 复用Monster的IsInSpellAttackRange方法
 
 	// 状态相关
 	IsInCombat() bool
@@ -63,17 +72,17 @@ type IBossEntity interface {
 	SetCombatTarget(target IEntity)
 
 	// 视野相关
-	GetEntitiesInRange(radius float64) []IEntity
+	GetEnemiesInRange(radius float64) []IEntity
 	GetNearestEnemy() IEntity
 
 	// Monster状态控制方法（与原有系统的ActionState同步）
-	Idle()        // 空闲状态
-	Walk()        // 行走状态
-	Run()         // 跑步状态
-	Chase()       // 追击状态
-	Escape()      // 逃跑状态
+	Idle()         // 空闲状态
+	Walk()         // 行走状态
+	Run()          // 跑步状态
+	Chase()        // 追击状态
+	Escape()       // 逃跑状态
 	AttackAction() // 攻击状态
-	Die()         // 死亡状态
+	Die()          // 死亡状态
 }
 
 // IBossState Boss状态接口
@@ -115,6 +124,8 @@ type IBossSkill interface {
 
 	// 技能条件检查
 	CanUse(ctx *BossContext) bool
+	IsAvailable(ctx *BossContext) bool     // 检查技能是否可用（综合冷却、范围等）
+	CheckConditions(ctx *BossContext) bool // 检查技能条件
 	GetTargets(ctx *BossContext) []IEntity
 
 	// 技能执行
@@ -123,6 +134,7 @@ type IBossSkill interface {
 	// 冷却管理
 	StartCooldown()
 	IsOnCooldown() bool
+	IsOffCooldown() bool // 检查技能是否不在冷却中
 	GetRemainingCooldown() time.Duration
 }
 
@@ -206,4 +218,55 @@ type IBossAI interface {
 	// 配置和调试
 	LoadConfig(config *BossConfig) error
 	GetDebugInfo() *AIDebugInfo
+}
+
+// ISkillManager 技能管理器接口
+type ISkillManager interface {
+	// 技能管理
+	AddSkill(skill IBossSkill) error
+	RemoveSkill(skillID int32) error
+	GetSkill(skillID int32) (IBossSkill, error)
+	GetAllSkills() []IBossSkill
+
+	// 技能优先级
+	SetSkillPriority(priorities []int32) error
+	GetSkillPriority() []int32
+
+	// 冷却管理
+	UpdateCooldowns()
+	GetAvailableSkills(ctx *BossContext) []IBossSkill
+}
+
+// IPhaseManager 阶段管理器接口
+type IPhaseManager interface {
+	// 阶段管理
+	AddPhase(phase IBossPhase) error
+	RemovePhase(phaseID int32) error
+	GetPhase(phaseID int32) (IBossPhase, error)
+	GetCurrentPhase() IBossPhase
+
+	// 阶段转换
+	Update(ctx *BossContext, deltaTime time.Duration) error
+	SetPhaseOrder(order []int32) error
+	ForceTransition(phaseID int32, ctx *BossContext) error
+
+	// 生命周期
+	Destroy()
+}
+
+// IStateMachine 状态机接口
+type IStateMachine interface {
+	// 状态管理
+	AddState(state IBossState) error
+	RemoveState(stateID int32) error
+	GetState(stateID int32) (IBossState, error)
+	GetCurrentState() IBossState
+
+	// 状态转换
+	Update(ctx *BossContext, deltaTime time.Duration) error
+	SetInitialState(stateID int32, ctx *BossContext) error
+	ForceTransition(stateID BossStateID, ctx *BossContext) error
+
+	// 生命周期
+	Destroy()
 }

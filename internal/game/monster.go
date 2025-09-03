@@ -102,7 +102,7 @@ func (m *Monster) EnableBossAI(configPath string) error {
 	// 设置为新的AI管理器
 	m.SetAiData(bossAI)
 
-	logger.Debugf("Boss AI enabled for monster %d (%s)", m.GetID(), m._name)
+	logger.Printf("Boss AI enabled for monster %d (%s)", m.GetID(), m._name)
 	return nil
 }
 

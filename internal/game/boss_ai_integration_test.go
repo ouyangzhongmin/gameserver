@@ -155,9 +155,9 @@ func TestBossEntityAdapter(t *testing.T) {
 	t.Logf("Can use skill: %v", canUseSkill)
 
 	// 测试范围内实体获取（没有场景时应该返回空）
-	entities := adapter.GetEntitiesInRange(100.0)
+	entities := adapter.GetEnemiesInRange(100.0)
 	if entities == nil {
-		t.Error("GetEntitiesInRange should not return nil")
+		t.Error("GetEnemiesInRange should not return nil")
 	}
 }
 

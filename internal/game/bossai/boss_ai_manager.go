@@ -158,7 +158,7 @@ func (ai *BossAIManager) configureStateMachine() error {
 		NewChaseState(),
 		NewAttackState(),
 		NewRetreatState(Position{X: 0, Y: 0, Z: 0}), // 默认出生点
-		NewStunnedState(time.Second * 3),              // 默认3秒眩晕
+		NewStunnedState(time.Second * 3),            // 默认3秒眩晕
 		NewDyingState(),
 	}
 
@@ -367,8 +367,7 @@ func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
 	}
 
 	// 更新附近实体
-	ai.context.NearbyEnemies = ai.boss.GetEntitiesInRange(300.0)
-	// ai.context.NearbyAllies = ai.boss.GetNearbyAllies(300.0) // 如果有盟友系统
+	ai.context.NearbyEnemies = ai.boss.GetEnemiesInRange(10.0)
 
 	// 更新位置
 	ai.context.Position = ai.boss.GetPos()
@@ -796,8 +795,287 @@ func convertToSkillConditions(conditions []PhaseCondition) []SkillCondition {
 }
 
 func (ai *BossAIManager) buildBehaviorTreeFromConfig(config BehaviorTreeConfig) (*BehaviorTree, error) {
-	// 这里可以实现从配置构建行为树的逻辑
-	// 暂时返回基础战斗树
-	logger.Debugf("Building behavior tree from config (not implemented)")
-	return CreateBasicCombatTree(), nil
+	if config.RootNode.Name == "" {
+		// 如果没有配置根节点，返回基础战斗树
+		logger.Debugf("No root node configured, using basic combat tree")
+		return CreateBasicCombatTree(), nil
+	}
+
+	// 从配置构建行为树
+
+	// 递归构建根节点
+	rootNode, err := ai.buildNodeFromConfig(config.RootNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build root node: %w", err)
+	}
+
+	tree := NewBehaviorTree("ConfiguredTree")
+	tree.SetRootNode(rootNode)
+
+	// 设置行为树配置
+	if config.UpdateInterval > 0 {
+		treeConfig := BehaviorTreeConfiguration{
+			UpdateInterval: config.UpdateInterval,
+			MaxDepth:       10,
+			EnableLogging:  false,
+		}
+		tree.SetConfiguration(treeConfig)
+	}
+
+	logger.Debugf("Successfully built behavior tree from config")
+	return tree, nil
+}
+
+// buildNodeFromConfig 从配置构建节点
+func (ai *BossAIManager) buildNodeFromConfig(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
+	switch nodeConfig.Type {
+	case NodeTypeSequence:
+		// 顺序节点
+		node := NewSequenceNode(nodeConfig.Name)
+		for _, childConfig := range nodeConfig.Children {
+			child, err := ai.buildNodeFromConfig(childConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build child node for sequence %s: %w", nodeConfig.Name, err)
+			}
+			node.AddChild(child)
+		}
+		return node, nil
+
+	case NodeTypeSelector:
+		// 选择节点
+		node := NewSelectorNode(nodeConfig.Name)
+		for _, childConfig := range nodeConfig.Children {
+			child, err := ai.buildNodeFromConfig(childConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build child node for selector %s: %w", nodeConfig.Name, err)
+			}
+			node.AddChild(child)
+		}
+		return node, nil
+
+	case NodeTypeParallel:
+		// 并行节点
+		successThreshold := 1
+		failureThreshold := 1
+
+		if threshold, ok := nodeConfig.Params["success_threshold"].(float64); ok {
+			successThreshold = int(threshold)
+		}
+		if threshold, ok := nodeConfig.Params["failure_threshold"].(float64); ok {
+			failureThreshold = int(threshold)
+		}
+
+		node := NewParallelNode(nodeConfig.Name, successThreshold, failureThreshold)
+		for _, childConfig := range nodeConfig.Children {
+			child, err := ai.buildNodeFromConfig(childConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build child node for parallel %s: %w", nodeConfig.Name, err)
+			}
+			node.AddChild(child)
+		}
+		return node, nil
+
+	case NodeTypeAction:
+		// 行为节点 - 根据名称和参数创建具体的行为节点
+		return ai.createActionNode(nodeConfig)
+
+	case NodeTypeCondition:
+		// 条件节点 - 根据名称和参数创建具体的条件节点
+		return ai.createConditionNode(nodeConfig)
+
+	case NodeTypeDecorator:
+		// 装饰节点 - 根据名称创建具体的装饰节点
+		return ai.createDecoratorNode(nodeConfig)
+
+	default:
+		return nil, fmt.Errorf("unknown node type: %d", nodeConfig.Type)
+	}
+}
+
+// createActionNode 创建行为节点
+func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
+	switch nodeConfig.Name {
+	case "Use Healing Skill":
+		// 治疗技能行为节点
+		skillID := int32(1007) // 默认治疗技能ID
+		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
+			skillID = int32(id)
+		}
+		return NewUseSkillActionNode(nodeConfig.Name, skillID), nil
+
+	case "Attack Target":
+		// 攻击目标行为节点
+		return NewAttackActionNode(nodeConfig.Name), nil
+
+	case "Move To Position":
+		// 移动到位置行为节点
+		x, y, z := 0.0, 0.0, 0.0
+		if pos, ok := nodeConfig.Params["position"].(map[string]interface{}); ok {
+			if xVal, ok := pos["x"].(float64); ok {
+				x = xVal
+			}
+			if yVal, ok := pos["y"].(float64); ok {
+				y = yVal
+			}
+			if zVal, ok := pos["z"].(float64); ok {
+				z = zVal
+			}
+		}
+		return NewMoveToActionNode(nodeConfig.Name, x, y, z), nil
+
+	case "Cast Skill":
+		// 释放技能行为节点
+		skillID := int32(1001) // 默认技能ID
+		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
+			skillID = int32(id)
+		}
+		return NewCastSkillActionNode(nodeConfig.Name, skillID), nil
+
+	case "Retreat":
+		// 撤退行为节点
+		return NewRetreatActionNode(nodeConfig.Name), nil
+
+	case "Patrol":
+		// 巡逻行为节点
+		return NewPatrolActionNode(nodeConfig.Name), nil
+
+	case "Wait":
+		// 等待行为节点
+		duration := time.Second * 1 // 默认等待1秒
+		if dur, ok := nodeConfig.Params["duration"].(string); ok {
+			if parsed, err := time.ParseDuration(dur); err == nil {
+				duration = parsed
+			}
+		}
+		return NewWaitActionNode(nodeConfig.Name, duration), nil
+
+	default:
+		// 创建通用行为节点
+		logger.Warnf("Unknown action node type: %s, creating generic action", nodeConfig.Name)
+		return NewGenericActionNode(nodeConfig.Name, nodeConfig.Params), nil
+	}
+}
+
+// createConditionNode 创建条件节点
+func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
+	switch nodeConfig.Name {
+	case "Low Health Check":
+		// 低血量检查条件节点
+		threshold := 0.3 // 默认30%血量
+		if t, ok := nodeConfig.Params["health_threshold"].(float64); ok {
+			threshold = t
+		}
+		return NewHealthConditionNode(nodeConfig.Name, threshold), nil
+
+	case "Enemy In Range":
+		// 敌人在范围内条件节点
+		rangeValue := 100.0 // 默认100单位范围
+		if r, ok := nodeConfig.Params["range"].(float64); ok {
+			rangeValue = r
+		}
+		return NewEnemyInRangeConditionNode(nodeConfig.Name, rangeValue), nil
+
+	case "Skill Available":
+		// 技能可用条件节点
+		skillID := int32(1001) // 默认技能ID
+		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
+			skillID = int32(id)
+		}
+		return NewSkillAvailableConditionNode(nodeConfig.Name, skillID), nil
+
+	case "Combat State":
+		// 战斗状态条件节点
+		return NewCombatStateConditionNode(nodeConfig.Name), nil
+
+	case "Distance Check":
+		// 距离检查条件节点
+		distance := 50.0        // 默认距离
+		operator := "less_than" // 默认操作符
+		if d, ok := nodeConfig.Params["distance"].(float64); ok {
+			distance = d
+		}
+		if op, ok := nodeConfig.Params["operator"].(string); ok {
+			operator = op
+		}
+		return NewDistanceConditionNode(nodeConfig.Name, distance, operator), nil
+
+	case "Phase Check":
+		// 阶段检查条件节点
+		phaseID := int32(1) // 默认阶段ID
+		if id, ok := nodeConfig.Params["phase_id"].(float64); ok {
+			phaseID = int32(id)
+		}
+		return NewPhaseConditionNode(nodeConfig.Name, phaseID), nil
+
+	default:
+		// 创建通用条件节点
+		logger.Warnf("Unknown condition node type: %s, creating generic condition", nodeConfig.Name)
+		return NewGenericConditionNode(nodeConfig.Name, nodeConfig.Params), nil
+	}
+}
+
+// createDecoratorNode 创建装饰节点
+func (ai *BossAIManager) createDecoratorNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
+	if len(nodeConfig.Children) == 0 {
+		return nil, fmt.Errorf("decorator node %s must have exactly one child", nodeConfig.Name)
+	}
+
+	// 递归构建子节点
+	child, err := ai.buildNodeFromConfig(nodeConfig.Children[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to build child for decorator %s: %w", nodeConfig.Name, err)
+	}
+
+	switch nodeConfig.Name {
+	case "Inverter":
+		// 取反装饰节点
+		node := NewInverterNode(nodeConfig.Name)
+		node.AddChild(child)
+		return node, nil
+
+	case "Repeater":
+		// 重复装饰节点
+		count := 1 // 默认重复1次
+		if c, ok := nodeConfig.Params["count"].(float64); ok {
+			count = int(c)
+		}
+		node := NewRepeaterNode(nodeConfig.Name, count)
+		node.AddChild(child)
+		return node, nil
+
+	case "Retry":
+		// 重试装饰节点
+		maxRetries := 3 // 默认最大重试3次
+		if r, ok := nodeConfig.Params["max_retries"].(float64); ok {
+			maxRetries = int(r)
+		}
+		return NewRetryNode(nodeConfig.Name, child, maxRetries), nil
+
+	case "Timeout":
+		// 超时装饰节点
+		timeout := time.Second * 5 // 默认超时5秒
+		if t, ok := nodeConfig.Params["timeout"].(string); ok {
+			if parsed, err := time.ParseDuration(t); err == nil {
+				timeout = parsed
+			}
+		}
+		return NewTimeoutNode(nodeConfig.Name, child, timeout), nil
+
+	case "Cooldown":
+		// 冷却装饰节点
+		cooldown := time.Second * 1 // 默认冷却1秒
+		if c, ok := nodeConfig.Params["cooldown"].(string); ok {
+			if parsed, err := time.ParseDuration(c); err == nil {
+				cooldown = parsed
+			}
+		}
+		node := NewCooldownNode(nodeConfig.Name, cooldown)
+		node.AddChild(child)
+		return node, nil
+
+	default:
+		// 创建通用装饰节点
+		logger.Warnf("Unknown decorator node type: %s, creating generic decorator", nodeConfig.Name)
+		return NewGenericDecoratorNode(nodeConfig.Name, child, nodeConfig.Params), nil
+	}
 }

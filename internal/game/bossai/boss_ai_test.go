@@ -71,7 +71,7 @@ func (m *MockBossEntity) IsInCombat() bool               { return m.isInCombat }
 func (m *MockBossEntity) GetCombatTarget() IEntity       { return m.combatTarget }
 func (m *MockBossEntity) SetCombatTarget(target IEntity) { m.combatTarget = target }
 
-func (m *MockBossEntity) GetEntitiesInRange(radius float64) []IEntity {
+func (m *MockBossEntity) GetEnemiesInRange(radius float64) []IEntity {
 	return m.nearbyEntities
 }
 

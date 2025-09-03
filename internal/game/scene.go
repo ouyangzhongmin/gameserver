@@ -240,7 +240,10 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		m.SetMovableRect(rect)
 		m.SetSpells(spells)
 		if monsterData.Grade == constants.MONSTER_GRADE_BOSS {
-			m.EnableBossAI(fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
+			err := m.EnableBossAI(fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
+			if err != nil {
+				logger.Errorln(err)
+			}
 		} else if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
 		}

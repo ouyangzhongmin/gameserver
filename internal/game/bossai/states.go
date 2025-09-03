@@ -1,7 +1,6 @@
 package bossai
 
 import (
-	"math"
 	"time"
 
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
@@ -250,7 +249,7 @@ func (s *IdleState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 		s.lastScanTime = ctx.CurrentTime
 
 		// 搜索附近敌人
-		enemies := ctx.Boss.GetEntitiesInRange(s.patrolRadius)
+		enemies := ctx.Boss.GetEnemiesInRange(s.patrolRadius)
 		if len(enemies) > 0 {
 			// 找到敌人，准备切换到追击状态
 			nearest := ctx.Boss.GetNearestEnemy()
@@ -303,7 +302,7 @@ func (s *PatrolState) OnEnter(ctx *BossContext) error {
 
 func (s *PatrolState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 检查是否有敌人进入警戒范围
-	enemies := ctx.Boss.GetEntitiesInRange(s.alertRadius)
+	enemies := ctx.Boss.GetEnemiesInRange(s.alertRadius)
 	if len(enemies) > 0 {
 		nearest := ctx.Boss.GetNearestEnemy()
 		if nearest != nil {
@@ -492,11 +491,6 @@ func (s *AttackState) performAttack(ctx *BossContext) {
 }
 
 // 辅助函数
-func calculateDistance(x1, y1, x2, y2 float64) float64 {
-	dx := x2 - x1
-	dy := y2 - y1
-	return math.Sqrt(dx*dx + dy*dy)
-}
 
 // RetreatState 返回/撤退状态
 type RetreatState struct {
@@ -530,7 +524,7 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 	ctx.Target = nil
 	ctx.Boss.SetCombatTarget(nil)
 
-	logger.Debugf("Boss %d retreating to spawn point (%f, %f)", 
+	logger.Debugf("Boss %d retreating to spawn point (%f, %f)",
 		ctx.Boss.GetID(), s.spawnPoint.X, s.spawnPoint.Y)
 
 	return nil
@@ -552,8 +546,8 @@ func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error
 
 	// 继续返回出生点
 	return ctx.Boss.MoveTo(
-		coord.Coord(s.spawnPoint.X), 
-		coord.Coord(s.spawnPoint.Y), 
+		coord.Coord(s.spawnPoint.X),
+		coord.Coord(s.spawnPoint.Y),
 		coord.Coord(s.spawnPoint.Z),
 	)
 }
@@ -572,7 +566,7 @@ func (s *RetreatState) OnExit(ctx *BossContext) error {
 // StunnedState 眩晕状态
 type StunnedState struct {
 	*BaseBossState
-	stunDuration   time.Duration
+	stunDuration    time.Duration
 	damageReduction float64
 }
 

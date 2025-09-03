@@ -7,8 +7,10 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/bossai"
+	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
 // BossAIManagerAdapter 兼容IAiManager接口的Boss AI适配器
@@ -231,25 +233,83 @@ func (b *BossEntityAdapter) GetCurrentLife() int32 {
 }
 
 func (b *BossEntityAdapter) GetAttackPower() int32 {
-	return int32(b.monster.Data.BaseAttack)
+	return int32(b.monster.GetAttack())
+}
+
+func (b *BossEntityAdapter) GetSpawnPosition() coord.Vector3 {
+	return b.monster.bornPos
+}
+
+func (b *BossEntityAdapter) GetPatrolPoints() []coord.Vector3 {
+	// 从预制路径中获取巡逻点
+	if b.monster.preparePaths != nil && len(b.monster.preparePaths.Paths) > 0 {
+		var points []coord.Vector3
+		for _, path := range b.monster.preparePaths.Paths {
+			points = append(points, coord.Vector3{
+				X: coord.Coord(path.Sx),
+				Y: coord.Coord(path.Sy),
+				Z: 0,
+			})
+			points = append(points, coord.Vector3{
+				X: coord.Coord(path.Ex),
+				Y: coord.Coord(path.Ey),
+				Z: 0,
+			})
+		}
+		return points
+	}
+	return []coord.Vector3{}
 }
 
 func (b *BossEntityAdapter) CanUseSkill(skillID int32) bool {
-	// 检查技能是否可用
+	// 复用Monster的技能检查逻辑
 	return b.monster.GetCanUseSpell(0) != nil
 }
 
 func (b *BossEntityAdapter) UseSkill(skillID int32, target bossai.IEntity) error {
-	// 使用技能
+	// 复用Monster的技能释放逻辑
 	spell := b.monster.GetCanUseSpell(0)
 	if spell != nil {
-		// 需要将bossai.IEntity转换为原有的IMovableEntity
-		// 这里假设适配器封装的是同一个实体
 		if entityAdapter, ok := target.(*EntityAdapter); ok {
 			return b.monster.SpellAttack(spell, entityAdapter.entity)
 		}
 	}
-	return nil
+	return fmt.Errorf("skill %d not available or invalid target", skillID)
+}
+
+// 复用Monster的基础攻击功能
+func (b *BossEntityAdapter) DoAttackTarget(target bossai.IEntity) error {
+	if entityAdapter, ok := target.(*EntityAdapter); ok {
+		b.monster.doAttackTarget(entityAdapter.entity)
+		return nil
+	}
+	return fmt.Errorf("invalid target type")
+}
+
+// 复用Monster的位置计算功能
+func (b *BossEntityAdapter) GetCanAttackPos(target bossai.IEntity, offset int) (coord.Vector3, error) {
+	if entityAdapter, ok := target.(*EntityAdapter); ok {
+		return b.monster.GetCanAttackPos(entityAdapter.entity, offset)
+	}
+	return coord.Vector3{}, fmt.Errorf("invalid target type")
+}
+
+// 复用Monster的移动速度计算
+func (b *BossEntityAdapter) GetStepTime() int {
+	return b.monster.getStepTime()
+}
+
+// 复用Monster的技能范围检查
+func (b *BossEntityAdapter) IsInSpellAttackRange(spell interface{}, x, y coord.Coord) bool {
+	if spellObj, ok := spell.(*object.SpellObject); ok {
+		return b.monster.IsInSpellAttackRange(spellObj, x, y)
+	}
+	return false
+}
+
+// 获取指定类型的可用技能
+func (b *BossEntityAdapter) GetCanUseSpell(spellType int) interface{} {
+	return b.monster.GetCanUseSpell(spellType)
 }
 
 func (b *BossEntityAdapter) GetSkillCooldown(skillID int32) time.Duration {
@@ -281,7 +341,7 @@ func (b *BossEntityAdapter) SetCombatTarget(target bossai.IEntity) {
 	}
 }
 
-func (b *BossEntityAdapter) GetEntitiesInRange(radius float64) []bossai.IEntity {
+func (b *BossEntityAdapter) GetEnemiesInRange(radius float64) []bossai.IEntity {
 	// 获取范围内的实体
 	entities := b.monster.scene.getEntitiesByRange(
 		b.monster.GetPos().X,
@@ -292,6 +352,12 @@ func (b *BossEntityAdapter) GetEntitiesInRange(radius float64) []bossai.IEntity 
 	result := make([]bossai.IEntity, 0, len(entities))
 	for _, entity := range entities {
 		// 使用适配器封装原有实体
+		if entity == b.monster {
+			continue
+		}
+		if !b.monster.CanAttackTarget(entity) {
+			continue
+		}
 		result = append(result, NewEntityAdapter(entity))
 	}
 
@@ -337,11 +403,49 @@ func (e *EntityAdapter) IsDestroyed() bool {
 	return e.entity.IsDestroyed()
 }
 
+func (e *EntityAdapter) TakeDamage(damage int32, attacker interface{}) {
+	// 复用Monster的伤害处理逻辑
+	switch entity := e.entity.(type) {
+	case *Hero:
+		entity.onBeenHurt(int64(damage))
+		// 根据攻击者类型进行处理
+		if entityAdapter, ok := attacker.(*EntityAdapter); ok {
+			entity.onBeenAttacked(entityAdapter.entity)
+		} else if bossAdapter, ok := attacker.(*BossEntityAdapter); ok {
+			entity.onBeenAttacked(bossAdapter.monster)
+		} else if movableEntity, ok := attacker.(IMovableEntity); ok {
+			entity.onBeenAttacked(movableEntity)
+		}
+	case *Monster:
+		entity.onBeenHurt(int64(damage))
+		// 根据攻击者类型进行处理
+		if entityAdapter, ok := attacker.(*EntityAdapter); ok {
+			entity.onBeenAttacked(entityAdapter.entity)
+		} else if bossAdapter, ok := attacker.(*BossEntityAdapter); ok {
+			entity.onBeenAttacked(bossAdapter.monster)
+		} else if movableEntity, ok := attacker.(IMovableEntity); ok {
+			entity.onBeenAttacked(movableEntity)
+		}
+	}
+}
+
 func (b *BossEntityAdapter) GetNearestEnemy() bossai.IEntity {
 	// 获取最近的敌人
-	entities := b.GetEntitiesInRange(500.0)
+	entities := b.GetEnemiesInRange(10.0)
 	if len(entities) > 0 {
-		return entities[0] // 简化实现，实际应该计算距离
+		var dist float64 = 10000000
+		var enemy bossai.IEntity = nil
+		if entities != nil && len(entities) > 0 {
+			for _, e := range entities {
+
+				tmpDist := shape.CalculateDistance(float64(b.monster.GetPos().X), float64(b.monster.GetPos().Y), float64(e.GetPos().X), float64(e.GetPos().Y))
+				if tmpDist < dist {
+					dist = tmpDist
+					enemy = e
+				}
+			}
+		}
+		return enemy
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package bossai
 
 import (
+	"math"
 	"time"
 
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
@@ -110,10 +111,13 @@ type AIAction struct {
 	Type      ActionType             `json:"type"`
 	SkillID   int32                  `json:"skill_id,omitempty"`
 	TargetID  int64                  `json:"target_id,omitempty"`
+	Target    IEntity                `json:"-"` // 目标实体引用（不序列化）
 	Position  *coord.Vector3         `json:"position,omitempty"`
 	Duration  time.Duration          `json:"duration,omitempty"`
+	Damage    int32                  `json:"damage,omitempty"` // 伤害值
 	Params    map[string]interface{} `json:"params,omitempty"`
 	Priority  int                    `json:"priority"`
+	Executed  bool                   `json:"executed"` // 是否已执行
 	Timestamp time.Time              `json:"timestamp"`
 }
 
@@ -349,4 +353,138 @@ type LLMStatus struct {
 	RequestCount   int64         `json:"request_count"`
 	ErrorCount     int64         `json:"error_count"`
 	AverageLatency time.Duration `json:"average_latency"`
+}
+
+// BossContext 方法实现
+
+// GetSkillManager 获取技能管理器
+func (ctx *BossContext) GetSkillManager() ISkillManager {
+	if skillMgr, ok := ctx.CustomData["skill_manager"].(ISkillManager); ok {
+		return skillMgr
+	}
+	return nil
+}
+
+// SetSkillManager 设置技能管理器
+func (ctx *BossContext) SetSkillManager(skillMgr ISkillManager) {
+	if ctx.CustomData == nil {
+		ctx.CustomData = make(map[string]interface{})
+	}
+	ctx.CustomData["skill_manager"] = skillMgr
+}
+
+// GetPatrolIndex 获取当前巡逻点索引
+func (ctx *BossContext) GetPatrolIndex() int {
+	if index, ok := ctx.CustomData["patrol_index"].(int); ok {
+		return index
+	}
+	return 0
+}
+
+// SetPatrolIndex 设置当前巡逻点索引
+func (ctx *BossContext) SetPatrolIndex(index int) {
+	if ctx.CustomData == nil {
+		ctx.CustomData = make(map[string]interface{})
+	}
+	ctx.CustomData["patrol_index"] = index
+}
+
+// GetPhaseManager 获取阶段管理器
+func (ctx *BossContext) GetPhaseManager() IPhaseManager {
+	if phaseMgr, ok := ctx.CustomData["phase_manager"].(IPhaseManager); ok {
+		return phaseMgr
+	}
+	return nil
+}
+
+// SetPhaseManager 设置阶段管理器
+func (ctx *BossContext) SetPhaseManager(phaseMgr IPhaseManager) {
+	if ctx.CustomData == nil {
+		ctx.CustomData = make(map[string]interface{})
+	}
+	ctx.CustomData["phase_manager"] = phaseMgr
+}
+
+// GetStateMachine 获取状态机
+func (ctx *BossContext) GetStateMachine() IStateMachine {
+	if stateMachine, ok := ctx.CustomData["state_machine"].(IStateMachine); ok {
+		return stateMachine
+	}
+	return nil
+}
+
+// SetStateMachine 设置状态机
+func (ctx *BossContext) SetStateMachine(stateMachine IStateMachine) {
+	if ctx.CustomData == nil {
+		ctx.CustomData = make(map[string]interface{})
+	}
+	ctx.CustomData["state_machine"] = stateMachine
+}
+
+// IsTargetValid 检查目标是否有效
+func (ctx *BossContext) IsTargetValid() bool {
+	return ctx.Target != nil && ctx.Target.IsAlive()
+}
+
+// GetDistanceToTarget 获取到目标的距离
+func (ctx *BossContext) GetDistanceToTarget() float64 {
+	if !ctx.IsTargetValid() {
+		return -1
+	}
+
+	bossPos := ctx.Boss.GetPos()
+	targetPos := ctx.Target.GetPos()
+
+	dx := float64(targetPos.X - bossPos.X)
+	dy := float64(targetPos.Y - bossPos.Y)
+
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
+// AddActionToHistory 添加动作到历史记录
+func (ctx *BossContext) AddActionToHistory(action *AIAction) {
+	if ctx.ActionHistory == nil {
+		ctx.ActionHistory = make([]*AIAction, 0)
+	}
+
+	action.Timestamp = ctx.CurrentTime
+	ctx.ActionHistory = append(ctx.ActionHistory, action)
+
+	// 限制历史记录长度
+	if len(ctx.ActionHistory) > 100 {
+		ctx.ActionHistory = ctx.ActionHistory[1:]
+	}
+}
+
+// GetLastActionOfType 获取指定类型的最后一个动作
+func (ctx *BossContext) GetLastActionOfType(actionType ActionType) *AIAction {
+	for i := len(ctx.ActionHistory) - 1; i >= 0; i-- {
+		if ctx.ActionHistory[i].Type == actionType {
+			return ctx.ActionHistory[i]
+		}
+	}
+	return nil
+}
+
+// GetHealthPercent 获取当前血量百分比
+func (ctx *BossContext) GetHealthPercent() float64 {
+	if ctx.Boss == nil {
+		return 0.0
+	}
+	return float64(ctx.Boss.GetCurrentLife()) / float64(ctx.Boss.GetMaxLife())
+}
+
+// IsInCombat 检查是否在战斗中
+func (ctx *BossContext) IsInCombat() bool {
+	return ctx.Boss != nil && ctx.Boss.IsInCombat()
+}
+
+// GetNearbyEnemyCount 获取附近敌人数量
+func (ctx *BossContext) GetNearbyEnemyCount() int {
+	return len(ctx.NearbyEnemies)
+}
+
+// GetCombatDuration 获取战斗持续时间
+func (ctx *BossContext) GetCombatDuration() time.Duration {
+	return ctx.CombatTime
 }
