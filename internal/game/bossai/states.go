@@ -248,11 +248,11 @@ func (s *IdleState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	if ctx.CurrentTime.Sub(s.lastScanTime) >= s.scanInterval {
 		s.lastScanTime = ctx.CurrentTime
 
-		// 搜索附近敌人
-		enemies := ctx.Boss.GetEnemiesInRange(s.patrolRadius)
+		// 使用BossContext的方法从已缓存的NearbyEnemies中查找
+		enemies := ctx.GetEnemiesInRange(s.patrolRadius)
 		if len(enemies) > 0 {
 			// 找到敌人，准备切换到追击状态
-			nearest := ctx.Boss.GetNearestEnemy()
+			nearest := ctx.GetNearestEnemyInRange(s.patrolRadius)
 			if nearest != nil {
 				ctx.Target = nearest
 				ctx.Boss.SetCombatTarget(nearest)
@@ -302,9 +302,9 @@ func (s *PatrolState) OnEnter(ctx *BossContext) error {
 
 func (s *PatrolState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 检查是否有敌人进入警戒范围
-	enemies := ctx.Boss.GetEnemiesInRange(s.alertRadius)
+	enemies := ctx.GetEnemiesInRange(s.alertRadius)
 	if len(enemies) > 0 {
-		nearest := ctx.Boss.GetNearestEnemy()
+		nearest := ctx.GetNearestEnemyInRange(s.alertRadius)
 		if nearest != nil {
 			ctx.Target = nearest
 			ctx.Boss.SetCombatTarget(nearest)
@@ -659,4 +659,119 @@ func (s *DyingState) CanTransitionTo(stateID int32, ctx *BossContext) bool {
 func (s *DyingState) GetNextState(ctx *BossContext) int32 {
 	// 保持死亡状态
 	return int32(StateDying)
+}
+
+// CastSkillState 释放技能状态
+type CastSkillState struct {
+	*BaseBossState
+	currentSkillID int32
+	castStartTime  time.Time
+}
+
+func NewCastSkillState() *CastSkillState {
+	base := NewBaseBossState(StateCastSkill, "CastSkill")
+	return &CastSkillState{
+		BaseBossState: base,
+	}
+}
+
+func (s *CastSkillState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态
+	ctx.Boss.AttackAction()
+
+	s.castStartTime = ctx.CurrentTime
+	logger.Debugf("Boss %d is casting skill %d", ctx.Boss.GetID(), s.currentSkillID)
+
+	return nil
+}
+
+func (s *CastSkillState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	// 技能释放状态的更新逻辑
+	// 检查技能释放是否完成
+	return nil
+}
+
+func (s *CastSkillState) OnExit(ctx *BossContext) error {
+	if err := s.BaseBossState.OnExit(ctx); err != nil {
+		return err
+	}
+
+	s.currentSkillID = 0
+	return nil
+}
+
+// EnragedState 狂暴状态
+type EnragedState struct {
+	*BaseBossState
+	enrageStartTime  time.Time
+	damageMultiplier float64
+	attackSpeedBonus float64
+}
+
+func NewEnragedState() *EnragedState {
+	base := NewBaseBossState(StateEnraged, "Enraged")
+	return &EnragedState{
+		BaseBossState:    base,
+		damageMultiplier: 1.5, // 默认1.5倍伤害
+		attackSpeedBonus: 2.0, // 默认2個攻击速度
+	}
+}
+
+func (s *EnragedState) OnEnter(ctx *BossContext) error {
+	if err := s.BaseBossState.OnEnter(ctx); err != nil {
+		return err
+	}
+
+	// 控制Monster真实状态
+	ctx.Boss.AttackAction()
+
+	s.enrageStartTime = ctx.CurrentTime
+	logger.Debugf("Boss %d is entering enraged state", ctx.Boss.GetID())
+
+	return nil
+}
+
+func (s *EnragedState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	// 检查是否有有效目标
+	if ctx.Target == nil || !ctx.Target.IsAlive() {
+		// 寻找新目标
+		enemies := ctx.GetEnemiesInRange(300.0)
+		if len(enemies) > 0 {
+			ctx.Target = enemies[0]
+			ctx.Boss.SetCombatTarget(ctx.Target)
+		}
+	}
+
+	// 狂暴状态下的攻击逻辑
+	if ctx.Target != nil {
+		// 计算目标距离
+		bossPos := ctx.Boss.GetPos()
+		targetPos := ctx.Target.GetPos()
+		distance := float64(bossPos.DistanceTo(targetPos))
+
+		// 如果在攻击范围内，执行攻击
+		if distance <= 60.0 {
+			if err := ctx.Boss.DoAttackTarget(ctx.Target); err != nil {
+				logger.Errorf("Boss enraged attack failed: %v", err)
+			}
+		} else {
+			// 追击目标
+			ctx.Boss.Chase()
+		}
+	}
+
+	return nil
+}
+
+func (s *EnragedState) OnExit(ctx *BossContext) error {
+	if err := s.BaseBossState.OnExit(ctx); err != nil {
+		return err
+	}
+
+	logger.Debugf("Boss %d exiting enraged state", ctx.Boss.GetID())
+	return nil
 }

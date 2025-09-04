@@ -151,27 +151,37 @@ func (ai *BossAIManager) applyConfiguration() error {
 
 // configureStateMachine 配置状态机
 func (ai *BossAIManager) configureStateMachine() error {
-	// 添加预定义状态
-	states := []IBossState{
-		NewIdleState(),
-		NewPatrolState([]Position{}),
-		NewChaseState(),
-		NewAttackState(),
-		NewRetreatState(Position{X: 0, Y: 0, Z: 0}), // 默认出生点
-		NewStunnedState(time.Second * 3),            // 默认3秒眩晕
-		NewDyingState(),
-	}
+	// 根据配置创建状态
+	for _, stateConfig := range ai.config.States {
+		state, err := ai.createStateFromConfig(stateConfig)
+		if err != nil {
+			logger.Errorf("Failed to create state %s: %v", stateConfig.Name, err)
+			continue
+		}
 
-	for _, state := range states {
+		// 添加到状态机
 		if err := ai.stateMachine.AddState(state); err != nil {
 			logger.Errorf("Failed to add state %s: %v", state.GetName(), err)
 		}
+
+		logger.Debugf("Added state: %s (ID: %d)", stateConfig.Name, stateConfig.ID)
 	}
 
-	// 配置自定义状态
+	// 设置状态转换关系
 	for _, stateConfig := range ai.config.States {
-		// 这里可以根据配置创建自定义状态
-		logger.Debugf("State configuration: %s", stateConfig.Name)
+		state := ai.stateMachine.GetState(stateConfig.ID)
+		if state == nil {
+			continue
+		}
+
+		// 配置状态转换
+		for _, transition := range stateConfig.Transitions {
+			if baseState, ok := state.(*BaseBossState); ok {
+				baseState.AddTransition(transition.ToState, transition)
+				logger.Debugf("Added transition from %s to %d (priority: %d)",
+					stateConfig.Name, transition.ToState, transition.Priority)
+			}
+		}
 	}
 
 	// 设置初始状态
@@ -180,6 +190,66 @@ func (ai *BossAIManager) configureStateMachine() error {
 	}
 
 	return nil
+}
+
+// createStateFromConfig 根据配置创建状态
+func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, error) {
+	// 根据状态ID和名称创建对应状态
+	var state IBossState
+
+	switch config.ID {
+	case StateIdle:
+		state = NewIdleState()
+	case StatePatrol:
+		// 从配置中获取巡逻路径，如果没有则使用空路径
+		patrolPoints := []Position{} // 默认空路径，实际应用中可以从 modifiers 中获取
+		state = NewPatrolState(patrolPoints)
+	case StateChase:
+		state = NewChaseState()
+	case StateAttack:
+		state = NewAttackState()
+	case StateCastSkill:
+		state = NewCastSkillState()
+	case StateStunned:
+		// 从 modifiers 中获取眩晕时间
+		duration := time.Second * 3 // 默认时间
+		if durationVal, ok := config.Modifiers["stun_duration"]; ok {
+			if dur, ok := durationVal.(time.Duration); ok {
+				duration = dur
+			}
+		}
+		state = NewStunnedState(duration)
+	case StateEnraged:
+		state = NewEnragedState()
+	case StateRetreat:
+		// 从 modifiers 中获取撑退目标点，如果没有则使用默认值
+		spawnPoint := Position{X: 0, Y: 0, Z: 0} // 默认出生点
+		state = NewRetreatState(spawnPoint)
+	case StateDying:
+		state = NewDyingState()
+	default:
+		// 创建通用状态
+		state = NewBaseBossState(config.ID, config.Name)
+	}
+
+	if state == nil {
+		return nil, fmt.Errorf("failed to create state for ID %d", config.ID)
+	}
+
+	// 应用 modifiers
+	if baseState, ok := state.(*BaseBossState); ok {
+		for key, value := range config.Modifiers {
+			baseState.SetModifier(key, value)
+		}
+	}
+
+	// 应用行为配置
+	for _, behavior := range config.Behaviors {
+		logger.Debugf("State %s has behavior: %s", config.Name, behavior)
+		// 这里可以扩展行为的具体实现
+	}
+
+	return state, nil
 }
 
 // configurePhaseSystem 配置阶段系统
@@ -366,15 +436,29 @@ func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
 		ai.context.CombatTime += deltaTime
 	}
 
-	// 更新附近实体
-	ai.context.NearbyEnemies = ai.boss.GetEnemiesInRange(10.0)
+	// 更新附近实体（使用更大的搜索半径以包含更多敌人）
+	// 这样后续的BossContext方法可以从中筛选不同范围的敌人
+	entites := ai.boss.GetEntitesInRange(10)
+	ai.context.NearbyEnemies = make([]IEntity, 0)
+	ai.context.NearbyAllies = make([]IEntity, 0)
+	for _, entity := range entites {
+		if ai.context.Boss.IsEnemy(entity) { //敌人列表
+			ai.context.NearbyEnemies = append(ai.context.NearbyEnemies, entity)
+		} else if ai.context.Boss.IsAlly(entity) { // 如果有盟友系统
+			ai.context.NearbyAllies = append(ai.context.NearbyAllies, entity)
+		}
+	}
 
 	// 更新位置
 	ai.context.Position = ai.boss.GetPos()
 
-	// 更新目标
-	if ai.context.Target == nil || !ai.context.Target.IsAlive() {
-		ai.context.Target = ai.boss.GetCombatTarget()
+	// 注意：不再主动从 Monster 系统获取目标
+	// Boss AI 系统应该通过自己的决策逻辑（状态机、行为树等）来选择和设置目标
+	// 如果当前目标已死亡，则清除目标，由 AI 系统自行决定下一个目标
+	if ai.context.Target != nil && !ai.context.Target.IsAlive() {
+		ai.context.Target = nil
+		// 同时清除 Monster 系统的目标
+		ai.boss.SetCombatTarget(nil)
 	}
 
 	// 重置状态变化标志
@@ -894,8 +978,9 @@ func (ai *BossAIManager) buildNodeFromConfig(nodeConfig BehaviorNodeConfig) (IBe
 
 // createActionNode 创建行为节点
 func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
+	logger.Debugf("Creating action node: %s", nodeConfig.Name)
 	switch nodeConfig.Name {
-	case "Use Healing Skill":
+	case ActionNodeTypes.UseHealingSkill:
 		// 治疗技能行为节点
 		skillID := int32(1007) // 默认治疗技能ID
 		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
@@ -903,11 +988,11 @@ func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehav
 		}
 		return NewUseSkillActionNode(nodeConfig.Name, skillID), nil
 
-	case "Attack Target":
+	case ActionNodeTypes.AttackTarget:
 		// 攻击目标行为节点
 		return NewAttackActionNode(nodeConfig.Name), nil
 
-	case "Move To Position":
+	case ActionNodeTypes.MoveToPosition:
 		// 移动到位置行为节点
 		x, y, z := 0.0, 0.0, 0.0
 		if pos, ok := nodeConfig.Params["position"].(map[string]interface{}); ok {
@@ -923,7 +1008,7 @@ func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehav
 		}
 		return NewMoveToActionNode(nodeConfig.Name, x, y, z), nil
 
-	case "Cast Skill":
+	case ActionNodeTypes.CastSkill:
 		// 释放技能行为节点
 		skillID := int32(1001) // 默认技能ID
 		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
@@ -931,15 +1016,15 @@ func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehav
 		}
 		return NewCastSkillActionNode(nodeConfig.Name, skillID), nil
 
-	case "Retreat":
+	case ActionNodeTypes.Retreat:
 		// 撤退行为节点
 		return NewRetreatActionNode(nodeConfig.Name), nil
 
-	case "Patrol":
+	case ActionNodeTypes.Patrol:
 		// 巡逻行为节点
 		return NewPatrolActionNode(nodeConfig.Name), nil
 
-	case "Wait":
+	case ActionNodeTypes.Wait:
 		// 等待行为节点
 		duration := time.Second * 1 // 默认等待1秒
 		if dur, ok := nodeConfig.Params["duration"].(string); ok {
@@ -949,17 +1034,52 @@ func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehav
 		}
 		return NewWaitActionNode(nodeConfig.Name, duration), nil
 
+	case ActionNodeTypes.CheckPhase:
+		// 检查阶段触发器行为节点
+		logger.Debugf("Matched Check Phase Triggers action node")
+		return NewCheckPhaseTriggersActionNode(nodeConfig.Name), nil
+
+	case ActionNodeTypes.UpdatePhase:
+		// 更新阶段状态行为节点
+		logger.Debugf("Matched Update Phase State action node")
+		return NewUpdatePhaseStateActionNode(nodeConfig.Name), nil
+
+	case ActionNodeTypes.TargetValidation:
+		// 目标验证行为节点
+		logger.Debugf("Matched Target Validation action node")
+		return NewTargetValidationActionNode(nodeConfig.Name), nil
+
+	case ActionNodeTypes.PatrolBehavior:
+		// 巡逻行为节点（更具体的巡逻实现）
+		logger.Debugf("Matched Patrol Behavior action node")
+		return NewPatrolBehaviorActionNode(nodeConfig.Name), nil
+
+	case ActionNodeTypes.SelectOptimalSkill:
+		// 选择最优技能行为节点
+		logger.Debugf("Matched Select Optimal Skill action node")
+		return NewSelectOptimalSkillActionNode(nodeConfig.Name), nil
+
+	case ActionNodeTypes.ExecuteAction:
+		// 执行动作行为节点
+		logger.Debugf("Matched Execute Action action node")
+		return NewExecuteActionActionNode(nodeConfig.Name), nil
+
 	default:
 		// 创建通用行为节点
-		logger.Warnf("Unknown action node type: %s, creating generic action", nodeConfig.Name)
+		logger.Warnf("Unknown action node type: '%s' (len=%d), creating generic action", nodeConfig.Name, len(nodeConfig.Name))
+		// 输出每个字符的十六进制值用于调试
+		for i, char := range nodeConfig.Name {
+			logger.Warnf("  char[%d]: '%c' (0x%02X)", i, char, char)
+		}
 		return NewGenericActionNode(nodeConfig.Name, nodeConfig.Params), nil
 	}
 }
 
 // createConditionNode 创建条件节点
 func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
+	logger.Debugf("Creating condition node: %s", nodeConfig.Name)
 	switch nodeConfig.Name {
-	case "Low Health Check":
+	case ConditionNodeTypes.LowHealthCheck:
 		// 低血量检查条件节点
 		threshold := 0.3 // 默认30%血量
 		if t, ok := nodeConfig.Params["health_threshold"].(float64); ok {
@@ -967,7 +1087,7 @@ func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewHealthConditionNode(nodeConfig.Name, threshold), nil
 
-	case "Enemy In Range":
+	case ConditionNodeTypes.EnemyInRange:
 		// 敌人在范围内条件节点
 		rangeValue := 100.0 // 默认100单位范围
 		if r, ok := nodeConfig.Params["range"].(float64); ok {
@@ -975,7 +1095,7 @@ func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewEnemyInRangeConditionNode(nodeConfig.Name, rangeValue), nil
 
-	case "Skill Available":
+	case ConditionNodeTypes.SkillAvailable:
 		// 技能可用条件节点
 		skillID := int32(1001) // 默认技能ID
 		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
@@ -983,11 +1103,11 @@ func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewSkillAvailableConditionNode(nodeConfig.Name, skillID), nil
 
-	case "Combat State":
+	case ConditionNodeTypes.CombatState:
 		// 战斗状态条件节点
 		return NewCombatStateConditionNode(nodeConfig.Name), nil
 
-	case "Distance Check":
+	case ConditionNodeTypes.DistanceCheck:
 		// 距离检查条件节点
 		distance := 50.0        // 默认距离
 		operator := "less_than" // 默认操作符
@@ -999,7 +1119,7 @@ func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewDistanceConditionNode(nodeConfig.Name, distance, operator), nil
 
-	case "Phase Check":
+	case ConditionNodeTypes.PhaseCheck:
 		// 阶段检查条件节点
 		phaseID := int32(1) // 默认阶段ID
 		if id, ok := nodeConfig.Params["phase_id"].(float64); ok {
@@ -1007,9 +1127,23 @@ func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewPhaseConditionNode(nodeConfig.Name, phaseID), nil
 
+	case ConditionNodeTypes.EmergencyResponse:
+		// 紧急响应条件节点（检查紧急情况，如低血量、被围攻等）
+		logger.Debugf("Matched Emergency Response condition node")
+		return NewEmergencyResponseConditionNode(nodeConfig.Name), nil
+
+	case ConditionNodeTypes.CombatActions:
+		// 战斗动作条件节点（检查是否可以执行战斗动作）
+		logger.Debugf("Matched Combat Actions condition node")
+		return NewCombatActionsConditionNode(nodeConfig.Name), nil
+
 	default:
 		// 创建通用条件节点
-		logger.Warnf("Unknown condition node type: %s, creating generic condition", nodeConfig.Name)
+		logger.Warnf("Unknown condition node type: '%s' (len=%d), creating generic condition", nodeConfig.Name, len(nodeConfig.Name))
+		// 输出每个字符的十六进制值用于调试
+		for i, char := range nodeConfig.Name {
+			logger.Warnf("  char[%d]: '%c' (0x%02X)", i, char, char)
+		}
 		return NewGenericConditionNode(nodeConfig.Name, nodeConfig.Params), nil
 	}
 }
@@ -1027,13 +1161,13 @@ func (ai *BossAIManager) createDecoratorNode(nodeConfig BehaviorNodeConfig) (IBe
 	}
 
 	switch nodeConfig.Name {
-	case "Inverter":
+	case DecoratorNodeTypes.Inverter:
 		// 取反装饰节点
 		node := NewInverterNode(nodeConfig.Name)
 		node.AddChild(child)
 		return node, nil
 
-	case "Repeater":
+	case DecoratorNodeTypes.Repeater:
 		// 重复装饰节点
 		count := 1 // 默认重复1次
 		if c, ok := nodeConfig.Params["count"].(float64); ok {
@@ -1043,7 +1177,7 @@ func (ai *BossAIManager) createDecoratorNode(nodeConfig BehaviorNodeConfig) (IBe
 		node.AddChild(child)
 		return node, nil
 
-	case "Retry":
+	case DecoratorNodeTypes.Retry:
 		// 重试装饰节点
 		maxRetries := 3 // 默认最大重试3次
 		if r, ok := nodeConfig.Params["max_retries"].(float64); ok {
@@ -1051,7 +1185,7 @@ func (ai *BossAIManager) createDecoratorNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewRetryNode(nodeConfig.Name, child, maxRetries), nil
 
-	case "Timeout":
+	case DecoratorNodeTypes.Timeout:
 		// 超时装饰节点
 		timeout := time.Second * 5 // 默认超时5秒
 		if t, ok := nodeConfig.Params["timeout"].(string); ok {
@@ -1061,7 +1195,7 @@ func (ai *BossAIManager) createDecoratorNode(nodeConfig BehaviorNodeConfig) (IBe
 		}
 		return NewTimeoutNode(nodeConfig.Name, child, timeout), nil
 
-	case "Cooldown":
+	case DecoratorNodeTypes.Cooldown:
 		// 冷却装饰节点
 		cooldown := time.Second * 1 // 默认冷却1秒
 		if c, ok := nodeConfig.Params["cooldown"].(string); ok {

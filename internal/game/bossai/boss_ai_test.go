@@ -75,13 +75,6 @@ func (m *MockBossEntity) GetEnemiesInRange(radius float64) []IEntity {
 	return m.nearbyEntities
 }
 
-func (m *MockBossEntity) GetNearestEnemy() IEntity {
-	if len(m.nearbyEntities) > 0 {
-		return m.nearbyEntities[0]
-	}
-	return nil
-}
-
 func (m *MockBossEntity) SetLife(life int32) {
 	m.currentLife = life
 	if life <= 0 {

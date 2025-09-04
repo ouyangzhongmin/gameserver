@@ -65,6 +65,14 @@ func (sm *StateMachine) AddState(state IBossState) error {
 	return nil
 }
 
+// GetState 获取指定状态
+func (sm *StateMachine) GetState(stateID BossStateID) IBossState {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	return sm.states[stateID]
+}
+
 // RemoveState 移除状态
 func (sm *StateMachine) RemoveState(stateID BossStateID) error {
 	sm.mutex.Lock()
@@ -280,14 +288,6 @@ func (sm *StateMachine) GetPreviousState() IBossState {
 	defer sm.mutex.RUnlock()
 
 	return sm.previousState
-}
-
-// GetState 根据ID获取状态
-func (sm *StateMachine) GetState(stateID BossStateID) IBossState {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
-
-	return sm.states[stateID]
 }
 
 // GetAllStates 获取所有状态

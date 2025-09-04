@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ouyangzhongmin/gameserver/db"
@@ -285,6 +286,9 @@ func (manager *SceneManager) SceneInfo(s *session.Session, req *protocol.SceneIn
 	for _, scene := range manager.scenes {
 		logger.Debugf("scenInfo: scene_id: %d,  当前人数: %d, 怪物数量:%d",
 			scene.GetSceneId(), scene.totalPlayerCount(), scene.totalMonsterCount())
+		if scene.cellMgr.curCell == nil {
+			panic(fmt.Sprintf("scene:%d curCell==nil", scene.GetSceneId()))
+		}
 		items = append(items, protocol.SceneInfoItem{
 			SceneId:    scene.GetSceneId(),
 			CellId:     scene.cellMgr.curCell.CellID,

@@ -72,8 +72,10 @@ type IBossEntity interface {
 	SetCombatTarget(target IEntity)
 
 	// 视野相关
-	GetEnemiesInRange(radius float64) []IEntity
-	GetNearestEnemy() IEntity
+	GetEntitesInRange(radius float64) []IEntity
+	IsEnemy(entity IEntity) bool
+	// 是否盟友
+	IsAlly(entity IEntity) bool
 
 	// Monster状态控制方法（与原有系统的ActionState同步）
 	Idle()         // 空闲状态

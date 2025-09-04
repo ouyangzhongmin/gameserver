@@ -10,7 +10,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
-	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
 // BossAIManagerAdapter 兼容IAiManager接口的Boss AI适配器
@@ -341,7 +340,16 @@ func (b *BossEntityAdapter) SetCombatTarget(target bossai.IEntity) {
 	}
 }
 
-func (b *BossEntityAdapter) GetEnemiesInRange(radius float64) []bossai.IEntity {
+func (b *BossEntityAdapter) IsEnemy(entity bossai.IEntity) bool {
+	return entity.GetEntityType() == constants.ENTITY_TYPE_HERO && entity.IsAlive() && !entity.IsDestroyed()
+}
+
+// 是否盟友
+func (b *BossEntityAdapter) IsAlly(entity bossai.IEntity) bool {
+	return entity.GetEntityType() == constants.ENTITY_TYPE_MONSTER
+}
+
+func (b *BossEntityAdapter) GetEntitesInRange(radius float64) []bossai.IEntity {
 	// 获取范围内的实体
 	entities := b.monster.scene.getEntitiesByRange(
 		b.monster.GetPos().X,
@@ -355,9 +363,9 @@ func (b *BossEntityAdapter) GetEnemiesInRange(radius float64) []bossai.IEntity {
 		if entity == b.monster {
 			continue
 		}
-		if !b.monster.CanAttackTarget(entity) {
-			continue
-		}
+		// if !b.monster.CanAttackTarget(entity) {
+		// 	continue
+		// }
 		result = append(result, NewEntityAdapter(entity))
 	}
 
@@ -401,53 +409,6 @@ func (e *EntityAdapter) IsAlive() bool {
 
 func (e *EntityAdapter) IsDestroyed() bool {
 	return e.entity.IsDestroyed()
-}
-
-func (e *EntityAdapter) TakeDamage(damage int32, attacker interface{}) {
-	// 复用Monster的伤害处理逻辑
-	switch entity := e.entity.(type) {
-	case *Hero:
-		entity.onBeenHurt(int64(damage))
-		// 根据攻击者类型进行处理
-		if entityAdapter, ok := attacker.(*EntityAdapter); ok {
-			entity.onBeenAttacked(entityAdapter.entity)
-		} else if bossAdapter, ok := attacker.(*BossEntityAdapter); ok {
-			entity.onBeenAttacked(bossAdapter.monster)
-		} else if movableEntity, ok := attacker.(IMovableEntity); ok {
-			entity.onBeenAttacked(movableEntity)
-		}
-	case *Monster:
-		entity.onBeenHurt(int64(damage))
-		// 根据攻击者类型进行处理
-		if entityAdapter, ok := attacker.(*EntityAdapter); ok {
-			entity.onBeenAttacked(entityAdapter.entity)
-		} else if bossAdapter, ok := attacker.(*BossEntityAdapter); ok {
-			entity.onBeenAttacked(bossAdapter.monster)
-		} else if movableEntity, ok := attacker.(IMovableEntity); ok {
-			entity.onBeenAttacked(movableEntity)
-		}
-	}
-}
-
-func (b *BossEntityAdapter) GetNearestEnemy() bossai.IEntity {
-	// 获取最近的敌人
-	entities := b.GetEnemiesInRange(10.0)
-	if len(entities) > 0 {
-		var dist float64 = 10000000
-		var enemy bossai.IEntity = nil
-		if entities != nil && len(entities) > 0 {
-			for _, e := range entities {
-
-				tmpDist := shape.CalculateDistance(float64(b.monster.GetPos().X), float64(b.monster.GetPos().Y), float64(e.GetPos().X), float64(e.GetPos().Y))
-				if tmpDist < dist {
-					dist = tmpDist
-					enemy = e
-				}
-			}
-		}
-		return enemy
-	}
-	return nil
 }
 
 // 添加Monster状态控制方法的适配

@@ -43,6 +43,13 @@ func LoadBossConfigFromFile(filename string) (*BossConfig, error) {
 		return nil, err
 	}
 
+	// 验证节点类型
+	if validationErrors := ValidateNodeTypesInConfig(&config); len(validationErrors) > 0 {
+		for _, validationErr := range validationErrors {
+			fmt.Printf("Configuration validation warning: %s\n", validationErr)
+		}
+	}
+
 	return &config, nil
 }
 

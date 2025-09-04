@@ -93,9 +93,9 @@ type BossContext struct {
 	DamageReceived int32
 	SkillsUsed     map[int32]int // skillID -> usage count
 
-	// 环境信息
-	NearbyEnemies []IEntity
-	NearbyAllies  []IEntity
+	// 环境信息（由BossAIManager在updateContext中更新）
+	NearbyEnemies []IEntity // 附近敌人
+	NearbyAllies  []IEntity // 附近盟友
 	Position      coord.Vector3
 
 	// AI决策缓存
@@ -104,6 +104,62 @@ type BossContext struct {
 
 	// 自定义数据
 	CustomData map[string]interface{}
+}
+
+// GetEnemiesInRange 从已缓存的NearbyEnemies中筛选指定范围内的敌人
+// 避免重复调用AOI查询，提高性能
+func (ctx *BossContext) GetEnemiesInRange(radius float64) []IEntity {
+	if len(ctx.NearbyEnemies) == 0 {
+		return []IEntity{}
+	}
+
+	bossPos := ctx.Boss.GetPos()
+	filteredEnemies := make([]IEntity, 0, len(ctx.NearbyEnemies))
+
+	for _, enemy := range ctx.NearbyEnemies {
+		enemyPos := enemy.GetPos()
+		// 计算距离
+		dx := float64(bossPos.X - enemyPos.X)
+		dy := float64(bossPos.Y - enemyPos.Y)
+		distance := math.Sqrt(dx*dx + dy*dy)
+
+		if distance <= radius {
+			filteredEnemies = append(filteredEnemies, enemy)
+		}
+	}
+
+	return filteredEnemies
+}
+
+// GetNearestEnemyInRange 从已缓存的NearbyEnemies中获取指定范围内最近的敌人
+func (ctx *BossContext) GetNearestEnemyInRange(maxRadius float64) IEntity {
+	enemiesInRange := ctx.GetEnemiesInRange(maxRadius)
+	if len(enemiesInRange) == 0 {
+		return nil
+	}
+
+	bossPos := ctx.Boss.GetPos()
+	var nearestEnemy IEntity
+	var minDistance float64 = math.Inf(1)
+
+	for _, enemy := range enemiesInRange {
+		enemyPos := enemy.GetPos()
+		dx := float64(bossPos.X - enemyPos.X)
+		dy := float64(bossPos.Y - enemyPos.Y)
+		distance := math.Sqrt(dx*dx + dy*dy)
+
+		if distance < minDistance {
+			minDistance = distance
+			nearestEnemy = enemy
+		}
+	}
+
+	return nearestEnemy
+}
+
+// HasEnemiesInRange 检查指定范围内是否有敌人
+func (ctx *BossContext) HasEnemiesInRange(radius float64) bool {
+	return len(ctx.GetEnemiesInRange(radius)) > 0
 }
 
 // AIAction AI决策动作

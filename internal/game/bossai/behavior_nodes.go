@@ -644,8 +644,8 @@ func NewFindTargetNode(searchRadius float64) *FindTargetNode {
 func (n *FindTargetNode) Execute(ctx *BossContext) BehaviorResult {
 	n.BaseBehaviorNode.Execute(ctx)
 
-	// 找最近的敌人
-	nearest := ctx.Boss.GetNearestEnemy()
+	// 使用BossContext的方法从已缓存的NearbyEnemies中查找
+	nearest := ctx.GetNearestEnemyInRange(n.searchRadius)
 	if nearest != nil {
 		ctx.Target = nearest
 		ctx.Boss.SetCombatTarget(nearest)
@@ -1029,8 +1029,9 @@ func NewEnemyInRangeConditionNode(name string, rangeValue float64) *EnemyInRange
 func (n *EnemyInRangeConditionNode) Execute(ctx *BossContext) BehaviorResult {
 	n.BaseBehaviorNode.Execute(ctx)
 
-	enemies := ctx.Boss.GetEnemiesInRange(n.rangeValue)
-	if len(enemies) > 0 {
+	// 使用BossContext的方法从已缓存的NearbyEnemies中查找
+	hasEnemies := ctx.HasEnemiesInRange(n.rangeValue)
+	if hasEnemies {
 		return ResultSuccess
 	}
 	return ResultFailure
@@ -1325,4 +1326,252 @@ func (n *GenericDecoratorNode) Execute(ctx *BossContext) BehaviorResult {
 
 	logger.Debugf("Executing generic decorator: %s", n.name)
 	return n.children[0].Execute(ctx)
+}
+
+// CheckPhaseTriggersActionNode 检查阶段触发器行为节点
+type CheckPhaseTriggersActionNode struct {
+	*ActionNode
+}
+
+func NewCheckPhaseTriggersActionNode(name string) *CheckPhaseTriggersActionNode {
+	return &CheckPhaseTriggersActionNode{
+		ActionNode: NewActionNode(name),
+	}
+}
+
+func (n *CheckPhaseTriggersActionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 检查阶段触发条件
+	if phaseManager := ctx.GetPhaseManager(); phaseManager != nil {
+		// 更新阶段管理器状态
+		err := phaseManager.Update(ctx, 0)
+		if err != nil {
+			logger.Errorf("Failed to update phase manager: %v", err)
+			return ResultFailure
+		}
+		return ResultSuccess
+	}
+
+	return ResultFailure
+}
+
+// UpdatePhaseStateActionNode 更新阶段状态行为节点
+type UpdatePhaseStateActionNode struct {
+	*ActionNode
+}
+
+func NewUpdatePhaseStateActionNode(name string) *UpdatePhaseStateActionNode {
+	return &UpdatePhaseStateActionNode{
+		ActionNode: NewActionNode(name),
+	}
+}
+
+func (n *UpdatePhaseStateActionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 更新当前阶段状态
+	if ctx.CurrentPhase != nil {
+		logger.Debugf("Boss %d updating phase state: %s", ctx.Boss.GetID(), ctx.CurrentPhase.GetName())
+		return ResultSuccess
+	}
+
+	return ResultFailure
+}
+
+// TargetValidationActionNode 目标验证行为节点
+type TargetValidationActionNode struct {
+	*ActionNode
+}
+
+func NewTargetValidationActionNode(name string) *TargetValidationActionNode {
+	return &TargetValidationActionNode{
+		ActionNode: NewActionNode(name),
+	}
+}
+
+func (n *TargetValidationActionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 验证当前目标是否有效
+	if ctx.Target == nil || !ctx.Target.IsAlive() {
+		// 目标无效，清除目标
+		ctx.Target = nil
+		ctx.Boss.SetCombatTarget(nil)
+		logger.Debugf("Boss %d target validation failed, clearing target", ctx.Boss.GetID())
+		return ResultFailure
+	}
+
+	// 检查目标是否在有效范围内
+	bossPos := ctx.Boss.GetPos()
+	targetPos := ctx.Target.GetPos()
+	distance := calculateDistance(
+		float64(bossPos.X), float64(bossPos.Y),
+		float64(targetPos.X), float64(targetPos.Y),
+	)
+
+	// 如果目标太远，可能需要放弃追击
+	maxRange := 500.0 // 可配置的最大追击范围
+	if distance > maxRange {
+		logger.Debugf("Boss %d target too far (%.2f > %.2f), abandoning target", ctx.Boss.GetID(), distance, maxRange)
+		ctx.Target = nil
+		ctx.Boss.SetCombatTarget(nil)
+		return ResultFailure
+	}
+
+	logger.Debugf("Boss %d target validation passed", ctx.Boss.GetID())
+	return ResultSuccess
+}
+
+// PatrolBehaviorActionNode 巡逻行为节点
+type PatrolBehaviorActionNode struct {
+	*ActionNode
+}
+
+func NewPatrolBehaviorActionNode(name string) *PatrolBehaviorActionNode {
+	return &PatrolBehaviorActionNode{
+		ActionNode: NewActionNode(name),
+	}
+}
+
+func (n *PatrolBehaviorActionNode) Execute(ctx *BossContext) BehaviorResult {
+	// 直接调用已有的巡逻节点实现
+	return NewPatrolActionNode(n.name).Execute(ctx)
+}
+
+// EmergencyResponseConditionNode 紧急响应条件节点
+type EmergencyResponseConditionNode struct {
+	*ConditionNode
+}
+
+func NewEmergencyResponseConditionNode(name string) *EmergencyResponseConditionNode {
+	return &EmergencyResponseConditionNode{
+		ConditionNode: NewConditionNode(name),
+	}
+}
+
+func (n *EmergencyResponseConditionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 检查紧急情况
+	// 1. 低血量检查
+	healthPercent := float64(ctx.Boss.GetCurrentLife()) / float64(ctx.Boss.GetMaxLife())
+	if healthPercent < 0.2 { // 20%以下血量
+		logger.Debugf("Boss %d emergency: low health (%.1f%%)", ctx.Boss.GetID(), healthPercent*100)
+		return ResultSuccess
+	}
+
+	// 2. 被多个敌人围攻
+	enemiesNearby := ctx.GetEnemiesInRange(100.0)
+	if len(enemiesNearby) >= 3 {
+		logger.Debugf("Boss %d emergency: surrounded by %d enemies", ctx.Boss.GetID(), len(enemiesNearby))
+		return ResultSuccess
+	}
+
+	// 3. 持续受到大量伤害
+	if ctx.DamageReceived > int32(ctx.Boss.GetMaxLife()/4) { // 受到超过25%最大血量的伤害
+		logger.Debugf("Boss %d emergency: heavy damage received (%d)", ctx.Boss.GetID(), ctx.DamageReceived)
+		return ResultSuccess
+	}
+
+	return ResultFailure
+}
+
+// CombatActionsConditionNode 战斗动作条件节点
+type CombatActionsConditionNode struct {
+	*ConditionNode
+}
+
+func NewCombatActionsConditionNode(name string) *CombatActionsConditionNode {
+	return &CombatActionsConditionNode{
+		ConditionNode: NewConditionNode(name),
+	}
+}
+
+func (n *CombatActionsConditionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 检查是否可以执行战斗动作
+	// 1. 有有效目标
+	if ctx.Target == nil || !ctx.Target.IsAlive() {
+		return ResultFailure
+	}
+
+	// 2. 在战斗状态
+	if !ctx.Boss.IsInCombat() {
+		return ResultFailure
+	}
+
+	// 3. 不在特殊状态（如眩晕、死亡等）
+	if ctx.CurrentState != nil {
+		stateID := ctx.CurrentState.GetID()
+		if stateID == int32(StateStunned) || stateID == int32(StateDying) {
+			return ResultFailure
+		}
+	}
+
+	logger.Debugf("Boss %d combat actions available", ctx.Boss.GetID())
+	return ResultSuccess
+}
+
+// SelectOptimalSkillActionNode 选择最优技能行为节点
+type SelectOptimalSkillActionNode struct {
+	*ActionNode
+}
+
+func NewSelectOptimalSkillActionNode(name string) *SelectOptimalSkillActionNode {
+	return &SelectOptimalSkillActionNode{
+		ActionNode: NewActionNode(name),
+	}
+}
+
+func (n *SelectOptimalSkillActionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 选择最优技能的逻辑
+	// 这里可以根据当前情况选择最适合的技能
+	logger.Debugf("Boss %d selecting optimal skill", ctx.Boss.GetID())
+
+	// 简化实现：选择第一个可用技能
+	if skillManager := ctx.GetSkillManager(); skillManager != nil {
+		availableSkills := skillManager.GetAvailableSkills(ctx)
+		if len(availableSkills) > 0 {
+			// 选择第一个可用技能
+			selectedSkill := availableSkills[0]
+			logger.Debugf("Boss %d selected skill %d", ctx.Boss.GetID(), selectedSkill.GetID())
+			return ResultSuccess
+		}
+	}
+
+	return ResultFailure
+}
+
+// ExecuteActionActionNode 执行动作行为节点
+type ExecuteActionActionNode struct {
+	*ActionNode
+}
+
+func NewExecuteActionActionNode(name string) *ExecuteActionActionNode {
+	return &ExecuteActionActionNode{
+		ActionNode: NewActionNode(name),
+	}
+}
+
+func (n *ExecuteActionActionNode) Execute(ctx *BossContext) BehaviorResult {
+	n.BaseBehaviorNode.Execute(ctx)
+
+	// 执行动作的逻辑
+	// 这里可以执行之前选择的动作
+	logger.Debugf("Boss %d executing action", ctx.Boss.GetID())
+
+	// 简化实现：执行基本攻击
+	if ctx.Target != nil && ctx.Target.IsAlive() {
+		if err := ctx.Boss.DoAttackTarget(ctx.Target); err != nil {
+			logger.Errorf("Boss execute action failed: %v", err)
+			return ResultFailure
+		}
+		return ResultSuccess
+	}
+
+	return ResultFailure
 }

@@ -58,7 +58,7 @@ func (mgr *cellMgr) updateCells(curCellId int, cells []*protocol.Cell) error {
 	mgr.cells = cells
 	for i := 0; i < len(cells); i++ {
 		c := mgr.cells[i]
-		logger.Println("cell：", i, *c)
+		logger.Printf("cell：id:%d, data:%#v", i, *c)
 		if c.CellID == curCellId {
 			mgr.curCell = &cell{
 				Cell: *c,

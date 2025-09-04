@@ -116,14 +116,6 @@ github.com/mattn/go-sqlite3 v1.14.24/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxU
 github.com/mitchellh/mapstructure v1.0.0 h1:vVpGvMXJPqSDh2VYHF7gsfQj8Ncx+Xw5Y1KHeTRY+7I=
 github.com/mitchellh/mapstructure v1.0.0/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modocache/gover v0.0.0-20171022184752-b58185e213c5/go.mod h1:caMODM3PzxT8aQXRPkAt8xlV/e7d7w8GM5g0fa5F0D8=
-github.com/ouyangzhongmin/nano v0.5.6 h1:iMEreA8VdnbEG8+Hec/2Peh+86RWrTebekES6C+CfMg=
-github.com/ouyangzhongmin/nano v0.5.6/go.mod h1:fziVHIsk8a0FjTMRm3v4e+VErf9LCr9en7oYgbtmx7w=
-github.com/ouyangzhongmin/nano v0.5.7 h1:waJUmHhiTbCW/2JFAkccgvv/kF3ec3PTBbqym5FalZ4=
-github.com/ouyangzhongmin/nano v0.5.7/go.mod h1:fziVHIsk8a0FjTMRm3v4e+VErf9LCr9en7oYgbtmx7w=
-github.com/ouyangzhongmin/nano v0.5.8 h1:38Zo1rC7U6RQ62FLwsS3D0dEKGcOud+ETBupzL+9m48=
-github.com/ouyangzhongmin/nano v0.5.8/go.mod h1:fziVHIsk8a0FjTMRm3v4e+VErf9LCr9en7oYgbtmx7w=
-github.com/ouyangzhongmin/nano v0.5.9 h1:SNp4/a0gimtjhv1Euq0jIiS258QqYWnttpBo3DdqL74=
-github.com/ouyangzhongmin/nano v0.5.9/go.mod h1:fziVHIsk8a0FjTMRm3v4e+VErf9LCr9en7oYgbtmx7w=
 github.com/ouyangzhongmin/nano v0.5.10 h1:RI3SJm1r9Jk3Hjyvyp+sHCwbi0y25utbtaJ68PmqBNY=
 github.com/ouyangzhongmin/nano v0.5.10/go.mod h1:fziVHIsk8a0FjTMRm3v4e+VErf9LCr9en7oYgbtmx7w=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
