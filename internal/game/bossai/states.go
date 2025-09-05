@@ -15,16 +15,24 @@ type BaseBossState struct {
 	modifiers   map[string]interface{}
 	enterTime   time.Time
 	isActive    bool
+
+	// 行为树相关
+	behaviorTree     *BehaviorTree
+	behaviorConfigs  []string      // behaviors配置列表
+	lastBehaviorTime time.Time     // 上次执行行为树的时间
+	behaviorInterval time.Duration // 行为树执行间隔
 }
 
 // NewBaseBossState 创建基础状态
 func NewBaseBossState(id BossStateID, name string) *BaseBossState {
 	return &BaseBossState{
-		id:          id,
-		name:        name,
-		transitions: make(map[BossStateID]StateTransition),
-		modifiers:   make(map[string]interface{}),
-		isActive:    false,
+		id:               id,
+		name:             name,
+		transitions:      make(map[BossStateID]StateTransition),
+		modifiers:        make(map[string]interface{}),
+		isActive:         false,
+		behaviorConfigs:  make([]string, 0),
+		behaviorInterval: time.Millisecond * 500, // 默认500ms执行一次行为树
 	}
 }
 
@@ -44,7 +52,14 @@ func (s *BaseBossState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *BaseBossState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 基础状态不执行任何操作
+	// 执行行为树
+	if s.behaviorTree != nil && ctx.CurrentTime.Sub(s.lastBehaviorTime) >= s.behaviorInterval {
+		s.lastBehaviorTime = ctx.CurrentTime
+		result := s.behaviorTree.Execute(ctx)
+
+		logger.Debugf("State %s executed behavior tree, result: %v", s.name, result)
+	}
+
 	return nil
 }
 
@@ -91,6 +106,33 @@ func (s *BaseBossState) AddTransition(toState BossStateID, transition StateTrans
 
 func (s *BaseBossState) SetModifier(key string, value interface{}) {
 	s.modifiers[key] = value
+
+	// 特殊处理行为树配置
+	if key == "behaviors" {
+		if behaviors, ok := value.([]string); ok {
+			s.behaviorConfigs = behaviors
+		} else if behaviorInterface, ok := value.([]interface{}); ok {
+			// 处理从JSON解析来的interface{}切片
+			behaviors := make([]string, len(behaviorInterface))
+			for i, behavior := range behaviorInterface {
+				if behaviorStr, ok := behavior.(string); ok {
+					behaviors[i] = behaviorStr
+				}
+			}
+			s.behaviorConfigs = behaviors
+		}
+	}
+
+	// 特殊处理行为执行间隔
+	if key == "behavior_interval" {
+		if interval, ok := value.(time.Duration); ok {
+			s.behaviorInterval = interval
+		} else if intervalStr, ok := value.(string); ok {
+			if parsed, err := time.ParseDuration(intervalStr); err == nil {
+				s.behaviorInterval = parsed
+			}
+		}
+	}
 }
 
 func (s *BaseBossState) GetModifier(key string) interface{} {
@@ -106,6 +148,34 @@ func (s *BaseBossState) GetTimeInState(currentTime time.Time) time.Duration {
 		return 0
 	}
 	return currentTime.Sub(s.enterTime)
+}
+
+// SetBehaviorTree 设置行为树
+func (s *BaseBossState) SetBehaviorTree(tree *BehaviorTree) {
+	s.behaviorTree = tree
+}
+
+// GetBehaviorTree 获取行为树
+func (s *BaseBossState) GetBehaviorTree() *BehaviorTree {
+	return s.behaviorTree
+}
+
+// GetBehaviorConfigs 获取行为配置列表
+func (s *BaseBossState) GetBehaviorConfigs() []string {
+	return s.behaviorConfigs
+}
+
+// SetBehaviorConfigs 设置行为配置列表
+func (s *BaseBossState) SetBehaviorConfigs(configs []string) {
+	s.behaviorConfigs = configs
+}
+
+// ExecuteBehaviorTree 手动执行行为树
+func (s *BaseBossState) ExecuteBehaviorTree(ctx *BossContext) BehaviorResult {
+	if s.behaviorTree == nil {
+		return ResultFailure
+	}
+	return s.behaviorTree.Execute(ctx)
 }
 
 // evaluateCondition 评估条件
@@ -206,25 +276,62 @@ func (s *BaseBossState) evaluateCondition(condition PhaseCondition, ctx *BossCon
 // evaluateCustomScript 评估自定义脚本
 func (s *BaseBossState) evaluateCustomScript(scriptName string, ctx *BossContext) bool {
 	// 这里可以实现脚本引擎或者预定义的逻辑
-	// 暂时返回false，后续可以扩展
-	logger.Debugf("Custom script evaluation not implemented: %s", scriptName)
-	return false
+	switch scriptName {
+	case "in_attack_range":
+		if ctx.Target == nil {
+			return false
+		}
+		return ctx.Boss.IsInAttackRange(ctx.Target.GetPos().X, ctx.Target.GetPos().Y)
+
+	case "chase_timeout_or_out_of_range":
+		// 检查追击超时或超出范围
+		if ctx.Target == nil {
+			return true
+		}
+		maxChaseTime := time.Second * 30
+		if s.GetTimeInState(ctx.CurrentTime) > maxChaseTime {
+			return true
+		}
+		// 检查距离
+		bossPos := ctx.Boss.GetPos()
+		targetPos := ctx.Target.GetPos()
+		distance := calculateDistance(
+			float64(bossPos.X), float64(bossPos.Y),
+			float64(targetPos.X), float64(targetPos.Y),
+		)
+		return distance > 300.0 // 超出追击范围
+
+	case "target_out_of_attack_range":
+		if ctx.Target == nil {
+			return true
+		}
+		return !ctx.Boss.IsInAttackRange(ctx.Target.GetPos().X, ctx.Target.GetPos().Y)
+
+	case "skill_cast_complete":
+		// 这里需要检查技能释放是否完成
+		// 暂时简单的时间检查
+		return s.GetTimeInState(ctx.CurrentTime) > time.Second*2
+
+	case "stun_expired":
+		// 检查眩晕是否结束
+		stunDuration := time.Second * 3 // 默认3秒
+		return s.GetTimeInState(ctx.CurrentTime) >= stunDuration
+
+	default:
+		logger.Debugf("Custom script evaluation not implemented: %s", scriptName)
+		return false
+	}
 }
 
-// IdleState 空闲状态
+// IdleState 空闲状态 - 现在依赖行为树执行具体行为
 type IdleState struct {
 	*BaseBossState
-	patrolRadius float64
-	scanInterval time.Duration
-	lastScanTime time.Time
 }
 
 func NewIdleState() *IdleState {
 	base := NewBaseBossState(StateIdle, "Idle")
 	return &IdleState{
 		BaseBossState: base,
-		patrolRadius:  100.0,
-		scanInterval:  time.Second * 2,
 	}
 }
 
@@ -244,23 +351,8 @@ func (s *IdleState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *IdleState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 定期扫描敌人
-	if ctx.CurrentTime.Sub(s.lastScanTime) >= s.scanInterval {
-		s.lastScanTime = ctx.CurrentTime
-
-		// 使用BossContext的方法从已缓存的NearbyEnemies中查找
-		enemies := ctx.GetEnemiesInRange(s.patrolRadius)
-		if len(enemies) > 0 {
-			// 找到敌人，准备切换到追击状态
-			nearest := ctx.GetNearestEnemyInRange(s.patrolRadius)
-			if nearest != nil {
-				ctx.Target = nearest
-				ctx.Boss.SetCombatTarget(nearest)
-			}
-		}
-	}
-
-	return nil
+	// 调用基类的OnUpdate，它将执行行为树
+	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
 // PatrolState 巡逻状态
@@ -334,21 +426,15 @@ func (s *PatrolState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error 
 	return nil
 }
 
-// ChaseState 追击状态
+// ChaseState 追击状态 - 现在依赖行为树执行具体行为
 type ChaseState struct {
 	*BaseBossState
-	chaseRadius  float64
-	attackRange  float64
-	maxChaseTime time.Duration
 }
 
 func NewChaseState() *ChaseState {
 	base := NewBaseBossState(StateChase, "Chase")
 	return &ChaseState{
 		BaseBossState: base,
-		chaseRadius:   300.0,
-		attackRange:   50.0,
-		maxChaseTime:  time.Second * 30,
 	}
 }
 
@@ -364,96 +450,20 @@ func (s *ChaseState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	if ctx.Target == nil || !ctx.Target.IsAlive() {
-		// 目标丢失或死亡，返回idle
-		ctx.Target = nil
-		ctx.Boss.SetCombatTarget(nil)
-		return nil
-	}
-
-	// 检查是否追击时间过长
-	if s.GetTimeInState(ctx.CurrentTime) > s.maxChaseTime {
-		logger.Debugf("Boss %d chase timeout, returning to idle", ctx.Boss.GetID())
-		ctx.Target = nil
-		ctx.Boss.SetCombatTarget(nil)
-		return nil
-	}
-
-	// 计算与目标的距离
-	targetPos := ctx.Target.GetPos()
-	currentPos := ctx.Boss.GetPos()
-	distance := calculateDistance(
-		float64(currentPos.X), float64(currentPos.Y),
-		float64(targetPos.X), float64(targetPos.Y),
-	)
-
-	// 检查是否超出追击范围
-	if distance > s.chaseRadius {
-		logger.Debugf("Boss %d target out of chase range", ctx.Boss.GetID())
-		ctx.Target = nil
-		ctx.Boss.SetCombatTarget(nil)
-		return nil
-	}
-
-	// 检查是否进入攻击范围
-	if distance <= s.attackRange {
-		// 可以攻击了
-		return nil
-	}
-
-	// 继续追击
-	return ctx.Boss.MoveTo(targetPos.X, targetPos.Y, targetPos.Z)
+	// 调用基类的OnUpdate，它将执行行为树
+	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
-// AttackState 攻击状态
+// AttackState 攻击状态 - 现在依赖行为树执行具体行为
 type AttackState struct {
 	*BaseBossState
-	attackCooldown time.Duration
-	lastAttackTime time.Time
-	comboCount     int
-	maxComboCount  int
 }
 
 func NewAttackState() *AttackState {
 	base := NewBaseBossState(StateAttack, "Attack")
 	return &AttackState{
-		BaseBossState:  base,
-		attackCooldown: time.Millisecond * 1500,
-		comboCount:     0,
-		maxComboCount:  3,
+		BaseBossState: base,
 	}
-}
-
-func (s *AttackState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	if ctx.Target == nil || !ctx.Target.IsAlive() {
-		ctx.Target = nil
-		ctx.Boss.SetCombatTarget(nil)
-		return nil
-	}
-
-	// 检查攻击冷却
-	if ctx.CurrentTime.Sub(s.lastAttackTime) < s.attackCooldown {
-		return nil
-	}
-
-	// 检查攻击范围
-	if !ctx.Boss.IsInAttackRange(ctx.Target.GetPos().X, ctx.Target.GetPos().Y) {
-		// 目标超出攻击范围，切换回追击状态
-		return nil
-	}
-
-	// 执行攻击
-	s.performAttack(ctx)
-	s.lastAttackTime = ctx.CurrentTime
-	s.comboCount++
-
-	// 检查连击数
-	if s.comboCount >= s.maxComboCount {
-		s.comboCount = 0
-		// 可以考虑切换到其他状态或使用技能
-	}
-
-	return nil
 }
 
 func (s *AttackState) OnEnter(ctx *BossContext) error {
@@ -466,28 +476,13 @@ func (s *AttackState) OnEnter(ctx *BossContext) error {
 
 	// 停止移动
 	ctx.Boss.Stop()
-	s.comboCount = 0
 
 	return nil
 }
 
-func (s *AttackState) performAttack(ctx *BossContext) {
-	// 这里可以实现具体的攻击逻辑
-	logger.Debugf("Boss %d attacking target %d", ctx.Boss.GetID(), ctx.Target.GetID())
-
-	// 记录攻击动作
-	action := &AIAction{
-		Type:      ActionAttack,
-		TargetID:  ctx.Target.GetID(),
-		Timestamp: ctx.CurrentTime,
-		Priority:  5,
-	}
-
-	ctx.LastAction = action
-	if ctx.ActionHistory == nil {
-		ctx.ActionHistory = make([]*AIAction, 0)
-	}
-	ctx.ActionHistory = append(ctx.ActionHistory, action)
+func (s *AttackState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	// 调用基类的OnUpdate，它将执行行为树
+	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
 // 辅助函数
@@ -531,25 +526,8 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	currentPos := ctx.Boss.GetPos()
-	distance := calculateDistance(
-		float64(currentPos.X), float64(currentPos.Y),
-		s.spawnPoint.X, s.spawnPoint.Y,
-	)
-
-	// 检查是否到达出生点
-	if distance < 10.0 {
-		// 到达出生点，可以切换到巡逻状态
-		logger.Debugf("Boss %d reached spawn point, switching to patrol", ctx.Boss.GetID())
-		return nil
-	}
-
-	// 继续返回出生点
-	return ctx.Boss.MoveTo(
-		coord.Coord(s.spawnPoint.X),
-		coord.Coord(s.spawnPoint.Y),
-		coord.Coord(s.spawnPoint.Z),
-	)
+	// 调用基类的OnUpdate，它将执行行为树
+	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
 func (s *RetreatState) OnExit(ctx *BossContext) error {
@@ -647,8 +625,8 @@ func (s *DyingState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *DyingState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 死亡状态不需要更新逻辑，等待系统处理
-	return nil
+	// 调用基类的OnUpdate，它将执行行为树（如触发奖励）
+	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
 func (s *DyingState) CanTransitionTo(stateID int32, ctx *BossContext) bool {

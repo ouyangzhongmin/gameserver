@@ -3,6 +3,7 @@ package master
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
@@ -93,6 +94,7 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		//Session:     newsession,
 	}
 
+	time.Sleep(time.Millisecond * 50)
 	scell.Cells = append(scell.Cells, c)
 	for i := 0; i < len(scell.Cells); i++ {
 		//更新到所有scene的具体的cell信息

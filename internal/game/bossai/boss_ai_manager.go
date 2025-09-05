@@ -135,11 +135,6 @@ func (ai *BossAIManager) applyConfiguration() error {
 		return fmt.Errorf("failed to configure skill system: %w", err)
 	}
 
-	// 配置行为树
-	if err := ai.configureBehaviorTrees(); err != nil {
-		return fmt.Errorf("failed to configure behavior trees: %w", err)
-	}
-
 	// 配置插件
 	if err := ai.configurePlugins(); err != nil {
 		return fmt.Errorf("failed to configure plugins: %w", err)
@@ -200,36 +195,19 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 	switch config.ID {
 	case StateIdle:
 		state = NewIdleState()
-	case StatePatrol:
-		// 从配置中获取巡逻路径，如果没有则使用空路径
-		patrolPoints := []Position{} // 默认空路径，实际应用中可以从 modifiers 中获取
-		state = NewPatrolState(patrolPoints)
 	case StateChase:
 		state = NewChaseState()
 	case StateAttack:
 		state = NewAttackState()
-	case StateCastSkill:
-		state = NewCastSkillState()
-	case StateStunned:
-		// 从 modifiers 中获取眩晕时间
-		duration := time.Second * 3 // 默认时间
-		if durationVal, ok := config.Modifiers["stun_duration"]; ok {
-			if dur, ok := durationVal.(time.Duration); ok {
-				duration = dur
-			}
-		}
-		state = NewStunnedState(duration)
-	case StateEnraged:
-		state = NewEnragedState()
 	case StateRetreat:
-		// 从 modifiers 中获取撑退目标点，如果没有则使用默认值
+		// 从 modifiers 中获取撤退目标点，如果没有则使用默认值
 		spawnPoint := Position{X: 0, Y: 0, Z: 0} // 默认出生点
 		state = NewRetreatState(spawnPoint)
 	case StateDying:
 		state = NewDyingState()
-	default:
-		// 创建通用状态
-		state = NewBaseBossState(config.ID, config.Name)
+		// default:
+		// 	// 创建通用状态
+		// 	state = NewBaseBossState(config.ID, config.Name)
 	}
 
 	if state == nil {
@@ -241,12 +219,15 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 		for key, value := range config.Modifiers {
 			baseState.SetModifier(key, value)
 		}
-	}
-
-	// 应用行为配置
-	for _, behavior := range config.Behaviors {
-		logger.Debugf("State %s has behavior: %s", config.Name, behavior)
-		// 这里可以扩展行为的具体实现
+		// 设置行为配置
+		baseState.SetBehaviorConfigs(config.Behaviors)
+		// 创建状态对应的行为树
+		behaviorTree, err := ai.createBehaviorTreeForState(config.Name, config.Behaviors)
+		if err != nil {
+			logger.Errorf("Failed to create behavior tree for state %s: %v", config.Name, err)
+		} else {
+			baseState.SetBehaviorTree(behaviorTree)
+		}
 	}
 
 	return state, nil
@@ -313,31 +294,6 @@ func (ai *BossAIManager) configureSkillSystem() error {
 
 	// 设置技能优先级
 	return ai.skillManager.SetSkillPriority(skillPriority)
-}
-
-// configureBehaviorTrees 配置行为树
-func (ai *BossAIManager) configureBehaviorTrees() error {
-	// 创建默认行为树
-	defaultTrees := map[string]*BehaviorTree{
-		"BasicCombat":    CreateBasicCombatTree(),
-		"AdvancedCombat": CreateAdvancedCombatTree(),
-	}
-
-	for name, tree := range defaultTrees {
-		ai.behaviorTrees[name] = tree
-	}
-
-	// 根据配置创建自定义行为树
-	if ai.config.BehaviorTree.RootNode.Name != "" {
-		customTree, err := ai.buildBehaviorTreeFromConfig(ai.config.BehaviorTree)
-		if err != nil {
-			return fmt.Errorf("failed to build custom behavior tree: %w", err)
-		}
-
-		ai.behaviorTrees["Custom"] = customTree
-	}
-
-	return nil
 }
 
 // configurePlugins 配置插件
@@ -496,113 +452,62 @@ func (ai *BossAIManager) updatePlugins(deltaTime time.Duration) error {
 	return nil
 }
 
-// executeAI 执行AI决策
-func (ai *BossAIManager) executeAI() error {
-	// 收集所有插件的建议
-	suggestions := make([]*AIAction, 0)
-
-	for _, pluginName := range ai.pluginOrder {
-		plugin := ai.plugins[pluginName]
-		if suggestion := plugin.SuggestAction(ai.context); suggestion != nil {
-			suggestions = append(suggestions, suggestion)
-		}
+// createBehaviorTreeForState 从行为名称列表创建行为树
+func (ai *BossAIManager) createBehaviorTreeForState(stateName string, behaviors []string) (*BehaviorTree, error) {
+	if len(behaviors) == 0 {
+		return nil, nil
 	}
 
-	// 选择最佳动作
-	var bestAction *AIAction
+	treeName := fmt.Sprintf("%s_BehaviorTree", stateName)
+	tree := NewBehaviorTree(treeName)
 
-	if len(suggestions) > 0 {
-		// 按优先级排序
-		sort.Slice(suggestions, func(i, j int) bool {
-			return suggestions[i].Priority > suggestions[j].Priority
-		})
-		bestAction = suggestions[0]
-	}
+	// 创建顶层选择节点，让状态可以执行多种行为
+	rootSelector := NewSelectorNode(fmt.Sprintf("%s_Root", stateName))
 
-	// 如果没有插件建议，使用行为树
-	if bestAction == nil {
-		bestAction = ai.executeBehaviorTree()
-	}
-
-	// 让插件修改行为
-	if bestAction != nil {
-		for _, pluginName := range ai.pluginOrder {
-			plugin := ai.plugins[pluginName]
-			bestAction = plugin.ModifyBehavior(ai.context, bestAction)
-		}
-
-		// 执行动作
-		return ai.executeAction(bestAction)
-	}
-
-	return nil
-}
-
-// executeBehaviorTree 执行行为树
-func (ai *BossAIManager) executeBehaviorTree() *AIAction {
-	// 根据当前阶段选择行为树
-	var treeName string
-	if ai.context.CurrentPhase != nil && ai.context.CurrentPhase.GetBehaviorTreeName() != "" {
-		treeName = ai.context.CurrentPhase.GetBehaviorTreeName()
-	} else {
-		treeName = "BasicCombat" // 默认行为树
-	}
-
-	tree, exists := ai.behaviorTrees[treeName]
-	if !exists {
-		tree = ai.behaviorTrees["BasicCombat"] // 回退到基础行为树
-	}
-
-	if tree != nil {
-		result := tree.Execute(ai.context)
-		logger.Debugf("Behavior tree %s executed with result: %v", treeName, result)
-	}
-
-	// 行为树通过上下文间接产生动作，这里返回nil
-	// 实际的动作会在行为树节点中直接执行
-	return nil
-}
-
-// executeAction 执行动作
-func (ai *BossAIManager) executeAction(action *AIAction) error {
-	switch action.Type {
-	case ActionAttack:
-		// 执行攻击
-		logger.Debugf("Boss %d executing attack action", ai.boss.GetID())
-
-	case ActionCastSkill:
-		// 使用技能
-		skill, err := ai.skillManager.GetSkill(action.SkillID)
+	// 为每个行为创建节点
+	for _, behaviorName := range behaviors {
+		node, err := ai.createNodeFromBehaviorName(behaviorName)
 		if err != nil {
-			return err
+			logger.Errorf("Failed to create node for behavior %s: %v", behaviorName, err)
+			continue
 		}
+		rootSelector.AddChild(node)
+	}
 
-		targets := skill.GetTargets(ai.context)
-		return skill.Cast(ai.context, targets)
+	tree.SetRootNode(rootSelector)
+	return tree, nil
+}
 
-	case ActionMove:
-		// 移动
-		if action.Position != nil {
-			return ai.boss.MoveTo(action.Position.X, action.Position.Y, action.Position.Z)
-		}
-
-	case ActionRetreat:
-		// 撤退逻辑
-		logger.Debugf("Boss %d retreating", ai.boss.GetID())
-
+// createNodeFromBehaviorName 从行为名称创建节点
+func (ai *BossAIManager) createNodeFromBehaviorName(behaviorName string) (IBehaviorNode, error) {
+	switch behaviorName {
+	case "scan_enemies":
+		return NewScanEnemiesActionNode("Scan Enemies"), nil
+	case "random_move":
+		return NewRandomMoveActionNode("Random Move"), nil
+	case "random_speech":
+		return NewRandomSpeechActionNode("Random Speech"), nil
+	case "random_action":
+		return NewRandomChanceConditionNode("Random Action Chance"), nil
+	case "chase_target":
+		return NewChaseTargetActionNode("Chase Target"), nil
+	case "basic_attack":
+		return NewBasicAttackActionNode("Basic Attack"), nil
+	case "return_spawn":
+		return NewReturnToSpawnActionNode("Return To Spawn"), nil
+	case "auto_recover":
+		return NewAutoRecoverActionNode("Auto Recover"), nil
+	case "trigger_reward":
+		return NewTriggerRewardActionNode("Trigger Reward"), nil
 	default:
-		logger.Warnf("Unknown action type: %v", action.Type)
+		return nil, fmt.Errorf("unknown behavior name: %s", behaviorName)
 	}
+}
 
-	// 记录动作
-	ai.context.LastAction = action
-	ai.context.ActionHistory = append(ai.context.ActionHistory, action)
-
-	// 限制历史记录长度
-	if len(ai.context.ActionHistory) > 100 {
-		ai.context.ActionHistory = ai.context.ActionHistory[1:]
-	}
-
+// executeAI 执行AI决策 - 新架构中主要由状态机管理
+func (ai *BossAIManager) executeAI() error {
+	// 新架构中，行为由状态机中的各个状态的行为树执行
+	// 这里不再直接管理行为，由updateSubsystems中的状态机更新处理
 	return nil
 }
 
@@ -863,8 +768,6 @@ func (ai *BossAIManager) Destroy() error {
 	return nil
 }
 
-// 辅助函数
-
 func convertToSkillConditions(conditions []PhaseCondition) []SkillCondition {
 	result := make([]SkillCondition, len(conditions))
 	for i, cond := range conditions {
@@ -876,340 +779,4 @@ func convertToSkillConditions(conditions []PhaseCondition) []SkillCondition {
 		}
 	}
 	return result
-}
-
-func (ai *BossAIManager) buildBehaviorTreeFromConfig(config BehaviorTreeConfig) (*BehaviorTree, error) {
-	if config.RootNode.Name == "" {
-		// 如果没有配置根节点，返回基础战斗树
-		logger.Debugf("No root node configured, using basic combat tree")
-		return CreateBasicCombatTree(), nil
-	}
-
-	// 从配置构建行为树
-
-	// 递归构建根节点
-	rootNode, err := ai.buildNodeFromConfig(config.RootNode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build root node: %w", err)
-	}
-
-	tree := NewBehaviorTree("ConfiguredTree")
-	tree.SetRootNode(rootNode)
-
-	// 设置行为树配置
-	if config.UpdateInterval > 0 {
-		treeConfig := BehaviorTreeConfiguration{
-			UpdateInterval: config.UpdateInterval,
-			MaxDepth:       10,
-			EnableLogging:  false,
-		}
-		tree.SetConfiguration(treeConfig)
-	}
-
-	logger.Debugf("Successfully built behavior tree from config")
-	return tree, nil
-}
-
-// buildNodeFromConfig 从配置构建节点
-func (ai *BossAIManager) buildNodeFromConfig(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
-	switch nodeConfig.Type {
-	case NodeTypeSequence:
-		// 顺序节点
-		node := NewSequenceNode(nodeConfig.Name)
-		for _, childConfig := range nodeConfig.Children {
-			child, err := ai.buildNodeFromConfig(childConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build child node for sequence %s: %w", nodeConfig.Name, err)
-			}
-			node.AddChild(child)
-		}
-		return node, nil
-
-	case NodeTypeSelector:
-		// 选择节点
-		node := NewSelectorNode(nodeConfig.Name)
-		for _, childConfig := range nodeConfig.Children {
-			child, err := ai.buildNodeFromConfig(childConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build child node for selector %s: %w", nodeConfig.Name, err)
-			}
-			node.AddChild(child)
-		}
-		return node, nil
-
-	case NodeTypeParallel:
-		// 并行节点
-		successThreshold := 1
-		failureThreshold := 1
-
-		if threshold, ok := nodeConfig.Params["success_threshold"].(float64); ok {
-			successThreshold = int(threshold)
-		}
-		if threshold, ok := nodeConfig.Params["failure_threshold"].(float64); ok {
-			failureThreshold = int(threshold)
-		}
-
-		node := NewParallelNode(nodeConfig.Name, successThreshold, failureThreshold)
-		for _, childConfig := range nodeConfig.Children {
-			child, err := ai.buildNodeFromConfig(childConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build child node for parallel %s: %w", nodeConfig.Name, err)
-			}
-			node.AddChild(child)
-		}
-		return node, nil
-
-	case NodeTypeAction:
-		// 行为节点 - 根据名称和参数创建具体的行为节点
-		return ai.createActionNode(nodeConfig)
-
-	case NodeTypeCondition:
-		// 条件节点 - 根据名称和参数创建具体的条件节点
-		return ai.createConditionNode(nodeConfig)
-
-	case NodeTypeDecorator:
-		// 装饰节点 - 根据名称创建具体的装饰节点
-		return ai.createDecoratorNode(nodeConfig)
-
-	default:
-		return nil, fmt.Errorf("unknown node type: %d", nodeConfig.Type)
-	}
-}
-
-// createActionNode 创建行为节点
-func (ai *BossAIManager) createActionNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
-	logger.Debugf("Creating action node: %s", nodeConfig.Name)
-	switch nodeConfig.Name {
-	case ActionNodeTypes.UseHealingSkill:
-		// 治疗技能行为节点
-		skillID := int32(1007) // 默认治疗技能ID
-		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
-			skillID = int32(id)
-		}
-		return NewUseSkillActionNode(nodeConfig.Name, skillID), nil
-
-	case ActionNodeTypes.AttackTarget:
-		// 攻击目标行为节点
-		return NewAttackActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.MoveToPosition:
-		// 移动到位置行为节点
-		x, y, z := 0.0, 0.0, 0.0
-		if pos, ok := nodeConfig.Params["position"].(map[string]interface{}); ok {
-			if xVal, ok := pos["x"].(float64); ok {
-				x = xVal
-			}
-			if yVal, ok := pos["y"].(float64); ok {
-				y = yVal
-			}
-			if zVal, ok := pos["z"].(float64); ok {
-				z = zVal
-			}
-		}
-		return NewMoveToActionNode(nodeConfig.Name, x, y, z), nil
-
-	case ActionNodeTypes.CastSkill:
-		// 释放技能行为节点
-		skillID := int32(1001) // 默认技能ID
-		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
-			skillID = int32(id)
-		}
-		return NewCastSkillActionNode(nodeConfig.Name, skillID), nil
-
-	case ActionNodeTypes.Retreat:
-		// 撤退行为节点
-		return NewRetreatActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.Patrol:
-		// 巡逻行为节点
-		return NewPatrolActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.Wait:
-		// 等待行为节点
-		duration := time.Second * 1 // 默认等待1秒
-		if dur, ok := nodeConfig.Params["duration"].(string); ok {
-			if parsed, err := time.ParseDuration(dur); err == nil {
-				duration = parsed
-			}
-		}
-		return NewWaitActionNode(nodeConfig.Name, duration), nil
-
-	case ActionNodeTypes.CheckPhase:
-		// 检查阶段触发器行为节点
-		logger.Debugf("Matched Check Phase Triggers action node")
-		return NewCheckPhaseTriggersActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.UpdatePhase:
-		// 更新阶段状态行为节点
-		logger.Debugf("Matched Update Phase State action node")
-		return NewUpdatePhaseStateActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.TargetValidation:
-		// 目标验证行为节点
-		logger.Debugf("Matched Target Validation action node")
-		return NewTargetValidationActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.PatrolBehavior:
-		// 巡逻行为节点（更具体的巡逻实现）
-		logger.Debugf("Matched Patrol Behavior action node")
-		return NewPatrolBehaviorActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.SelectOptimalSkill:
-		// 选择最优技能行为节点
-		logger.Debugf("Matched Select Optimal Skill action node")
-		return NewSelectOptimalSkillActionNode(nodeConfig.Name), nil
-
-	case ActionNodeTypes.ExecuteAction:
-		// 执行动作行为节点
-		logger.Debugf("Matched Execute Action action node")
-		return NewExecuteActionActionNode(nodeConfig.Name), nil
-
-	default:
-		// 创建通用行为节点
-		logger.Warnf("Unknown action node type: '%s' (len=%d), creating generic action", nodeConfig.Name, len(nodeConfig.Name))
-		// 输出每个字符的十六进制值用于调试
-		for i, char := range nodeConfig.Name {
-			logger.Warnf("  char[%d]: '%c' (0x%02X)", i, char, char)
-		}
-		return NewGenericActionNode(nodeConfig.Name, nodeConfig.Params), nil
-	}
-}
-
-// createConditionNode 创建条件节点
-func (ai *BossAIManager) createConditionNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
-	logger.Debugf("Creating condition node: %s", nodeConfig.Name)
-	switch nodeConfig.Name {
-	case ConditionNodeTypes.LowHealthCheck:
-		// 低血量检查条件节点
-		threshold := 0.3 // 默认30%血量
-		if t, ok := nodeConfig.Params["health_threshold"].(float64); ok {
-			threshold = t
-		}
-		return NewHealthConditionNode(nodeConfig.Name, threshold), nil
-
-	case ConditionNodeTypes.EnemyInRange:
-		// 敌人在范围内条件节点
-		rangeValue := 100.0 // 默认100单位范围
-		if r, ok := nodeConfig.Params["range"].(float64); ok {
-			rangeValue = r
-		}
-		return NewEnemyInRangeConditionNode(nodeConfig.Name, rangeValue), nil
-
-	case ConditionNodeTypes.SkillAvailable:
-		// 技能可用条件节点
-		skillID := int32(1001) // 默认技能ID
-		if id, ok := nodeConfig.Params["skill_id"].(float64); ok {
-			skillID = int32(id)
-		}
-		return NewSkillAvailableConditionNode(nodeConfig.Name, skillID), nil
-
-	case ConditionNodeTypes.CombatState:
-		// 战斗状态条件节点
-		return NewCombatStateConditionNode(nodeConfig.Name), nil
-
-	case ConditionNodeTypes.DistanceCheck:
-		// 距离检查条件节点
-		distance := 50.0        // 默认距离
-		operator := "less_than" // 默认操作符
-		if d, ok := nodeConfig.Params["distance"].(float64); ok {
-			distance = d
-		}
-		if op, ok := nodeConfig.Params["operator"].(string); ok {
-			operator = op
-		}
-		return NewDistanceConditionNode(nodeConfig.Name, distance, operator), nil
-
-	case ConditionNodeTypes.PhaseCheck:
-		// 阶段检查条件节点
-		phaseID := int32(1) // 默认阶段ID
-		if id, ok := nodeConfig.Params["phase_id"].(float64); ok {
-			phaseID = int32(id)
-		}
-		return NewPhaseConditionNode(nodeConfig.Name, phaseID), nil
-
-	case ConditionNodeTypes.EmergencyResponse:
-		// 紧急响应条件节点（检查紧急情况，如低血量、被围攻等）
-		logger.Debugf("Matched Emergency Response condition node")
-		return NewEmergencyResponseConditionNode(nodeConfig.Name), nil
-
-	case ConditionNodeTypes.CombatActions:
-		// 战斗动作条件节点（检查是否可以执行战斗动作）
-		logger.Debugf("Matched Combat Actions condition node")
-		return NewCombatActionsConditionNode(nodeConfig.Name), nil
-
-	default:
-		// 创建通用条件节点
-		logger.Warnf("Unknown condition node type: '%s' (len=%d), creating generic condition", nodeConfig.Name, len(nodeConfig.Name))
-		// 输出每个字符的十六进制值用于调试
-		for i, char := range nodeConfig.Name {
-			logger.Warnf("  char[%d]: '%c' (0x%02X)", i, char, char)
-		}
-		return NewGenericConditionNode(nodeConfig.Name, nodeConfig.Params), nil
-	}
-}
-
-// createDecoratorNode 创建装饰节点
-func (ai *BossAIManager) createDecoratorNode(nodeConfig BehaviorNodeConfig) (IBehaviorNode, error) {
-	if len(nodeConfig.Children) == 0 {
-		return nil, fmt.Errorf("decorator node %s must have exactly one child", nodeConfig.Name)
-	}
-
-	// 递归构建子节点
-	child, err := ai.buildNodeFromConfig(nodeConfig.Children[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed to build child for decorator %s: %w", nodeConfig.Name, err)
-	}
-
-	switch nodeConfig.Name {
-	case DecoratorNodeTypes.Inverter:
-		// 取反装饰节点
-		node := NewInverterNode(nodeConfig.Name)
-		node.AddChild(child)
-		return node, nil
-
-	case DecoratorNodeTypes.Repeater:
-		// 重复装饰节点
-		count := 1 // 默认重复1次
-		if c, ok := nodeConfig.Params["count"].(float64); ok {
-			count = int(c)
-		}
-		node := NewRepeaterNode(nodeConfig.Name, count)
-		node.AddChild(child)
-		return node, nil
-
-	case DecoratorNodeTypes.Retry:
-		// 重试装饰节点
-		maxRetries := 3 // 默认最大重试3次
-		if r, ok := nodeConfig.Params["max_retries"].(float64); ok {
-			maxRetries = int(r)
-		}
-		return NewRetryNode(nodeConfig.Name, child, maxRetries), nil
-
-	case DecoratorNodeTypes.Timeout:
-		// 超时装饰节点
-		timeout := time.Second * 5 // 默认超时5秒
-		if t, ok := nodeConfig.Params["timeout"].(string); ok {
-			if parsed, err := time.ParseDuration(t); err == nil {
-				timeout = parsed
-			}
-		}
-		return NewTimeoutNode(nodeConfig.Name, child, timeout), nil
-
-	case DecoratorNodeTypes.Cooldown:
-		// 冷却装饰节点
-		cooldown := time.Second * 1 // 默认冷却1秒
-		if c, ok := nodeConfig.Params["cooldown"].(string); ok {
-			if parsed, err := time.ParseDuration(c); err == nil {
-				cooldown = parsed
-			}
-		}
-		node := NewCooldownNode(nodeConfig.Name, cooldown)
-		node.AddChild(child)
-		return node, nil
-
-	default:
-		// 创建通用装饰节点
-		logger.Warnf("Unknown decorator node type: %s, creating generic decorator", nodeConfig.Name)
-		return NewGenericDecoratorNode(nodeConfig.Name, child, nodeConfig.Params), nil
-	}
 }

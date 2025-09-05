@@ -2,6 +2,7 @@
   "id": 1001,
   "name": "Fire Dragon Lord",
   "description": "A powerful dragon boss with fire-based attacks and multiple combat phases",
+  "initial_state": 0,
   
   "states": [
     {
@@ -19,11 +20,12 @@
           "priority": 5
         }
       ],
-      "behaviors": ["scan_enemies", "reset_combat_target"],
+      "behaviors": ["scan_enemies", "random_move", "random_speech", "random_action"],
       "modifiers": {
         "movement_speed": 1.0,
         "scan_interval": "2s",
-        "patrol_radius": 100.0
+        "patrol_radius": 100.0,
+        "behavior_interval": "1s"
       }
     },
     {
@@ -51,12 +53,13 @@
           "priority": 2
         }
       ],
-      "behaviors": ["patrol_movement", "enemy_detection"],
+      "behaviors": ["patrol_move", "enemy_detection", "scan_enemies"],
       "modifiers": {
         "movement_speed": 1.0,
         "patrol_radius": 200.0,
         "alert_radius": 150.0,
-        "move_speed": 50.0
+        "move_speed": 50.0,
+        "behavior_interval": "500ms"
       }
     },
     {
@@ -94,12 +97,13 @@
           "priority": 3
         }
       ],
-      "behaviors": ["chase_target", "range_check"],
+      "behaviors": ["chase_target", "range_check", "target_validation"],
       "modifiers": {
         "movement_speed": 1.5,
         "chase_radius": 300.0,
         "attack_range": 50.0,
-        "max_chase_time": "30s"
+        "max_chase_time": "30s",
+        "behavior_interval": "300ms"
       }
     },
     {
@@ -138,11 +142,12 @@
           "priority": 3
         }
       ],
-      "behaviors": ["basic_attack", "combo_attack", "skill_usage"],
+      "behaviors": ["basic_attack", "combo_attack", "skill_usage", "use_item", "escape_check"],
       "modifiers": {
         "attack_cooldown": "1.5s",
         "max_combo_count": 3,
-        "stop_movement": true
+        "stop_movement": true,
+        "behavior_interval": "200ms"
       }
     },
     {
@@ -236,22 +241,24 @@
           "priority": 8
         }
       ],
-      "behaviors": ["return_to_spawn", "health_regeneration"],
+      "behaviors": ["return_to_spawn", "auto_recover"],
       "modifiers": {
         "movement_speed": 2.0,
-        "health_regen_rate": 0.05,
-        "damage_reduction": 0.5
+        "heal_rate": 0.05,
+        "damage_reduction": 0.5,
+        "behavior_interval": "500ms"
       }
     },
     {
       "id": 8,
       "name": "Dying",
       "transitions": [],
-      "behaviors": ["death_animation", "final_skill"],
+      "behaviors": ["trigger_reward"],
       "modifiers": {
         "movement_speed": 0.0,
         "invulnerable": true,
-        "death_time": "5s"
+        "death_time": "5s",
+        "behavior_interval": "1s"
       }
     }
   ],

@@ -24,6 +24,22 @@ var ActionNodeTypes = struct {
 	PatrolBehavior     string
 	SelectOptimalSkill string
 	ExecuteAction      string
+
+	// 新增的节点类型
+	RandomMove          string
+	PatrolMove          string
+	RandomSpeech        string
+	RandomAction        string
+	ScanEnemies         string
+	ChaseTarget         string
+	CheckAttackRange    string
+	BasicAttack         string
+	UseItem             string
+	UseSkillByCondition string
+	FleeEscape          string
+	ReturnToSpawn       string
+	AutoRecover         string
+	TriggerReward       string
 }{
 	UseHealingSkill:    "Use Healing Skill",
 	AttackTarget:       "Attack Target",
@@ -38,6 +54,22 @@ var ActionNodeTypes = struct {
 	PatrolBehavior:     "Patrol Behavior",
 	SelectOptimalSkill: "Select Optimal Skill",
 	ExecuteAction:      "Execute Action",
+
+	// 新增的节点类型
+	RandomMove:          "Random Move",
+	PatrolMove:          "Patrol Move",
+	RandomSpeech:        "Random Speech",
+	RandomAction:        "Random Action",
+	ScanEnemies:         "Scan Enemies",
+	ChaseTarget:         "Chase Target",
+	CheckAttackRange:    "Check Attack Range",
+	BasicAttack:         "Basic Attack",
+	UseItem:             "Use Item",
+	UseSkillByCondition: "Use Skill By Condition",
+	FleeEscape:          "Flee Escape",
+	ReturnToSpawn:       "Return To Spawn",
+	AutoRecover:         "Auto Recover",
+	TriggerReward:       "Trigger Reward",
 }
 
 // ConditionNodeTypes 条件节点类型常量
@@ -50,6 +82,15 @@ var ConditionNodeTypes = struct {
 	PhaseCheck        string
 	EmergencyResponse string
 	CombatActions     string
+
+	// 新增的条件节点类型
+	LowManaCheck    string
+	NeedHealCheck   string
+	NeedEscapeCheck string
+	TargetDeadCheck string
+	ItemAvailable   string
+	RandomChance    string
+	TimeCondition   string
 }{
 	LowHealthCheck:    "Low Health Check",
 	EnemyInRange:      "Enemy In Range",
@@ -59,6 +100,15 @@ var ConditionNodeTypes = struct {
 	PhaseCheck:        "Phase Check",
 	EmergencyResponse: "Emergency Response",
 	CombatActions:     "Combat Actions",
+
+	// 新增的条件节点类型
+	LowManaCheck:    "Low Mana Check",
+	NeedHealCheck:   "Need Heal Check",
+	NeedEscapeCheck: "Need Escape Check",
+	TargetDeadCheck: "Target Dead Check",
+	ItemAvailable:   "Item Available",
+	RandomChance:    "Random Chance",
+	TimeCondition:   "Time Condition",
 }
 
 // DecoratorNodeTypes 装饰节点类型常量
@@ -92,6 +142,21 @@ func GetAllActionNodeTypes() []string {
 		ActionNodeTypes.PatrolBehavior,
 		ActionNodeTypes.SelectOptimalSkill,
 		ActionNodeTypes.ExecuteAction,
+		// 新增的节点类型
+		ActionNodeTypes.RandomMove,
+		ActionNodeTypes.PatrolMove,
+		ActionNodeTypes.RandomSpeech,
+		ActionNodeTypes.RandomAction,
+		ActionNodeTypes.ScanEnemies,
+		ActionNodeTypes.ChaseTarget,
+		ActionNodeTypes.CheckAttackRange,
+		ActionNodeTypes.BasicAttack,
+		ActionNodeTypes.UseItem,
+		ActionNodeTypes.UseSkillByCondition,
+		ActionNodeTypes.FleeEscape,
+		ActionNodeTypes.ReturnToSpawn,
+		ActionNodeTypes.AutoRecover,
+		ActionNodeTypes.TriggerReward,
 	}
 }
 
@@ -106,6 +171,14 @@ func GetAllConditionNodeTypes() []string {
 		ConditionNodeTypes.PhaseCheck,
 		ConditionNodeTypes.EmergencyResponse,
 		ConditionNodeTypes.CombatActions,
+		// 新增的条件节点类型
+		ConditionNodeTypes.LowManaCheck,
+		ConditionNodeTypes.NeedHealCheck,
+		ConditionNodeTypes.NeedEscapeCheck,
+		ConditionNodeTypes.TargetDeadCheck,
+		ConditionNodeTypes.ItemAvailable,
+		ConditionNodeTypes.RandomChance,
+		ConditionNodeTypes.TimeCondition,
 	}
 }
 
