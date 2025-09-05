@@ -305,8 +305,7 @@ type StateConfig struct {
 	ID          BossStateID            `json:"id"`
 	Name        string                 `json:"name"`
 	Transitions []StateTransition      `json:"transitions"`
-	Behaviors   []string               `json:"behaviors"` // 简单行为列表（保持向后兼容）
-	BehaviorTree *BehaviorNodeConfig    `json:"behavior_tree,omitempty"` // 复杂行为树配置
+	Behaviors   []string               `json:"behaviors"`
 	Modifiers   map[string]interface{} `json:"modifiers,omitempty"`
 }
 
