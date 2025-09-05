@@ -471,9 +471,6 @@ func (s *AttackState) OnEnter(ctx *BossContext) error {
 		return err
 	}
 
-	// 控制Monster真实状态
-	ctx.Boss.AttackAction()
-
 	// 停止移动
 	ctx.Boss.Stop()
 
@@ -484,8 +481,6 @@ func (s *AttackState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error 
 	// 调用基类的OnUpdate，它将执行行为树
 	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
-
-// 辅助函数
 
 // RetreatState 返回/撤退状态
 type RetreatState struct {
@@ -535,65 +530,6 @@ func (s *RetreatState) OnExit(ctx *BossContext) error {
 		return err
 	}
 
-	// 恢复到巡逻状态
-	ctx.Boss.Walk()
-
-	return nil
-}
-
-// StunnedState 眩晕状态
-type StunnedState struct {
-	*BaseBossState
-	stunDuration    time.Duration
-	damageReduction float64
-}
-
-func NewStunnedState(duration time.Duration) *StunnedState {
-	base := NewBaseBossState(StateStunned, "Stunned")
-	return &StunnedState{
-		BaseBossState:   base,
-		stunDuration:    duration,
-		damageReduction: 0.3, // 眩晕时减少30%伤害
-	}
-}
-
-func (s *StunnedState) OnEnter(ctx *BossContext) error {
-	if err := s.BaseBossState.OnEnter(ctx); err != nil {
-		return err
-	}
-
-	// 控制Monster真实状态 - 眩晕时保持当前状态但停止移动
-	ctx.Boss.Stop()
-
-	logger.Debugf("Boss %d stunned for %v", ctx.Boss.GetID(), s.stunDuration)
-
-	return nil
-}
-
-func (s *StunnedState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 检查眩晕时间是否结束
-	if s.GetTimeInState(ctx.CurrentTime) >= s.stunDuration {
-		// 眩晕结束，可以切换到其他状态
-		logger.Debugf("Boss %d stun expired", ctx.Boss.GetID())
-		return nil
-	}
-
-	// 眩晕期间无法行动
-	return nil
-}
-
-func (s *StunnedState) OnExit(ctx *BossContext) error {
-	if err := s.BaseBossState.OnExit(ctx); err != nil {
-		return err
-	}
-
-	// 眩晕结束，恢复正常状态判断
-	if ctx.Target != nil && ctx.Target.IsAlive() {
-		ctx.Boss.Chase()
-	} else {
-		ctx.Boss.Idle()
-	}
-
 	return nil
 }
 
@@ -637,119 +573,4 @@ func (s *DyingState) CanTransitionTo(stateID int32, ctx *BossContext) bool {
 func (s *DyingState) GetNextState(ctx *BossContext) int32 {
 	// 保持死亡状态
 	return int32(StateDying)
-}
-
-// CastSkillState 释放技能状态
-type CastSkillState struct {
-	*BaseBossState
-	currentSkillID int32
-	castStartTime  time.Time
-}
-
-func NewCastSkillState() *CastSkillState {
-	base := NewBaseBossState(StateCastSkill, "CastSkill")
-	return &CastSkillState{
-		BaseBossState: base,
-	}
-}
-
-func (s *CastSkillState) OnEnter(ctx *BossContext) error {
-	if err := s.BaseBossState.OnEnter(ctx); err != nil {
-		return err
-	}
-
-	// 控制Monster真实状态
-	ctx.Boss.AttackAction()
-
-	s.castStartTime = ctx.CurrentTime
-	logger.Debugf("Boss %d is casting skill %d", ctx.Boss.GetID(), s.currentSkillID)
-
-	return nil
-}
-
-func (s *CastSkillState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 技能释放状态的更新逻辑
-	// 检查技能释放是否完成
-	return nil
-}
-
-func (s *CastSkillState) OnExit(ctx *BossContext) error {
-	if err := s.BaseBossState.OnExit(ctx); err != nil {
-		return err
-	}
-
-	s.currentSkillID = 0
-	return nil
-}
-
-// EnragedState 狂暴状态
-type EnragedState struct {
-	*BaseBossState
-	enrageStartTime  time.Time
-	damageMultiplier float64
-	attackSpeedBonus float64
-}
-
-func NewEnragedState() *EnragedState {
-	base := NewBaseBossState(StateEnraged, "Enraged")
-	return &EnragedState{
-		BaseBossState:    base,
-		damageMultiplier: 1.5, // 默认1.5倍伤害
-		attackSpeedBonus: 2.0, // 默认2個攻击速度
-	}
-}
-
-func (s *EnragedState) OnEnter(ctx *BossContext) error {
-	if err := s.BaseBossState.OnEnter(ctx); err != nil {
-		return err
-	}
-
-	// 控制Monster真实状态
-	ctx.Boss.AttackAction()
-
-	s.enrageStartTime = ctx.CurrentTime
-	logger.Debugf("Boss %d is entering enraged state", ctx.Boss.GetID())
-
-	return nil
-}
-
-func (s *EnragedState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 检查是否有有效目标
-	if ctx.Target == nil || !ctx.Target.IsAlive() {
-		// 寻找新目标
-		enemies := ctx.GetEnemiesInRange(300.0)
-		if len(enemies) > 0 {
-			ctx.Target = enemies[0]
-			ctx.Boss.SetCombatTarget(ctx.Target)
-		}
-	}
-
-	// 狂暴状态下的攻击逻辑
-	if ctx.Target != nil {
-		// 计算目标距离
-		bossPos := ctx.Boss.GetPos()
-		targetPos := ctx.Target.GetPos()
-		distance := float64(bossPos.DistanceTo(targetPos))
-
-		// 如果在攻击范围内，执行攻击
-		if distance <= 60.0 {
-			if err := ctx.Boss.DoAttackTarget(ctx.Target); err != nil {
-				logger.Errorf("Boss enraged attack failed: %v", err)
-			}
-		} else {
-			// 追击目标
-			ctx.Boss.Chase()
-		}
-	}
-
-	return nil
-}
-
-func (s *EnragedState) OnExit(ctx *BossContext) error {
-	if err := s.BaseBossState.OnExit(ctx); err != nil {
-		return err
-	}
-
-	logger.Debugf("Boss %d exiting enraged state", ctx.Boss.GetID())
-	return nil
 }

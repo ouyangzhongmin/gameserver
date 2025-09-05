@@ -198,14 +198,7 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 	case StateChase:
 		state = NewChaseState()
 	case StateAttack:
-		state = NewAttackState()
-	case StateRetreat:
-		// 从 modifiers 中获取撤退目标点，如果没有则使用默认值
-		spawnPoint := Position{X: 0, Y: 0, Z: 0} // 默认出生点
-		state = NewRetreatState(spawnPoint)
-	case StateDying:
-		state = NewDyingState()
-		// default:
+		state = NewAttac		// default:
 		// 	// 创建通用状态
 		// 	state = NewBaseBossState(config.ID, config.Name)
 	}
@@ -369,11 +362,6 @@ func (ai *BossAIManager) Update(deltaTime time.Duration) error {
 		return fmt.Errorf("plugin update failed: %w", err)
 	}
 
-	// 执行AI决策
-	if err := ai.executeAI(); err != nil {
-		return fmt.Errorf("AI execution failed: %w", err)
-	}
-
 	// 更新调试信息
 	if ai.enableDebug {
 		ai.updateDebugInfo()
@@ -466,18 +454,6 @@ func (ai *BossAIManager) createBehaviorTreeForState(stateName string, behaviors 
 
 	// 为每个行为创建节点
 	for _, behaviorName := range behaviors {
-		node, err := ai.createNodeFromBehaviorName(behaviorName)
-		if err != nil {
-			logger.Errorf("Failed to create node for behavior %s: %v", behaviorName, err)
-			continue
-		}
-		rootSelector.AddChild(node)
-	}
-
-	tree.SetRootNode(rootSelector)
-	return tree, nil
-}
-
 // createNodeFromBehaviorName 从行为名称创建节点
 func (ai *BossAIManager) createNodeFromBehaviorName(behaviorName string) (IBehaviorNode, error) {
 	switch behaviorName {
@@ -500,6 +476,11 @@ func (ai *BossAIManager) createNodeFromBehaviorName(behaviorName string) (IBehav
 	case "trigger_reward":
 		return NewTriggerRewardActionNode("Trigger Reward"), nil
 	default:
+		return nil, fmt.Errorf("unknown behavior name: %bsystems中的状态机更新处理
+	return nil
+}
+iggerRewardActionNode("Trigger Reward"), nil
+	default:
 		return nil, fmt.Errorf("unknown behavior name: %s", behaviorName)
 	}
 }
@@ -510,6 +491,27 @@ func (ai *BossAIManager) executeAI() error {
 	// 这里不再直接管理行为，由updateSubsystems中的状态机更新处理
 	return nil
 }
+
+	case "return_spawn":
+		return NewReturnToSpawnActionNode("Return To Spawn"), nil
+	case "auto_recover":
+		return NewAutoRecoverActionNode("Auto Recover"), nil
+	case "trigger_reward":
+		return NewTriggerRewardActionNode("Trigger Reward"), nil
+	default:
+		return nil, fmt.Errorf("unknown behavior name: %s", behaviorName)
+	}
+}
+// executeAI 执行AI决策 - 新架构中主要由状态机管理
+func (ai *BossAIManager) executeAI() error {
+	// 新架构中，行为由状态机中的各个状态的行为树执行
+	// 这里不再直接管理行为，由updateSubsystems中的状态机更新处理
+	return nil
+}
+
+
+
+
 
 // AddPlugin 添加插件
 func (ai *BossAIManager) AddPlugin(plugin IAIPlugin) error {
@@ -734,49 +736,40 @@ func (ai *BossAIManager) updateDebugInfo() {
 
 	// 性能指标
 	if ai.debugInfo.PerformanceMetrics == nil {
-		ai.debugInfo.PerformanceMetrics = &PerformanceMetrics{}
+		ai.debugInfo.PewCheckAttackRangeConditionNode("Range Check"), nil
+
+	// Attack状态的行为
+	case "basic_attack":
+		return NewBasicAttackActionNode("Basic Attack"), nil
+	case "combo_attack":
+		return NewComboAttackSequenceNode("Combo Attack"), nil
+	case "skill_usage":
+		return NewSkillUsageConditionNode("Skill Usage"), nil
+	case "use_item":
+		return NewUseItemActionNode("Use Item"), nil
+	case "escape_check":
+		return NewEscapeCheckConditionNode("Escape Check"), nil
+
+	// Retreat状态的行为
+	case "return_to_spawn":
+		return NewReturnToSpawnActionNode("Return To Spawn"), nil
+	case "auto_recover":
+		return NewAutoRecoverActionNode("Auto Recover"), nil
+
+	// Dying状态的行为
+	case "trigger_reward":
+		return NewTriggerRewardActionNode("Trigger Reward"), nil
+
+	// 通用行为
+	case "enemy_detection":
+		return NewEnemyDetectionConditionNode("Enemy Detection"), nil
+	case "patrol_movement":
+		return NewPatrolMovementActionNode("Patrol Movement"), nil
+	case "target_validation":
+		return NewTargetValidationConditionNode("Target Validation"), nil
+
+	default:
+		logger.Warnf("Unknown behavior name: %s", behaviorName)
+		return nil, fmt.Errorf("unknown behavior: %s", behaviorName)
 	}
-
-	ai.debugInfo.PerformanceMetrics.UpdateTime = ai.frameTime
-	ai.debugInfo.PerformanceMetrics.FrameRate = 1.0 / ai.frameTime.Seconds()
-}
-
-// Destroy 销毁AI管理器
-func (ai *BossAIManager) Destroy() error {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
-	ai.isRunning = false
-
-	// 清理插件
-	for _, plugin := range ai.plugins {
-		if err := plugin.Cleanup(); err != nil {
-			logger.Errorf("Plugin %s cleanup failed: %v", plugin.GetName(), err)
-		}
-	}
-
-	// 清理子系统
-	ai.stateMachine.Destroy()
-	ai.phaseManager.Destroy()
-
-	// 重置行为树
-	for _, tree := range ai.behaviorTrees {
-		tree.Reset()
-	}
-
-	logger.Debugf("BossAI destroyed for entity %d", ai.boss.GetID())
-	return nil
-}
-
-func convertToSkillConditions(conditions []PhaseCondition) []SkillCondition {
-	result := make([]SkillCondition, len(conditions))
-	for i, cond := range conditions {
-		result[i] = SkillCondition{
-			Type:     cond.Type,
-			Params:   cond.Params,
-			Operator: cond.Operator,
-			SubConds: convertToSkillConditions(cond.SubConds),
-		}
-	}
-	return result
 }

@@ -35,6 +35,9 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	if ctx.CurrentTime.Sub(n.lastMoveTime) < n.moveInterval {
 		return ResultSuccess
 	}
+	if ctx.Boss.IsIdle() {
+		return ResultSuccess
+	}
 
 	// 获取移动半径参数
 	if radius := n.GetParamAsFloat64("radius", 0); radius > 0 {

@@ -440,6 +440,25 @@ func (b *BossEntityAdapter) Die() {
 	b.monster.Die()
 }
 
+func (b *BossEntityAdapter) IsIdle() bool {
+	return b.monster.IsIdle()
+}
+func (b *BossEntityAdapter) IsWalking() bool {
+	return b.monster.IsWalking()
+}
+func (b *BossEntityAdapter) IsAttacking() bool {
+	return b.monster.IsAttacking()
+}
+func (b *BossEntityAdapter) IsChasing() bool {
+	return b.monster.IsChasing()
+}
+func (b *BossEntityAdapter) IsEscaping() bool {
+	return b.monster.IsEscaping()
+}
+func (b *BossEntityAdapter) IsDying() bool {
+	return b.monster.IsDying()
+}
+
 // 使用示例函数
 
 // CreateExampleBossMonster 创建示例Boss怪物

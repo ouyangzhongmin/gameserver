@@ -85,6 +85,14 @@ type IBossEntity interface {
 	Escape()       // 逃跑状态
 	AttackAction() // 攻击状态
 	Die()          // 死亡状态
+
+	IsIdle() bool
+	IsWalking() bool
+	IsRunning() bool
+	IsChasing() bool
+	IsEscaping() bool
+	IsAttacking() bool
+	IsDied() bool
 }
 
 // IBossState Boss状态接口
