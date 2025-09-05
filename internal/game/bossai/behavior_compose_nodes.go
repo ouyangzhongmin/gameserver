@@ -1,8 +1,9 @@
 package bossai
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 )
 
 // 组合的节点定义
@@ -125,21 +126,9 @@ type ActionNode struct {
 	*BaseBehaviorNode
 }
 
-func NewActionNode(name string) *ActionNode {
-	return &ActionNode{
-		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeAction),
-	}
-}
-
 // ConditionNode 条件节点基类
 type ConditionNode struct {
 	*BaseBehaviorNode
-}
-
-func NewConditionNode(name string) *ConditionNode {
-	return &ConditionNode{
-		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeCondition),
-	}
 }
 
 // SequenceNode 顺序节点 - 所有子节点都成功才成功
@@ -171,10 +160,7 @@ func (n *SequenceNode) Execute(ctx *BossContext) BehaviorResult {
 			n.currentChildIndex++
 			continue
 		case ResultFailure:
-			n.Reset()
-			return ResultFailure
-		case ResultRunning:
-			return ResultRunning
+			logger.Debugf("SequenceNode: %s-%d execute failed", n.name, n.currentChildIndex)
 		}
 	}
 
@@ -232,124 +218,6 @@ func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
 func (n *SelectorNode) Reset() {
 	n.currentChildIndex = 0
 	n.BaseBehaviorNode.Reset()
-}
-
-// ParallelNode 并行节点 - 同时执行所有子节点
-type ParallelNode struct {
-	*BaseBehaviorNode
-	successThreshold int
-	failureThreshold int
-	successCount     int
-	failureCount     int
-}
-
-func NewParallelNode(name string, successThreshold, failureThreshold int) *ParallelNode {
-	return &ParallelNode{
-		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeParallel),
-		successThreshold: successThreshold,
-		failureThreshold: failureThreshold,
-	}
-}
-
-func (n *ParallelNode) Execute(ctx *BossContext) BehaviorResult {
-	n.BaseBehaviorNode.Execute(ctx)
-
-	if len(n.children) == 0 {
-		return ResultSuccess
-	}
-
-	n.successCount = 0
-	n.failureCount = 0
-	runningCount := 0
-
-	for _, child := range n.children {
-		result := child.Execute(ctx)
-
-		switch result {
-		case ResultSuccess:
-			n.successCount++
-		case ResultFailure:
-			n.failureCount++
-		case ResultRunning:
-			runningCount++
-		}
-	}
-
-	// 检查成功条件
-	if n.successCount >= n.successThreshold {
-		n.Reset()
-		return ResultSuccess
-	}
-
-	// 检查失败条件
-	if n.failureCount >= n.failureThreshold {
-		n.Reset()
-		return ResultFailure
-	}
-
-	// 还有节点在运行
-	if runningCount > 0 {
-		return ResultRunning
-	}
-
-	// 既没达到成功条件也没达到失败条件
-	return ResultRunning
-}
-
-func (n *ParallelNode) Reset() {
-	n.successCount = 0
-	n.failureCount = 0
-	n.BaseBehaviorNode.Reset()
-}
-
-// DecoratorNode 装饰节点基类
-type DecoratorNode struct {
-	*BaseBehaviorNode
-}
-
-func NewDecoratorNode(name string) *DecoratorNode {
-	return &DecoratorNode{
-		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeDecorator),
-	}
-}
-
-func (n *DecoratorNode) AddChild(child IBehaviorNode) error {
-	if len(n.children) >= 1 {
-		return fmt.Errorf("decorator node can only have one child")
-	}
-	return n.BaseBehaviorNode.AddChild(child)
-}
-
-// InverterNode 反转节点 - 反转子节点的结果
-type InverterNode struct {
-	*DecoratorNode
-}
-
-func NewInverterNode(name string) *InverterNode {
-	return &InverterNode{
-		DecoratorNode: NewDecoratorNode(name),
-	}
-}
-
-func (n *InverterNode) Execute(ctx *BossContext) BehaviorResult {
-	n.BaseBehaviorNode.Execute(ctx)
-
-	if len(n.children) == 0 {
-		return ResultFailure
-	}
-
-	result := n.children[0].Execute(ctx)
-
-	switch result {
-	case ResultSuccess:
-		return ResultFailure
-	case ResultFailure:
-		return ResultSuccess
-	case ResultRunning:
-		return ResultRunning
-	}
-
-	return ResultFailure
 }
 
 // RepeaterNode 重复节点 - 重复执行子节点

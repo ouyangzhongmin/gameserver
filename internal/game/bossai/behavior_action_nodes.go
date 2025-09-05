@@ -36,7 +36,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 		return ResultSuccess
 	}
 	if ctx.Boss.IsIdle() {
-		return ResultSuccess
+		return ResultRunning
 	}
 
 	// 获取移动半径参数
