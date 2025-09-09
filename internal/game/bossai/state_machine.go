@@ -150,6 +150,12 @@ func (sm *StateMachine) Update(ctx *BossContext, deltaTime time.Duration) error 
 	ctx.PreviousState = sm.previousState
 	ctx.DeltaTime = deltaTime
 
+	// 检查状态转换请求
+	if sm.checkStateTransitionRequest(ctx) {
+		// 如果处理了状态转换请求，直接返回
+		return nil
+	}
+
 	// 检查状态转换
 	if err := sm.checkStateTransitions(ctx); err != nil {
 		return fmt.Errorf("state transition failed: %w", err)
@@ -161,6 +167,40 @@ func (sm *StateMachine) Update(ctx *BossContext, deltaTime time.Duration) error 
 	}
 
 	return nil
+}
+
+// checkStateTransitionRequest 检查并处理状态转换请求
+func (sm *StateMachine) checkStateTransitionRequest(ctx *BossContext) bool {
+	request := ctx.GetStateTransitionRequest()
+	if request == nil {
+		return false
+	}
+
+	// 清除请求
+	ctx.ClearStateTransitionRequest()
+
+	// 检查目标状态是否存在
+	targetState, exists := sm.states[request.TargetState]
+	if !exists {
+		logger.Warnf("State transition request to non-existent state: %d", request.TargetState)
+		return false
+	}
+
+	// 如果已经在目标状态，无需转换
+	if sm.currentState.GetID() == int32(request.TargetState) {
+		return false
+	}
+
+	// 执行状态转换
+	if err := sm.ForceTransition(request.TargetState, ctx); err != nil {
+		logger.Errorf("Failed to transition to state %d: %v", request.TargetState, err)
+		return false
+	}
+
+	logger.Debugf("Boss %d transitioned to %s due to request: %s",
+		ctx.Boss.GetID(), targetState.GetName(), request.Reason)
+
+	return true
 }
 
 // checkStateTransitions 检查状态转换

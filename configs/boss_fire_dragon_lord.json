@@ -10,7 +10,7 @@
       "name": "Idle",
       "transitions": [
         {
-          "to_state": 1,
+          "to_state": 2,
           "condition": {
             "type": 3,
             "params": {
@@ -20,11 +20,26 @@
           "priority": 5
         }
       ],
-      "behaviors": ["scan_enemies", "random_move", "random_speech", "random_action"],
+      "behaviors": {
+        "type": "selector",
+        "children": [
+          {
+            "type": "node",
+            "node": "random_move",
+            "params": {
+              "range": 10
+            }
+          },
+          {
+            "type": "node",
+            "node": "scan_enemies",
+            "params": {
+              "range": 10
+            }
+          }
+        ]
+      },
       "modifiers": {
-        "movement_speed": 1.0,
-        "scan_interval": "2s",
-        "patrol_radius": 100.0,
         "behavior_interval": "1s"
       }
     },
@@ -53,12 +68,27 @@
           "priority": 2
         }
       ],
-      "behaviors": ["patrol_move", "enemy_detection", "scan_enemies"],
+      "behaviors": {
+        "type": "selector",
+        "children": [
+          {
+            "type": "node",
+            "node": "patrol_move",
+            "params": {
+              "sp": "10,10",
+              "ep": "20,20"
+            }
+          },
+          {
+            "type": "node",
+            "node": "scan_enemies",
+            "params": {
+              "range": 10
+            }
+          }
+        ]
+      },
       "modifiers": {
-        "movement_speed": 1.0,
-        "patrol_radius": 200.0,
-        "alert_radius": 150.0,
-        "move_speed": 50.0,
         "behavior_interval": "500ms"
       }
     },
@@ -97,12 +127,8 @@
           "priority": 3
         }
       ],
-      "behaviors": ["chase_target", "range_check", "target_validation"],
+      "behaviors": {},
       "modifiers": {
-        "movement_speed": 1.5,
-        "chase_radius": 300.0,
-        "attack_range": 50.0,
-        "max_chase_time": "30s",
         "behavior_interval": "300ms"
       }
     },
@@ -131,11 +157,43 @@
           "priority": 3
         }
       ],
-      "behaviors": ["basic_attack", "combo_attack", "skill_usage", "use_item", "escape_check"],
+      "behaviors": {
+        "type": "selector",
+        "children": [
+          {
+            "type": "node",
+            "node": "escape_check",
+            "params": {
+                "life_threshold": 0.15
+            }
+          },
+          {
+            "type": "node",
+            "node": "use_skill"
+          },
+          {
+            "type": "sequence",
+            "children": [
+              {
+                "type": "node",
+                "node": "basic_attack",
+                "params": {
+                    "action": "attack1"
+                }
+              },
+              {
+                "type": "node",
+                "node": "basic_attack",
+                "params": {
+                    "action": "attack2"
+                }
+              }
+            ]
+          }
+        ]
+      },
       "modifiers": {
         "attack_cooldown": "1.5s",
-        "max_combo_count": 3,
-        "stop_movement": true,
         "behavior_interval": "200ms"
       }
     },
@@ -158,17 +216,14 @@
           "condition": {
             "type": 3,
             "params": {
-              "min_count": 1
+              "script": "been_attacked"
             }
           },
           "priority": 8
         }
       ],
-      "behaviors": ["return_to_spawn", "auto_recover"],
+      "behaviors": {},
       "modifiers": {
-        "movement_speed": 2.0,
-        "heal_rate": 0.05,
-        "damage_reduction": 0.5,
         "behavior_interval": "500ms"
       }
     },
@@ -176,11 +231,19 @@
       "id": 5,
       "name": "Dying",
       "transitions": [],
-      "behaviors": ["trigger_reward"],
+      "behaviors": {
+        "type": "selector",
+        "children": [
+          {
+            "type": "node",
+            "node": "trigger_reward",
+            "params": {
+              "reward_id": "1000"
+            }
+          }
+        ]
+      },
       "modifiers": {
-        "movement_speed": 0.0,
-        "invulnerable": true,
-        "death_time": "5s",
         "behavior_interval": "1s"
       }
     }

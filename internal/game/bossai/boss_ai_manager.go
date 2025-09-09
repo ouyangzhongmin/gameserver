@@ -43,7 +43,6 @@ type BossAIManager struct {
 
 	// 同步控制
 	mutex sync.RWMutex
-	// updateMutex sync.Mutex
 }
 
 // NewBossAIManager 创建Boss AI管理器
@@ -198,9 +197,13 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 	case StateChase:
 		state = NewChaseState()
 	case StateAttack:
-		state = NewAttac		// default:
-		// 	// 创建通用状态
-		// 	state = NewBaseBossState(config.ID, config.Name)
+		state = NewAttackState()
+	case StateRetreat:
+		// 从 modifiers 中获取撤退目标点，如果没有则使用默认值
+		spawnPoint := Position{X: 0, Y: 0, Z: 0} // 默认出生点
+		state = NewRetreatState(spawnPoint)
+	case StateDying:
+		state = NewDyingState()
 	}
 
 	if state == nil {
@@ -212,13 +215,12 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 		for key, value := range config.Modifiers {
 			baseState.SetModifier(key, value)
 		}
-		// 设置行为配置
-		baseState.SetBehaviorConfigs(config.Behaviors)
+
 		// 创建状态对应的行为树
-		behaviorTree, err := ai.createBehaviorTreeForState(config.Name, config.Behaviors)
+		behaviorTree, err := ai.createBehaviorTreeFromConfig(config.Name, config.Behaviors)
 		if err != nil {
 			logger.Errorf("Failed to create behavior tree for state %s: %v", config.Name, err)
-		} else {
+		} else if behaviorTree != nil {
 			baseState.SetBehaviorTree(behaviorTree)
 		}
 	}
@@ -226,221 +228,41 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 	return state, nil
 }
 
-// configurePhaseSystem 配置阶段系统
-func (ai *BossAIManager) configurePhaseSystem() error {
-	for _, phaseConfig := range ai.config.Phases {
-		phase := NewBossPhase(phaseConfig.ID, phaseConfig.Name)
-		phase.SetTriggerCondition(phaseConfig.TriggerCondition)
-		phase.SetAvailableSkills(phaseConfig.AvailableSkills)
-		phase.SetBehaviorTreeName(phaseConfig.BehaviorTree)
-
-		// 应用修改器
-		for key, value := range phaseConfig.Modifiers {
-			phase.SetStateModifier(key, value)
-		}
-
-		if err := ai.phaseManager.AddPhase(phase); err != nil {
-			logger.Errorf("Failed to add phase %s: %v", phase.GetName(), err)
-		}
+// createBehaviorTreeFromConfig 从行为配置创建行为树
+func (ai *BossAIManager) createBehaviorTreeFromConfig(stateName string, behaviors interface{}) (*BehaviorTree, error) {
+	if behaviors == nil {
+		return nil, nil
 	}
 
-	// 设置阶段检查顺序
-	phaseOrder := make([]int32, 0, len(ai.config.Phases))
-	for _, phaseConfig := range ai.config.Phases {
-		phaseOrder = append(phaseOrder, phaseConfig.ID)
-	}
+	treeName := fmt.Sprintf("%s_BehaviorTree", stateName)
+	tree := NewBehaviorTree(treeName)
 
-	return ai.phaseManager.SetPhaseOrder(phaseOrder)
-}
-
-// configureSkillSystem 配置技能系统
-func (ai *BossAIManager) configureSkillSystem() error {
-	skillPriority := make([]int32, 0, len(ai.config.Skills))
-
-	for _, skillConfig := range ai.config.Skills {
-		skill := NewBossSkill(skillConfig.ID, skillConfig.Name)
-		skill.SetCooldown(skillConfig.Cooldown)
-		skill.SetRange(skillConfig.Range)
-		skill.SetCastTime(skillConfig.CastTime)
-
-		// 添加条件
-		for _, condition := range skillConfig.Conditions {
-			skill.AddCondition(SkillCondition{
-				Type:     condition.Type,
-				Params:   condition.Params,
-				Operator: condition.Operator,
-				SubConds: convertToSkillConditions(condition.SubConds),
-			})
-		}
-
-		// 添加效果
-		for _, effect := range skillConfig.Effects {
-			skill.AddEffect(effect)
-		}
-
-		if err := ai.skillManager.AddSkill(skill); err != nil {
-			logger.Errorf("Failed to add skill %s: %v", skill.GetName(), err)
-		} else {
-			skillPriority = append(skillPriority, skillConfig.ID)
-		}
-	}
-
-	// 设置技能优先级
-	return ai.skillManager.SetSkillPriority(skillPriority)
-}
-
-// configurePlugins 配置插件
-func (ai *BossAIManager) configurePlugins() error {
-	for _, pluginConfig := range ai.config.Plugins {
-		if !pluginConfig.Enabled {
-			continue
-		}
-
-		var plugin IAIPlugin
-
-		switch pluginConfig.Type {
-		case "combat_analysis":
-			plugin = NewCombatAnalysisPlugin()
-		case "llm":
-			if ai.config.LLMConfig != nil && ai.config.LLMConfig.Enabled {
-				provider := NewOpenAIProvider(ai.config.LLMConfig.APIKey)
-				provider.Configure(map[string]interface{}{
-					"endpoint":    ai.config.LLMConfig.Endpoint,
-					"model":       ai.config.LLMConfig.Model,
-					"max_tokens":  ai.config.LLMConfig.MaxTokens,
-					"temperature": ai.config.LLMConfig.Temperature,
-					"timeout_ms":  int(ai.config.LLMConfig.UpdateInterval.Milliseconds()),
-				})
-				plugin = NewLLMPlugin(provider)
-			}
-		default:
-			logger.Warnf("Unknown plugin type: %s", pluginConfig.Type)
-			continue
-		}
-
-		if plugin != nil {
-			plugin.SetConfig(pluginConfig.Config)
-			plugin.SetPriority(pluginConfig.Priority)
-
-			if err := ai.AddPlugin(plugin); err != nil {
-				logger.Errorf("Failed to add plugin %s: %v", pluginConfig.Name, err)
+	// 检查行为配置类型
+	switch v := behaviors.(type) {
+	case []interface{}: // 字符串数组（旧格式）
+		behaviorNames := make([]string, 0, len(v))
+		for _, item := range v {
+			if name, ok := item.(string); ok {
+				behaviorNames = append(behaviorNames, name)
 			}
 		}
-	}
+		return ai.createBehaviorTreeForState(stateName, behaviorNames)
 
-	return nil
-}
-
-// Update 更新Boss AI
-func (ai *BossAIManager) Update(deltaTime time.Duration) error {
-	// monster中的update是来自于scene的update,已确保是在同一条线程调用的，如果这里加锁会导致性能很差
-	// ai.updateMutex.Lock()
-	// defer ai.updateMutex.Unlock()
-
-	if !ai.isInitialized || !ai.isRunning || ai.isPaused {
-		return nil
-	}
-
-	start := time.Now()
-	defer func() {
-		ai.frameTime = time.Since(start)
-		ai.totalUpdateTime += ai.frameTime
-		ai.updateCount++
-		ai.lastUpdateTime = time.Now()
-	}()
-
-	// 更新上下文
-	ai.updateContext(deltaTime)
-
-	// 更新子系统
-	if err := ai.updateSubsystems(deltaTime); err != nil {
-		return fmt.Errorf("subsystem update failed: %w", err)
-	}
-
-	// 更新插件
-	if err := ai.updatePlugins(deltaTime); err != nil {
-		return fmt.Errorf("plugin update failed: %w", err)
-	}
-
-	// 更新调试信息
-	if ai.enableDebug {
-		ai.updateDebugInfo()
-	}
-
-	return nil
-}
-
-// updateContext 更新AI上下文
-func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
-	ai.context.CurrentTime = time.Now()
-	ai.context.DeltaTime = deltaTime
-
-	// 更新战斗时间
-	if ai.boss.IsInCombat() {
-		ai.context.CombatTime += deltaTime
-	}
-
-	// 更新附近实体（使用更大的搜索半径以包含更多敌人）
-	// 这样后续的BossContext方法可以从中筛选不同范围的敌人
-	entites := ai.boss.GetEntitesInRange(10)
-	ai.context.NearbyEnemies = make([]IEntity, 0)
-	ai.context.NearbyAllies = make([]IEntity, 0)
-	for _, entity := range entites {
-		if ai.context.Boss.IsEnemy(entity) { //敌人列表
-			ai.context.NearbyEnemies = append(ai.context.NearbyEnemies, entity)
-		} else if ai.context.Boss.IsAlly(entity) { // 如果有盟友系统
-			ai.context.NearbyAllies = append(ai.context.NearbyAllies, entity)
+	case map[string]interface{}: // 复杂行为树配置（新格式）
+		behaviorConfig := ai.parseBehaviorConfig(v)
+		rootNode, err := ai.createNodeFromBehaviorConfig(behaviorConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create root node: %w", err)
 		}
+		tree.SetRootNode(rootNode)
+		return tree, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported behaviors config type: %T", behaviors)
 	}
-
-	// 更新位置
-	ai.context.Position = ai.boss.GetPos()
-
-	// 注意：不再主动从 Monster 系统获取目标
-	// Boss AI 系统应该通过自己的决策逻辑（状态机、行为树等）来选择和设置目标
-	// 如果当前目标已死亡，则清除目标，由 AI 系统自行决定下一个目标
-	if ai.context.Target != nil && !ai.context.Target.IsAlive() {
-		ai.context.Target = nil
-		// 同时清除 Monster 系统的目标
-		ai.boss.SetCombatTarget(nil)
-	}
-
-	// 重置状态变化标志
-	ai.context.IsStateChanged = false
-	ai.context.IsPhaseChanged = false
 }
 
-// updateSubsystems 更新子系统
-func (ai *BossAIManager) updateSubsystems(deltaTime time.Duration) error {
-	// 更新技能冷却
-	ai.skillManager.UpdateCooldowns()
-
-	// 更新阶段管理器
-	if err := ai.phaseManager.Update(ai.context, deltaTime); err != nil {
-		return fmt.Errorf("phase manager update failed: %w", err)
-	}
-
-	// 更新状态机
-	if err := ai.stateMachine.Update(ai.context, deltaTime); err != nil {
-		return fmt.Errorf("state machine update failed: %w", err)
-	}
-
-	return nil
-}
-
-// updatePlugins 更新插件
-func (ai *BossAIManager) updatePlugins(deltaTime time.Duration) error {
-	for _, pluginName := range ai.pluginOrder {
-		plugin := ai.plugins[pluginName]
-		if err := plugin.Update(ai.context, deltaTime); err != nil {
-			logger.Errorf("Plugin %s update failed: %v", pluginName, err)
-		}
-	}
-
-	return nil
-}
-
-// createBehaviorTreeForState 从行为名称列表创建行为树
+// createBehaviorTreeForState 从行为名称列表创建行为树（旧格式支持）
 func (ai *BossAIManager) createBehaviorTreeForState(stateName string, behaviors []string) (*BehaviorTree, error) {
 	if len(behaviors) == 0 {
 		return nil, nil
@@ -454,6 +276,191 @@ func (ai *BossAIManager) createBehaviorTreeForState(stateName string, behaviors 
 
 	// 为每个行为创建节点
 	for _, behaviorName := range behaviors {
+		node, err := ai.createNodeFromBehaviorName(behaviorName)
+		if err != nil {
+			logger.Errorf("Failed to create node for behavior %s: %v", behaviorName, err)
+			continue
+		}
+		rootSelector.AddChild(node)
+	}
+
+	tree.SetRootNode(rootSelector)
+	return tree, nil
+}
+
+// parseBehaviorConfig 解析行为配置
+func (ai *BossAIManager) parseBehaviorConfig(config map[string]interface{}) BehaviorConfig {
+	behaviorConfig := BehaviorConfig{}
+
+	if typeStr, ok := config["type"].(string); ok {
+		behaviorConfig.Type = typeStr
+	}
+
+	if node, ok := config["node"].(string); ok {
+		behaviorConfig.Node = node
+	}
+
+	if params, ok := config["params"].(map[string]interface{}); ok {
+		behaviorConfig.Params = params
+	}
+
+	if rand, ok := config["rand"].(float64); ok {
+		behaviorConfig.Rand = int(rand)
+	}
+
+	if count, ok := config["count"].(float64); ok {
+		behaviorConfig.Count = int(count)
+	}
+
+	if children, ok := config["children"].([]interface{}); ok {
+		behaviorConfig.Children = make([]BehaviorConfig, 0, len(children))
+		for _, child := range children {
+			if childMap, ok := child.(map[string]interface{}); ok {
+				childConfig := ai.parseBehaviorConfig(childMap)
+				behaviorConfig.Children = append(behaviorConfig.Children, childConfig)
+			}
+		}
+	}
+
+	return behaviorConfig
+}
+
+// createNodeFromBehaviorConfig 从行为配置创建节点
+func (ai *BossAIManager) createNodeFromBehaviorConfig(config BehaviorConfig) (IBehaviorNode, error) {
+	var node IBehaviorNode
+	var err error
+
+	switch config.Type {
+	case "random":
+		node = ai.createRandomNode(config)
+	case "sequence":
+		node = ai.createSequenceNode(config)
+	case "selector":
+		node = ai.createSelectorNode(config)
+	case "repeat":
+		node = ai.createRepeatNode(config)
+	case "node":
+		node, err = ai.createActionNode(config)
+	default:
+		return nil, fmt.Errorf("unknown behavior type: %s", config.Type)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 设置节点参数
+	if config.Params != nil {
+		for key, value := range config.Params {
+			if baseNode, ok := node.(*BaseBehaviorNode); ok {
+				baseNode.SetParam(key, value)
+			} else if randomNode, ok := node.(*RandomNode); ok {
+				randomNode.SetParam(key, value)
+			} else if sequenceNode, ok := node.(*SequenceNode); ok {
+				sequenceNode.SetParam(key, value)
+			} else if selectorNode, ok := node.(*SelectorNode); ok {
+				selectorNode.SetParam(key, value)
+			} else if repeaterNode, ok := node.(*RepeaterNode); ok {
+				repeaterNode.SetParam(key, value)
+			}
+		}
+	}
+
+	return node, nil
+}
+
+// createRandomNode 创建随机节点
+func (ai *BossAIManager) createRandomNode(config BehaviorConfig) IBehaviorNode {
+	node := NewRandomNode(fmt.Sprintf("Random_%d", len(config.Children)))
+
+	// 添加子节点并设置权重
+	for i, childConfig := range config.Children {
+		child, err := ai.createNodeFromBehaviorConfig(childConfig)
+		if err != nil {
+			logger.Errorf("Failed to create child node for random: %v", err)
+			continue
+		}
+
+		node.AddChild(child)
+
+		// 设置权重 - 优先使用子节点的rand字段，如果没有则使用默认权重
+		weight := childConfig.Rand
+		if weight <= 0 {
+			// 如果没有配置权重，默认为100（与总子节点数量均分概率）
+			weight = 100
+		}
+		node.SetChildWeight(i, weight)
+	}
+
+	return node
+}
+
+// createSequenceNode 创建顺序节点
+func (ai *BossAIManager) createSequenceNode(config BehaviorConfig) IBehaviorNode {
+	node := NewSequenceNode(fmt.Sprintf("Sequence_%d", len(config.Children)))
+
+	// 添加子节点
+	for _, childConfig := range config.Children {
+		child, err := ai.createNodeFromBehaviorConfig(childConfig)
+		if err != nil {
+			logger.Errorf("Failed to create child node for sequence: %v", err)
+			continue
+		}
+		node.AddChild(child)
+	}
+
+	return node
+}
+
+// createSelectorNode 创建选择节点
+func (ai *BossAIManager) createSelectorNode(config BehaviorConfig) IBehaviorNode {
+	node := NewSelectorNode(fmt.Sprintf("Selector_%d", len(config.Children)))
+
+	// 添加子节点
+	for _, childConfig := range config.Children {
+		child, err := ai.createNodeFromBehaviorConfig(childConfig)
+		if err != nil {
+			logger.Errorf("Failed to create child node for selector: %v", err)
+			continue
+		}
+		node.AddChild(child)
+	}
+
+	return node
+}
+
+// createRepeatNode 创建重复节点
+func (ai *BossAIManager) createRepeatNode(config BehaviorConfig) IBehaviorNode {
+	repeatCount := config.Count
+	if repeatCount <= 0 {
+		repeatCount = 1 // 默认重复1次
+	}
+
+	node := NewRepeaterNode(fmt.Sprintf("Repeat_%d", repeatCount), repeatCount)
+
+	// 添加子节点（RepeaterNode只能有一个子节点）
+	if len(config.Children) > 0 {
+		child, err := ai.createNodeFromBehaviorConfig(config.Children[0])
+		if err != nil {
+			logger.Errorf("Failed to create child node for repeat: %v", err)
+		} else {
+			node.AddChild(child)
+		}
+	}
+
+	return node
+}
+
+// createActionNode 创建具体的行为节点
+func (ai *BossAIManager) createActionNode(config BehaviorConfig) (IBehaviorNode, error) {
+	node, err := ai.createNodeFromBehaviorName(config.Node)
+	if err != nil {
+		return nil, err
+	}
+	node.SetParams(config.Params)
+	return node, nil
+}
+
 // createNodeFromBehaviorName 从行为名称创建节点
 func (ai *BossAIManager) createNodeFromBehaviorName(behaviorName string) (IBehaviorNode, error) {
 	switch behaviorName {
@@ -463,55 +470,24 @@ func (ai *BossAIManager) createNodeFromBehaviorName(behaviorName string) (IBehav
 		return NewRandomMoveActionNode("Random Move"), nil
 	case "random_speech":
 		return NewRandomSpeechActionNode("Random Speech"), nil
-	case "random_action":
-		return NewRandomChanceConditionNode("Random Action Chance"), nil
-	case "chase_target":
-		return NewChaseTargetActionNode("Chase Target"), nil
 	case "basic_attack":
 		return NewBasicAttackActionNode("Basic Attack"), nil
-	case "return_spawn":
-		return NewReturnToSpawnActionNode("Return To Spawn"), nil
 	case "auto_recover":
 		return NewAutoRecoverActionNode("Auto Recover"), nil
 	case "trigger_reward":
 		return NewTriggerRewardActionNode("Trigger Reward"), nil
-	default:
-		return nil, fmt.Errorf("unknown behavior name: %bsystems中的状态机更新处理
-	return nil
-}
-iggerRewardActionNode("Trigger Reward"), nil
-	default:
-		return nil, fmt.Errorf("unknown behavior name: %s", behaviorName)
-	}
-}
-
-// executeAI 执行AI决策 - 新架构中主要由状态机管理
-func (ai *BossAIManager) executeAI() error {
-	// 新架构中，行为由状态机中的各个状态的行为树执行
-	// 这里不再直接管理行为，由updateSubsystems中的状态机更新处理
-	return nil
-}
-
-	case "return_spawn":
-		return NewReturnToSpawnActionNode("Return To Spawn"), nil
-	case "auto_recover":
-		return NewAutoRecoverActionNode("Auto Recover"), nil
-	case "trigger_reward":
-		return NewTriggerRewardActionNode("Trigger Reward"), nil
+	case "attack1":
+		return NewBasicAttackActionNode("Attack1"), nil
+	case "attack2":
+		return NewBasicAttackActionNode("Attack2"), nil
+	case "use_skill":
+		return NewSkillUsageNode("Use skill"), nil
+	case "escape_check":
+		return NewEscapeCheckConditionNode("Escape Check"), nil
 	default:
 		return nil, fmt.Errorf("unknown behavior name: %s", behaviorName)
 	}
 }
-// executeAI 执行AI决策 - 新架构中主要由状态机管理
-func (ai *BossAIManager) executeAI() error {
-	// 新架构中，行为由状态机中的各个状态的行为树执行
-	// 这里不再直接管理行为，由updateSubsystems中的状态机更新处理
-	return nil
-}
-
-
-
-
 
 // AddPlugin 添加插件
 func (ai *BossAIManager) AddPlugin(plugin IAIPlugin) error {
@@ -585,7 +561,7 @@ func (ai *BossAIManager) GetCurrentState() IBossState {
 	return ai.stateMachine.GetCurrentState()
 }
 
-// TransitionTo 转换状态
+// TransitionTo 强制转换状态
 func (ai *BossAIManager) TransitionTo(stateID int32) error {
 	return ai.stateMachine.ForceTransition(BossStateID(stateID), ai.context)
 }
@@ -598,11 +574,6 @@ func (ai *BossAIManager) GetCurrentPhase() IBossPhase {
 // CheckPhaseTransition 检查阶段转换
 func (ai *BossAIManager) CheckPhaseTransition() error {
 	return ai.phaseManager.Update(ai.context, 0)
-}
-
-// ExecuteBehavior 执行行为
-func (ai *BossAIManager) ExecuteBehavior() error {
-	return ai.executeAI()
 }
 
 // InterruptBehavior 中断行为
@@ -736,40 +707,257 @@ func (ai *BossAIManager) updateDebugInfo() {
 
 	// 性能指标
 	if ai.debugInfo.PerformanceMetrics == nil {
-		ai.debugInfo.PewCheckAttackRangeConditionNode("Range Check"), nil
-
-	// Attack状态的行为
-	case "basic_attack":
-		return NewBasicAttackActionNode("Basic Attack"), nil
-	case "combo_attack":
-		return NewComboAttackSequenceNode("Combo Attack"), nil
-	case "skill_usage":
-		return NewSkillUsageConditionNode("Skill Usage"), nil
-	case "use_item":
-		return NewUseItemActionNode("Use Item"), nil
-	case "escape_check":
-		return NewEscapeCheckConditionNode("Escape Check"), nil
-
-	// Retreat状态的行为
-	case "return_to_spawn":
-		return NewReturnToSpawnActionNode("Return To Spawn"), nil
-	case "auto_recover":
-		return NewAutoRecoverActionNode("Auto Recover"), nil
-
-	// Dying状态的行为
-	case "trigger_reward":
-		return NewTriggerRewardActionNode("Trigger Reward"), nil
-
-	// 通用行为
-	case "enemy_detection":
-		return NewEnemyDetectionConditionNode("Enemy Detection"), nil
-	case "patrol_movement":
-		return NewPatrolMovementActionNode("Patrol Movement"), nil
-	case "target_validation":
-		return NewTargetValidationConditionNode("Target Validation"), nil
-
-	default:
-		logger.Warnf("Unknown behavior name: %s", behaviorName)
-		return nil, fmt.Errorf("unknown behavior: %s", behaviorName)
+		ai.debugInfo.PerformanceMetrics = &PerformanceMetrics{}
 	}
+
+	ai.debugInfo.PerformanceMetrics.UpdateTime = ai.frameTime
+	ai.debugInfo.PerformanceMetrics.FrameRate = 1.0 / ai.frameTime.Seconds()
+}
+
+// configurePhaseSystem 配置阶段系统
+func (ai *BossAIManager) configurePhaseSystem() error {
+	for _, phaseConfig := range ai.config.Phases {
+		phase := NewBossPhase(phaseConfig.ID, phaseConfig.Name)
+		phase.SetTriggerCondition(phaseConfig.TriggerCondition)
+		phase.SetAvailableSkills(phaseConfig.AvailableSkills)
+		phase.SetBehaviorTreeName(phaseConfig.BehaviorTree)
+
+		// 应用修改器
+		for key, value := range phaseConfig.Modifiers {
+			phase.SetStateModifier(key, value)
+		}
+
+		if err := ai.phaseManager.AddPhase(phase); err != nil {
+			logger.Errorf("Failed to add phase %s: %v", phase.GetName(), err)
+		}
+	}
+
+	// 设置阶段检查顺序
+	phaseOrder := make([]int32, 0, len(ai.config.Phases))
+	for _, phaseConfig := range ai.config.Phases {
+		phaseOrder = append(phaseOrder, phaseConfig.ID)
+	}
+
+	return ai.phaseManager.SetPhaseOrder(phaseOrder)
+}
+
+// configureSkillSystem 配置技能系统
+func (ai *BossAIManager) configureSkillSystem() error {
+	skillPriority := make([]int32, 0, len(ai.config.Skills))
+
+	for _, skillConfig := range ai.config.Skills {
+		skill := NewBossSkill(skillConfig.ID, skillConfig.Name)
+		skill.SetCooldown(skillConfig.Cooldown)
+		skill.SetRange(skillConfig.Range)
+		skill.SetCastTime(skillConfig.CastTime)
+
+		// 添加条件
+		for _, condition := range skillConfig.Conditions {
+			skill.AddCondition(SkillCondition{
+				Type:     condition.Type,
+				Params:   condition.Params,
+				Operator: condition.Operator,
+				SubConds: convertToSkillConditions(condition.SubConds),
+			})
+		}
+
+		// 添加效果
+		for _, effect := range skillConfig.Effects {
+			skill.AddEffect(effect)
+		}
+
+		if err := ai.skillManager.AddSkill(skill); err != nil {
+			logger.Errorf("Failed to add skill %s: %v", skill.GetName(), err)
+		} else {
+			skillPriority = append(skillPriority, skillConfig.ID)
+		}
+	}
+
+	// 设置技能优先级
+	return ai.skillManager.SetSkillPriority(skillPriority)
+}
+
+// configurePlugins 配置插件
+func (ai *BossAIManager) configurePlugins() error {
+	for _, pluginConfig := range ai.config.Plugins {
+		if !pluginConfig.Enabled {
+			continue
+		}
+
+		var plugin IAIPlugin
+
+		switch pluginConfig.Type {
+		case "combat_analysis":
+			plugin = NewCombatAnalysisPlugin()
+		case "llm":
+			if ai.config.LLMConfig != nil && ai.config.LLMConfig.Enabled {
+				provider := NewOpenAIProvider(ai.config.LLMConfig.APIKey)
+				provider.Configure(map[string]interface{}{
+					"endpoint":    ai.config.LLMConfig.Endpoint,
+					"model":       ai.config.LLMConfig.Model,
+					"max_tokens":  ai.config.LLMConfig.MaxTokens,
+					"temperature": ai.config.LLMConfig.Temperature,
+					"timeout_ms":  int(ai.config.LLMConfig.UpdateInterval.Milliseconds()),
+				})
+				plugin = NewLLMPlugin(provider)
+			}
+		default:
+			logger.Warnf("Unknown plugin type: %s", pluginConfig.Type)
+			continue
+		}
+
+		if plugin != nil {
+			plugin.SetConfig(pluginConfig.Config)
+			plugin.SetPriority(pluginConfig.Priority)
+
+			if err := ai.AddPlugin(plugin); err != nil {
+				logger.Errorf("Failed to add plugin %s: %v", pluginConfig.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// Update 更新Boss AI
+func (ai *BossAIManager) Update(deltaTime time.Duration) error {
+	if !ai.isInitialized || !ai.isRunning || ai.isPaused {
+		return nil
+	}
+
+	start := time.Now()
+	defer func() {
+		ai.frameTime = time.Since(start)
+		ai.totalUpdateTime += ai.frameTime
+		ai.updateCount++
+		ai.lastUpdateTime = time.Now()
+	}()
+
+	// 更新上下文
+	ai.updateContext(deltaTime)
+
+	// 更新子系统
+	if err := ai.updateSubsystems(deltaTime); err != nil {
+		return fmt.Errorf("subsystem update failed: %w", err)
+	}
+
+	// 更新插件
+	if err := ai.updatePlugins(deltaTime); err != nil {
+		return fmt.Errorf("plugin update failed: %w", err)
+	}
+
+	// 更新调试信息
+	if ai.enableDebug {
+		ai.updateDebugInfo()
+	}
+
+	return nil
+}
+
+// updateContext 更新AI上下文
+func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
+	ai.context.CurrentTime = time.Now()
+	ai.context.DeltaTime = deltaTime
+
+	// 更新战斗时间
+	if ai.boss.IsInCombat() {
+		ai.context.CombatTime += deltaTime
+	}
+
+	// 更新附近实体
+	entites := ai.boss.GetEntitesInRange(10)
+	ai.context.NearbyEnemies = make([]IEntity, 0)
+	ai.context.NearbyAllies = make([]IEntity, 0)
+	for _, entity := range entites {
+		if ai.context.Boss.IsEnemy(entity) {
+			ai.context.NearbyEnemies = append(ai.context.NearbyEnemies, entity)
+		} else if ai.context.Boss.IsAlly(entity) {
+			ai.context.NearbyAllies = append(ai.context.NearbyAllies, entity)
+		}
+	}
+
+	// 如果当前目标已死亡，则清除目标
+	if ai.context.Target != nil && !ai.context.Target.IsAlive() {
+		ai.context.Target = nil
+		ai.boss.SetCombatTarget(nil)
+	}
+
+	if len(ai.context.ActionHistory) > 50 {
+		// 限制历史记录数量
+		ai.context.ActionHistory = ai.context.ActionHistory[len(ai.context.ActionHistory)-50:]
+	}
+
+	// 重置状态变化标志
+	ai.context.IsStateChanged = false
+	ai.context.IsPhaseChanged = false
+}
+
+// updateSubsystems 更新子系统
+func (ai *BossAIManager) updateSubsystems(deltaTime time.Duration) error {
+	// 更新技能冷却
+	ai.skillManager.UpdateCooldowns()
+
+	// 更新阶段管理器
+	if err := ai.phaseManager.Update(ai.context, deltaTime); err != nil {
+		return fmt.Errorf("phase manager update failed: %w", err)
+	}
+
+	// 更新状态机
+	if err := ai.stateMachine.Update(ai.context, deltaTime); err != nil {
+		return fmt.Errorf("state machine update failed: %w", err)
+	}
+
+	return nil
+}
+
+// updatePlugins 更新插件
+func (ai *BossAIManager) updatePlugins(deltaTime time.Duration) error {
+	for _, pluginName := range ai.pluginOrder {
+		plugin := ai.plugins[pluginName]
+		if err := plugin.Update(ai.context, deltaTime); err != nil {
+			logger.Errorf("Plugin %s update failed: %v", pluginName, err)
+		}
+	}
+
+	return nil
+}
+
+// Destroy 销毁AI管理器
+func (ai *BossAIManager) Destroy() error {
+	ai.mutex.Lock()
+	defer ai.mutex.Unlock()
+
+	ai.isRunning = false
+
+	// 清理插件
+	for _, plugin := range ai.plugins {
+		if err := plugin.Cleanup(); err != nil {
+			logger.Errorf("Plugin %s cleanup failed: %v", plugin.GetName(), err)
+		}
+	}
+
+	// 清理子系统
+	ai.stateMachine.Destroy()
+	ai.phaseManager.Destroy()
+
+	// 重置行为树
+	for _, tree := range ai.behaviorTrees {
+		tree.Reset()
+	}
+
+	logger.Debugf("BossAI destroyed for entity %d", ai.boss.GetID())
+	return nil
+}
+
+func convertToSkillConditions(conditions []PhaseCondition) []SkillCondition {
+	result := make([]SkillCondition, len(conditions))
+	for i, cond := range conditions {
+		result[i] = SkillCondition{
+			Type:     cond.Type,
+			Params:   cond.Params,
+			Operator: cond.Operator,
+			SubConds: convertToSkillConditions(cond.SubConds),
+		}
+	}
+	return result
 }

@@ -52,6 +52,25 @@ func (s *BaseBossState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *BaseBossState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
+	// 检查是否有逃跑标记
+	if ctx.CustomData != nil {
+		if shouldEscape, ok := ctx.CustomData["should_escape"].(bool); ok && shouldEscape {
+			// 清除标记
+			ctx.CustomData["should_escape"] = false
+
+			// 如果当前不是逃跑状态，则触发状态转换到逃跑状态
+			if s.id != StateRetreat {
+				// 这里我们不能直接转换状态，而是通过返回特定错误或设置标记来通知状态机
+				// 在实际实现中，状态机应该定期检查这个条件
+				if stateMachine := ctx.GetStateMachine(); stateMachine != nil {
+					// 尝试强制转换到逃跑状态
+					stateMachine.ForceTransition(StateRetreat, ctx)
+					return nil
+				}
+			}
+		}
+	}
+
 	// 执行行为树
 	if s.behaviorTree != nil && ctx.CurrentTime.Sub(s.lastBehaviorTime) >= s.behaviorInterval {
 		s.lastBehaviorTime = ctx.CurrentTime
@@ -210,20 +229,20 @@ func (s *BaseBossState) evaluateCondition(condition PhaseCondition, ctx *BossCon
 		}
 		return s.GetTimeInState(ctx.CurrentTime) >= duration
 
-	case CondSkillUsed:
-		skillID, ok := condition.Params["skill_id"].(int32)
-		if !ok {
-			return false
-		}
-		count, exists := ctx.SkillsUsed[skillID]
-		if !exists {
-			return false
-		}
-		minCount, ok := condition.Params["min_count"].(int)
-		if !ok {
-			minCount = 1
-		}
-		return count >= minCount
+	// case CondSkillUsed:
+	// 	skillID, ok := condition.Params["skill_id"].(int32)
+	// 	if !ok {
+	// 		return false
+	// 	}
+	// 	count, exists := ctx.SkillsUsed[skillID]
+	// 	if !exists {
+	// 		return false
+	// 	}
+	// 	minCount, ok := condition.Params["min_count"].(int)
+	// 	if !ok {
+	// 		minCount = 1
+	// 	}
+	// 	return count >= minCount
 
 	case CondTargetCount:
 		minCount, ok := condition.Params["min_count"].(int)
@@ -429,12 +448,19 @@ func (s *PatrolState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error 
 // ChaseState 追击状态 - 现在依赖行为树执行具体行为
 type ChaseState struct {
 	*BaseBossState
+	maxChaseDistance float64
+	// 位置变化检测和执行间隔限制
+	lastTargetPos   coord.Vector3 // 记录目标的上次位置
+	lastMoveTime    time.Time     // 上次执行MoveTo的时间
+	moveInterval    time.Duration // MoveTo执行间隔
+	minMoveDistance float64       // 目标位置变化的最小距离阈值
 }
 
 func NewChaseState() *ChaseState {
 	base := NewBaseBossState(StateChase, "Chase")
 	return &ChaseState{
-		BaseBossState: base,
+		BaseBossState:    base,
+		maxChaseDistance: 50.0,
 	}
 }
 
@@ -442,6 +468,8 @@ func (s *ChaseState) OnEnter(ctx *BossContext) error {
 	if err := s.BaseBossState.OnEnter(ctx); err != nil {
 		return err
 	}
+	// 这里需要记录开始追击的原始位置，怪物在返回时需要回到这个位置
+	ctx.OriginPosition = ctx.Boss.GetPos()
 
 	// 控制Monster真实状态
 	ctx.Boss.Chase()
@@ -450,7 +478,66 @@ func (s *ChaseState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 调用基类的OnUpdate，它将执行行为树
+	if ctx.Target == nil || !ctx.Target.IsAlive() {
+		return nil
+	}
+	s.moveInterval = time.Duration(ctx.Boss.GetStepTime() * 1000)
+	// 检查距离
+	bossPos := ctx.Boss.GetPos()
+	targetPos := ctx.Target.GetPos()
+	distance := calculateDistance(
+		float64(bossPos.X), float64(bossPos.Y),
+		float64(targetPos.X), float64(targetPos.Y),
+	)
+
+	if distance > s.maxChaseDistance {
+		// 超出追击范围，放弃目标
+		ctx.Target = nil
+		ctx.Boss.SetCombatTarget(nil)
+		return nil
+	}
+
+	// 到达攻击范围
+	if ctx.Boss.IsInAttackRange(targetPos.X, targetPos.Y) {
+		return nil
+	}
+
+	// 检查是否需要执行MoveTo（优化性能）
+	needMove := false
+
+	// 1. 检查时间间隔限制
+	if ctx.CurrentTime.Sub(s.lastMoveTime) >= s.moveInterval {
+		// 2. 检查目标位置是否发生显著变化
+		targetMoveDistance := calculateDistance(
+			float64(s.lastTargetPos.X), float64(s.lastTargetPos.Y),
+			float64(targetPos.X), float64(targetPos.Y),
+		)
+
+		// 目标位置变化超过阈值，或者是第一次执行
+		if targetMoveDistance >= 2.0 || s.lastTargetPos.X == 0 {
+			needMove = true
+		}
+	}
+
+	if needMove {
+		// 执行移动
+		err := ctx.Boss.MoveTo(targetPos.X, targetPos.Y, targetPos.Z)
+		if err != nil {
+			logger.Debugf("ChaseTarget: MoveTo failed: %v", err)
+			return err
+		}
+
+		// 更新记录
+		s.lastMoveTime = ctx.CurrentTime
+		s.lastTargetPos = targetPos
+
+		logger.Debugf("ChaseTarget: Moving to target (%.2f, %.2f), distance: %.2f",
+			float64(targetPos.X), float64(targetPos.Y), distance)
+	} else {
+		// 不需要移动，节省性能
+		// logger.Debugf("ChaseTarget: Skipping MoveTo - target position unchanged or interval not reached")
+	}
+
 	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
@@ -485,20 +572,14 @@ func (s *AttackState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error 
 // RetreatState 返回/撤退状态
 type RetreatState struct {
 	*BaseBossState
-	spawnPoint   Position
-	moveSpeed    float64
-	healRate     float64
-	damageReduce float64
+	lastMoveTime time.Time     // 上次执行MoveTo的时间
+	moveInterval time.Duration // MoveTo执行间隔
 }
 
 func NewRetreatState(spawnPoint Position) *RetreatState {
 	base := NewBaseBossState(StateRetreat, "Retreat")
 	return &RetreatState{
 		BaseBossState: base,
-		spawnPoint:    spawnPoint,
-		moveSpeed:     100.0, // 2倍速度
-		healRate:      0.05,  // 每秒恢复5%生命值
-		damageReduce:  0.5,   // 减少50%伤害
 	}
 }
 
@@ -509,19 +590,43 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 
 	// 控制Monster真实状态
 	ctx.Boss.Escape()
-
+	// 返回出生点
+	ctx.Boss.MoveTo(ctx.OriginPosition.X, ctx.OriginPosition.Y, ctx.OriginPosition.Z)
 	// 清除战斗目标
 	ctx.Target = nil
 	ctx.Boss.SetCombatTarget(nil)
 
 	logger.Debugf("Boss %d retreating to spawn point (%f, %f)",
-		ctx.Boss.GetID(), s.spawnPoint.X, s.spawnPoint.Y)
+		ctx.Boss.GetID(), ctx.OriginPosition.X, ctx.OriginPosition.Y)
 
 	return nil
 }
 
 func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 调用基类的OnUpdate，它将执行行为树
+	// 获取出生点参数
+	if !ctx.Boss.IsEscaping() {
+		ctx.Boss.MoveTo(ctx.OriginPosition.X, ctx.OriginPosition.Y, ctx.OriginPosition.Z)
+	}
+
+	// 获取移动间隔参数
+	moveInterval := time.Duration(ctx.Boss.GetStepTime() * 1000)
+
+	if ctx.CurrentTime.Sub(s.lastMoveTime) >= moveInterval {
+		bossPos := ctx.Boss.GetPos()
+		distance := calculateDistance(
+			float64(bossPos.X), float64(bossPos.Y),
+			float64(ctx.OriginPosition.X), float64(ctx.OriginPosition.Y),
+		)
+
+		if distance <= 1 {
+			// 到达目的地,请求转换到idle状态
+			reason := "ReturnToSpawn"
+			ctx.RequestStateTransition(StateIdle, reason, 100) // 高优先级
+			logger.Debugf("ReturnToSpawn: Moved to spawn point (%.2f, %.2f), distance: %.2f",
+				ctx.OriginPosition.X, ctx.OriginPosition.Y, distance)
+		}
+		s.lastMoveTime = ctx.CurrentTime
+	}
 	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 

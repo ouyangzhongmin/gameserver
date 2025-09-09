@@ -8,6 +8,215 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 )
 
+// 基础节点定义（用于支持复杂行为树）
+// NodeExecuteState 节点执行状态
+type NodeExecuteState int
+
+const (
+	NodeStateIdle     NodeExecuteState = iota // 空闲状态
+	NodeStateRunning                          // 运行中
+	NodeStateComplete                         // 已完成
+	NodeStateFailed                           // 失败
+)
+
+// BaseBehaviorNode 基础行为树节点
+type BaseBehaviorNode struct {
+	name     string
+	nodeType BehaviorNodeType
+	children []IBehaviorNode
+	parent   IBehaviorNode
+
+	// 节点执行状态管理
+	executeState NodeExecuteState // 节点执行状态
+	lastResult   BehaviorResult   // 最后执行结果
+	executeCount int64            // 执行次数
+	startTime    time.Time        // 开始执行时间
+
+	// 性能监控
+	totalExecuteTime time.Duration
+	lastExecuteTime  time.Time
+
+	// 配置参数
+	params map[string]interface{}
+}
+
+// NewBaseBehaviorNode 创建基础行为节点
+func NewBaseBehaviorNode(name string, nodeType BehaviorNodeType) *BaseBehaviorNode {
+	return &BaseBehaviorNode{
+		name:     name,
+		nodeType: nodeType,
+		children: make([]IBehaviorNode, 0),
+		params:   make(map[string]interface{}),
+	}
+}
+
+func (n *BaseBehaviorNode) GetName() string {
+	return n.name
+}
+
+func (n *BaseBehaviorNode) GetType() BehaviorNodeType {
+	return n.nodeType
+}
+
+func (n *BaseBehaviorNode) AddChild(child IBehaviorNode) error {
+	n.children = append(n.children, child)
+	return nil
+}
+
+func (n *BaseBehaviorNode) GetChildren() []IBehaviorNode {
+	return n.children
+}
+
+func (n *BaseBehaviorNode) Execute(ctx *BossContext) BehaviorResult {
+	// 如果节点已完成，直接返回结果
+	if n.executeState == NodeStateComplete {
+		return n.lastResult
+	}
+
+	// 如果节点失败，直接返回失败结果
+	if n.executeState == NodeStateFailed {
+		return ResultFailure
+	}
+
+	// 开始执行节点
+	if n.executeState == NodeStateIdle {
+		n.executeState = NodeStateRunning
+		n.startTime = ctx.CurrentTime
+		n.executeCount++
+	}
+
+	n.lastExecuteTime = ctx.CurrentTime
+	start := time.Now()
+
+	defer func() {
+		n.totalExecuteTime += time.Since(start)
+	}()
+
+	// 基础节点不执行任何操作
+	n.executeState = NodeStateFailed
+	n.lastResult = ResultFailure
+	return ResultFailure
+}
+
+func (n *BaseBehaviorNode) Reset() {
+	n.executeState = NodeStateIdle
+	n.lastResult = ResultFailure
+
+	// 递归重置子节点
+	for _, child := range n.children {
+		child.Reset()
+	}
+}
+
+func (n *BaseBehaviorNode) SetParams(val map[string]interface{}) {
+	if val != nil {
+		for key, value := range val {
+			n.params[key] = value
+		}
+	}
+}
+
+func (n *BaseBehaviorNode) SetParam(key string, value interface{}) {
+	n.params[key] = value
+}
+
+func (n *BaseBehaviorNode) GetParam(key string) interface{} {
+	return n.params[key]
+}
+
+func (n *BaseBehaviorNode) GetParamAsInt(key string, defaultValue int) int {
+	if value, exists := n.params[key]; exists {
+		if intValue, ok := value.(int); ok {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func (n *BaseBehaviorNode) GetParamAsFloat64(key string, defaultValue float64) float64 {
+	if value, exists := n.params[key]; exists {
+		if floatValue, ok := value.(float64); ok {
+			return floatValue
+		}
+	}
+	return defaultValue
+}
+
+func (n *BaseBehaviorNode) GetParamAsString(key string, defaultValue string) string {
+	if value, exists := n.params[key]; exists {
+		if strValue, ok := value.(string); ok {
+			return strValue
+		}
+	}
+	return defaultValue
+}
+
+func (n *BaseBehaviorNode) GetParamAsBool(key string, defaultValue bool) bool {
+	if value, exists := n.params[key]; exists {
+		if boolValue, ok := value.(bool); ok {
+			return boolValue
+		}
+	}
+	return defaultValue
+}
+
+// CheckStateAndBeginExecution 检查状态并开始执行（通用方法）
+func (n *BaseBehaviorNode) CheckStateAndBeginExecution(ctx *BossContext) BehaviorResult {
+	// 如果节点已完成，直接返回结果
+	if n.executeState == NodeStateComplete {
+		return n.lastResult
+	}
+
+	// 如果节点失败，直接返回失败结果
+	if n.executeState == NodeStateFailed {
+		return ResultFailure
+	}
+
+	// 开始执行节点
+	if n.executeState == NodeStateIdle {
+		n.executeState = NodeStateRunning
+		n.startTime = ctx.CurrentTime
+		n.executeCount++
+	}
+
+	n.lastExecuteTime = ctx.CurrentTime
+	return ResultRunning // 表示需要继续执行
+}
+
+// SetComplete 设置节点完成状态
+func (n *BaseBehaviorNode) SetComplete(result BehaviorResult) {
+	n.executeState = NodeStateComplete
+	n.lastResult = result
+}
+
+// SetFailed 设置节点失败状态
+func (n *BaseBehaviorNode) SetFailed() {
+	n.executeState = NodeStateFailed
+	n.lastResult = ResultFailure
+}
+
+// ActionNode 行为节点基类
+type ActionNode struct {
+	*BaseBehaviorNode
+}
+
+func NewActionNode(name string) *ActionNode {
+	return &ActionNode{
+		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeAction),
+	}
+}
+
+// ConditionNode 条件节点基类
+type ConditionNode struct {
+	*BaseBehaviorNode
+}
+
+func NewConditionNode(name string) *ConditionNode {
+	return &ConditionNode{
+		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeCondition),
+	}
+}
+
 // BehaviorTree 行为树
 type BehaviorTree struct {
 	name      string

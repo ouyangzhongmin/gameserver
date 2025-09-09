@@ -91,9 +91,9 @@ type BossContext struct {
 	SkillsUsed     map[int32]int // skillID -> usage count
 
 	// 环境信息（由BossAIManager在updateContext中更新）
-	NearbyEnemies []IEntity // 附近敌人
-	NearbyAllies  []IEntity // 附近盟友
-	Position      coord.Vector3
+	NearbyEnemies  []IEntity     // 附近敌人
+	NearbyAllies   []IEntity     // 附近盟友
+	OriginPosition coord.Vector3 // 追击前的原始位置
 
 	// AI决策缓存
 	LastAction    *AIAction
@@ -101,6 +101,35 @@ type BossContext struct {
 
 	// 自定义数据
 	CustomData map[string]interface{}
+
+	// 状态转换请求
+	stateTransitionRequest *StateTransitionRequest
+}
+
+// StateTransitionRequest 状态转换请求
+type StateTransitionRequest struct {
+	TargetState BossStateID
+	Reason      string
+	Priority    int
+}
+
+// RequestStateTransition 请求状态转换
+func (ctx *BossContext) RequestStateTransition(stateID BossStateID, reason string, priority int) {
+	ctx.stateTransitionRequest = &StateTransitionRequest{
+		TargetState: stateID,
+		Reason:      reason,
+		Priority:    priority,
+	}
+}
+
+// GetStateTransitionRequest 获取状态转换请求
+func (ctx *BossContext) GetStateTransitionRequest() *StateTransitionRequest {
+	return ctx.stateTransitionRequest
+}
+
+// ClearStateTransitionRequest 清除状态转换请求
+func (ctx *BossContext) ClearStateTransitionRequest() {
+	ctx.stateTransitionRequest = nil
 }
 
 // GetEnemiesInRange 从已缓存的NearbyEnemies中筛选指定范围内的敌人
@@ -305,8 +334,18 @@ type StateConfig struct {
 	ID          BossStateID            `json:"id"`
 	Name        string                 `json:"name"`
 	Transitions []StateTransition      `json:"transitions"`
-	Behaviors   []string               `json:"behaviors"`
+	Behaviors   interface{}            `json:"behaviors"` // 支持字符串数组或复杂行为树配置
 	Modifiers   map[string]interface{} `json:"modifiers,omitempty"`
+}
+
+// BehaviorConfig 行为配置结构
+type BehaviorConfig struct {
+	Type     string                 `json:"type"`               // random, sequence, selector, repeat, node
+	Node     string                 `json:"node,omitempty"`     // 对于node类型，指定具体的行为节点名称
+	Params   map[string]interface{} `json:"params,omitempty"`   // 自定义参数
+	Rand     int                    `json:"rand,omitempty"`     // 随机概率权重（仅用于random类型）
+	Count    int                    `json:"count,omitempty"`    // 重复次数（仅用于repeat类型）
+	Children []BehaviorConfig       `json:"children,omitempty"` // 子节点
 }
 
 type StateTransition struct {

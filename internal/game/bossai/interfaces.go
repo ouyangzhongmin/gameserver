@@ -56,15 +56,17 @@ type IBossEntity interface {
 
 	// 技能相关
 	CanUseSkill(skillID int32) bool
+	IsSkillInCD(skillID int32) bool // 获取技能是否还在cd中
+	// 获取一个可以释放的技能，这个技能的获取可以按配置的规则
+	// 比如:血量低于50%优先获取回血的技能释放，蓝量低于50%优先获取回蓝技能，有霸体技能cd好了则优先霸体技能
+	GetAvailableSkill(rules string) int32
+	IsInSkillAttackRange(skillID int32, x, y coord.Coord) bool
 	UseSkill(skillID int32, target IEntity) error
-	GetSkillCooldown(skillID int32) time.Duration
 
 	// 战斗功能（复用Monster基础功能）
 	DoAttackTarget(target IEntity) error                               // 复用Monster的doAttackTarget方法
 	GetCanAttackPos(target IEntity, offset int) (coord.Vector3, error) // 复用Monster的GetCanAttackPos方法
 	GetStepTime() int                                                  // 复用Monster的getStepTime方法
-	GetCanUseSpell(spellType int) interface{}                          // 复用Monster的GetCanUseSpell方法
-	IsInSpellAttackRange(spell interface{}, x, y coord.Coord) bool     // 复用Monster的IsInSpellAttackRange方法
 
 	// 状态相关
 	IsInCombat() bool
@@ -122,6 +124,8 @@ type IBehaviorNode interface {
 	// 子节点管理 (仅组合节点需要)
 	AddChild(child IBehaviorNode) error
 	GetChildren() []IBehaviorNode
+
+	SetParams(val map[string]interface{})
 }
 
 // IBossSkill Boss技能接口

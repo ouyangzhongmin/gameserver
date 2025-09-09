@@ -536,10 +536,9 @@ Respond in JSON format with the following structure:
 }
 
 func (p *OpenAIProvider) buildAdaptationPrompt(feedback *ActionFeedback) string {
-	prompt := fmt.Sprintf(`Analyze the effectiveness of a recent boss action and suggest behavioral adjustments.
+	prompt := fmt.Sprintf(`Based on this action feedback, suggest behavior adjustments:
 
-Action Performed:
-- Type: %s
+- Action Type: %d
 - Success: %t
 - Damage Dealt: %d
 - Damage Received: %d
@@ -559,7 +558,7 @@ Respond in JSON format:
     "confidence": 0.0-1.0,
     "reasoning": "explanation of adjustments"
 }`,
-		feedback.Action.Type,
+		int(feedback.Action.Type),
 		feedback.Success,
 		feedback.DamageDealt,
 		feedback.DamageReceived,

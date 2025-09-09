@@ -7,7 +7,6 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/bossai"
-	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 )
@@ -262,18 +261,55 @@ func (b *BossEntityAdapter) GetPatrolPoints() []coord.Vector3 {
 
 func (b *BossEntityAdapter) CanUseSkill(skillID int32) bool {
 	// 复用Monster的技能检查逻辑
-	return b.monster.GetCanUseSpell(0) != nil
+	spell := b.monster.GetSpell(int64(skillID))
+	if spell == nil {
+		logger.Println("Invalid spell ID")
+		return false
+	}
+	return spell.CurCdTime <= 0 && b.monster.Mana >= spell.Data.Mana
+}
+
+// 获取技能是否还在cd中
+func (b *BossEntityAdapter) IsSkillInCD(skillID int32) bool {
+	spell := b.monster.GetSpell(int64(skillID))
+	if spell == nil {
+		logger.Println("Invalid spell ID")
+		return true
+	}
+	return spell.CurCdTime > 0
+}
+
+// 获取指定类型的可用技能
+func (b *BossEntityAdapter) GetAvailableSkill(rules string) int32 {
+	spell := b.monster.GetCanUseSpell(0)
+	if spell == nil {
+		return 0
+	}
+	return int32(spell.Id)
+}
+
+// 复用Monster的技能范围检查
+func (b *BossEntityAdapter) IsInSkillAttackRange(skillID int32, x, y coord.Coord) bool {
+	spell := b.monster.GetSpell(int64(skillID))
+	if spell == nil {
+		logger.Println("Invalid spell ID")
+		return false
+	}
+	return b.monster.IsInSpellAttackRange(spell, x, y)
 }
 
 func (b *BossEntityAdapter) UseSkill(skillID int32, target bossai.IEntity) error {
 	// 复用Monster的技能释放逻辑
-	spell := b.monster.GetCanUseSpell(0)
-	if spell != nil {
-		if entityAdapter, ok := target.(*EntityAdapter); ok {
-			return b.monster.SpellAttack(spell, entityAdapter.entity)
-		}
+	spell := b.monster.GetSpell(int64(skillID))
+	if spell == nil {
+		logger.Println("Invalid spell ID")
+		return fmt.Errorf("skill %d not available", skillID)
 	}
-	return fmt.Errorf("skill %d not available or invalid target", skillID)
+	if entityAdapter, ok := target.(*EntityAdapter); ok {
+		return b.monster.SpellAttack(spell, entityAdapter.entity)
+	}
+
+	return fmt.Errorf("skill:%d use invalid target", skillID)
 }
 
 // 复用Monster的基础攻击功能
@@ -296,24 +332,6 @@ func (b *BossEntityAdapter) GetCanAttackPos(target bossai.IEntity, offset int) (
 // 复用Monster的移动速度计算
 func (b *BossEntityAdapter) GetStepTime() int {
 	return b.monster.getStepTime()
-}
-
-// 复用Monster的技能范围检查
-func (b *BossEntityAdapter) IsInSpellAttackRange(spell interface{}, x, y coord.Coord) bool {
-	if spellObj, ok := spell.(*object.SpellObject); ok {
-		return b.monster.IsInSpellAttackRange(spellObj, x, y)
-	}
-	return false
-}
-
-// 获取指定类型的可用技能
-func (b *BossEntityAdapter) GetCanUseSpell(spellType int) interface{} {
-	return b.monster.GetCanUseSpell(spellType)
-}
-
-func (b *BossEntityAdapter) GetSkillCooldown(skillID int32) time.Duration {
-	// 获取技能冷却时间
-	return time.Duration(b.monster.Data.AttackDuration) * time.Millisecond
 }
 
 func (b *BossEntityAdapter) IsInCombat() bool {
@@ -441,22 +459,25 @@ func (b *BossEntityAdapter) Die() {
 }
 
 func (b *BossEntityAdapter) IsIdle() bool {
-	return b.monster.IsIdle()
+	return b.monster.GetState() == constants.ACTION_STATE_IDLE
 }
 func (b *BossEntityAdapter) IsWalking() bool {
-	return b.monster.IsWalking()
+	return b.monster.GetState() == constants.ACTION_STATE_WALK
+}
+func (b *BossEntityAdapter) IsRunning() bool {
+	return b.monster.GetState() == constants.ACTION_STATE_RUN
 }
 func (b *BossEntityAdapter) IsAttacking() bool {
-	return b.monster.IsAttacking()
+	return b.monster.GetState() == constants.ACTION_STATE_ATTACK
 }
 func (b *BossEntityAdapter) IsChasing() bool {
-	return b.monster.IsChasing()
+	return b.monster.GetState() == constants.ACTION_STATE_CHASE
 }
 func (b *BossEntityAdapter) IsEscaping() bool {
-	return b.monster.IsEscaping()
+	return b.monster.GetState() == constants.ACTION_STATE_ESCAPE
 }
-func (b *BossEntityAdapter) IsDying() bool {
-	return b.monster.IsDying()
+func (b *BossEntityAdapter) IsDied() bool {
+	return b.monster.GetState() == constants.ACTION_STATE_DIE
 }
 
 // 使用示例函数

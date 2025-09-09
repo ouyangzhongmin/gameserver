@@ -652,6 +652,18 @@ func (m *Monster) getStepTime() int {
 	return stepTime
 }
 
+func (m *Monster) GetSpell(spellId int64) *object.SpellObject {
+	if m.spells == nil || len(m.spells) == 0 {
+		return nil
+	}
+	for _, spell := range m.spells {
+		if spell.Id == spellId {
+			return spell
+		}
+	}
+	return nil
+}
+
 func (m *Monster) GetCanUseSpell(spellType int) *object.SpellObject {
 	if m.spells == nil || len(m.spells) == 0 {
 		return nil
