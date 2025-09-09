@@ -128,30 +128,6 @@ type IBehaviorNode interface {
 	SetParams(val map[string]interface{})
 }
 
-// IBossSkill Boss技能接口
-type IBossSkill interface {
-	GetID() int32
-	GetName() string
-	GetCooldown() time.Duration
-	GetRange() float64
-	GetCastTime() time.Duration
-
-	// 技能条件检查
-	CanUse(ctx *BossContext) bool
-	IsAvailable(ctx *BossContext) bool     // 检查技能是否可用（综合冷却、范围等）
-	CheckConditions(ctx *BossContext) bool // 检查技能条件
-	GetTargets(ctx *BossContext) []IEntity
-
-	// 技能执行
-	Cast(ctx *BossContext, targets []IEntity) error
-
-	// 冷却管理
-	StartCooldown()
-	IsOnCooldown() bool
-	IsOffCooldown() bool // 检查技能是否不在冷却中
-	GetRemainingCooldown() time.Duration
-}
-
 // IBossPhase Boss阶段接口
 type IBossPhase interface {
 	GetID() int32
@@ -232,23 +208,6 @@ type IBossAI interface {
 	// 配置和调试
 	LoadConfig(config *BossConfig) error
 	GetDebugInfo() *AIDebugInfo
-}
-
-// ISkillManager 技能管理器接口
-type ISkillManager interface {
-	// 技能管理
-	AddSkill(skill IBossSkill) error
-	RemoveSkill(skillID int32) error
-	GetSkill(skillID int32) (IBossSkill, error)
-	GetAllSkills() []IBossSkill
-
-	// 技能优先级
-	SetSkillPriority(priorities []int32) error
-	GetSkillPriority() []int32
-
-	// 冷却管理
-	UpdateCooldowns()
-	GetAvailableSkills(ctx *BossContext) []IBossSkill
 }
 
 // IPhaseManager 阶段管理器接口

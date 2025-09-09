@@ -18,7 +18,6 @@ type BossAIManager struct {
 	// 子系统
 	stateMachine  *StateMachine
 	phaseManager  *PhaseManager
-	skillManager  *SkillManager
 	behaviorTrees map[string]*BehaviorTree
 	plugins       map[string]IAIPlugin
 	pluginOrder   []string
@@ -50,7 +49,6 @@ func NewBossAIManager() *BossAIManager {
 	return &BossAIManager{
 		stateMachine:  NewStateMachine(),
 		phaseManager:  NewPhaseManager(),
-		skillManager:  NewSkillManager(),
 		behaviorTrees: make(map[string]*BehaviorTree),
 		plugins:       make(map[string]IAIPlugin),
 		pluginOrder:   make([]string, 0),
@@ -127,11 +125,6 @@ func (ai *BossAIManager) applyConfiguration() error {
 	// 配置阶段系统
 	if err := ai.configurePhaseSystem(); err != nil {
 		return fmt.Errorf("failed to configure phase system: %w", err)
-	}
-
-	// 配置技能系统
-	if err := ai.configureSkillSystem(); err != nil {
-		return fmt.Errorf("failed to configure skill system: %w", err)
 	}
 
 	// 配置插件
@@ -741,42 +734,6 @@ func (ai *BossAIManager) configurePhaseSystem() error {
 	return ai.phaseManager.SetPhaseOrder(phaseOrder)
 }
 
-// configureSkillSystem 配置技能系统
-func (ai *BossAIManager) configureSkillSystem() error {
-	skillPriority := make([]int32, 0, len(ai.config.Skills))
-
-	for _, skillConfig := range ai.config.Skills {
-		skill := NewBossSkill(skillConfig.ID, skillConfig.Name)
-		skill.SetCooldown(skillConfig.Cooldown)
-		skill.SetRange(skillConfig.Range)
-		skill.SetCastTime(skillConfig.CastTime)
-
-		// 添加条件
-		for _, condition := range skillConfig.Conditions {
-			skill.AddCondition(SkillCondition{
-				Type:     condition.Type,
-				Params:   condition.Params,
-				Operator: condition.Operator,
-				SubConds: convertToSkillConditions(condition.SubConds),
-			})
-		}
-
-		// 添加效果
-		for _, effect := range skillConfig.Effects {
-			skill.AddEffect(effect)
-		}
-
-		if err := ai.skillManager.AddSkill(skill); err != nil {
-			logger.Errorf("Failed to add skill %s: %v", skill.GetName(), err)
-		} else {
-			skillPriority = append(skillPriority, skillConfig.ID)
-		}
-	}
-
-	// 设置技能优先级
-	return ai.skillManager.SetSkillPriority(skillPriority)
-}
-
 // configurePlugins 配置插件
 func (ai *BossAIManager) configurePlugins() error {
 	for _, pluginConfig := range ai.config.Plugins {
@@ -894,9 +851,6 @@ func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
 
 // updateSubsystems 更新子系统
 func (ai *BossAIManager) updateSubsystems(deltaTime time.Duration) error {
-	// 更新技能冷却
-	ai.skillManager.UpdateCooldowns()
-
 	// 更新阶段管理器
 	if err := ai.phaseManager.Update(ai.context, deltaTime); err != nil {
 		return fmt.Errorf("phase manager update failed: %w", err)
@@ -947,17 +901,4 @@ func (ai *BossAIManager) Destroy() error {
 
 	logger.Debugf("BossAI destroyed for entity %d", ai.boss.GetID())
 	return nil
-}
-
-func convertToSkillConditions(conditions []PhaseCondition) []SkillCondition {
-	result := make([]SkillCondition, len(conditions))
-	for i, cond := range conditions {
-		result[i] = SkillCondition{
-			Type:     cond.Type,
-			Params:   cond.Params,
-			Operator: cond.Operator,
-			SubConds: convertToSkillConditions(cond.SubConds),
-		}
-	}
-	return result
 }
