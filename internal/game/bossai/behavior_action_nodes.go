@@ -37,18 +37,18 @@ func NewRandomMoveActionNode(name string) *RandomMoveActionNode {
 
 func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	// 使用基类的通用状态检查
-	if stateResult := n.ActionNode.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
+	if stateResult := n.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
 		return stateResult
 	}
 
 	// 检查移动时间间隔
 	if ctx.CurrentTime.Sub(n.lastMoveTime) < n.moveInterval {
-		n.ActionNode.SetComplete(ResultFailure)
+		n.SetComplete(ResultFailure)
 		return ResultFailure
 	}
 
 	if ctx.Boss.IsChasing() || ctx.Boss.IsEscaping() || ctx.Boss.IsAttacking() || ctx.Boss.IsDied() {
-		n.ActionNode.SetComplete(ResultFailure)
+		n.SetComplete(ResultFailure)
 		return ResultFailure
 	}
 
@@ -70,7 +70,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	if !n.hasTarget {
 		rpos, err := ctx.Boss.GetRandomPos(n.moveRadius)
 		if err != nil {
-			n.ActionNode.SetFailed()
+			n.SetFailed()
 			return ResultFailure
 		}
 		n.targetX = int(rpos.X)
@@ -90,7 +90,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 		logger.Debugf("RandomMove: Reached target, distance: %.2f", dist)
 		n.lastMoveTime = ctx.CurrentTime
 		n.hasTarget = false // 清除目标，下次会重新生成
-		n.ActionNode.SetComplete(ResultSuccess)
+		n.SetComplete(ResultSuccess)
 		return ResultSuccess
 	}
 
@@ -105,7 +105,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	if err != nil {
 		logger.Debugf("RandomMove: MoveTo failed: %v", err)
 		n.hasTarget = false // 移动失败，清除目标
-		n.ActionNode.SetFailed()
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -280,14 +280,14 @@ func NewScanEnemiesActionNode(name string) *ScanEnemiesActionNode {
 }
 
 func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
-	// 使用基类的通用状态检查
-	if stateResult := n.ActionNode.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
-		return stateResult
-	}
-
 	// 检查扫描时间间隔
 	if ctx.CurrentTime.Sub(n.lastScanTime) < n.scanInterval {
-		n.ActionNode.SetComplete(ResultFailure)
+		n.SetComplete(ResultFailure)
+		return ResultFailure
+	}
+
+	if ctx.Target != nil && ctx.Target.IsAlive() {
+		n.SetComplete(ResultFailure)
 		return ResultFailure
 	}
 
@@ -308,12 +308,7 @@ func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
 	}
 
 	n.lastScanTime = ctx.CurrentTime
-	n.ActionNode.SetComplete(ResultSuccess)
 	return ResultSuccess
-}
-
-func (n *ScanEnemiesActionNode) Reset() {
-	n.ActionNode.Reset() // 调用基类的Reset
 }
 
 // BasicAttackActionNode 基础攻击节点
@@ -332,12 +327,12 @@ func NewBasicAttackActionNode(name string) *BasicAttackActionNode {
 
 func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
 	// 使用基类的通用状态检查
-	if stateResult := n.ActionNode.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
+	if stateResult := n.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
 		return stateResult
 	}
 
 	if ctx.Target == nil || !ctx.Target.IsAlive() {
-		n.ActionNode.SetFailed()
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -359,7 +354,7 @@ func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
 	err := ctx.Boss.DoAttackTarget(ctx.Target)
 	if err != nil {
 		logger.Errorf("Basic attack failed: %v", err)
-		n.ActionNode.SetFailed()
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -379,12 +374,8 @@ func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
 	}
 	ctx.ActionHistory = append(ctx.ActionHistory, action)
 
-	n.ActionNode.SetComplete(ResultSuccess)
+	n.SetComplete(ResultSuccess)
 	return ResultSuccess
-}
-
-func (n *BasicAttackActionNode) Reset() {
-	n.ActionNode.Reset() // 调用基类的Reset
 }
 
 // SkillUsageConditionNode 技能使用条件节点
@@ -405,12 +396,12 @@ func NewSkillUsageNode(name string) *SkillUsageNode {
 
 func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 	n.ActionNode.Execute(ctx)
-	if stateResult := n.ActionNode.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
+	if stateResult := n.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
 		return stateResult
 	}
 
 	if ctx.Target == nil || !ctx.Target.IsAlive() {
-		n.ActionNode.SetFailed()
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -429,7 +420,7 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 		} else {
 			if !ctx.Boss.CanUseSkill(skillId) {
 				// 技能不可用
-				n.ActionNode.SetFailed()
+				n.SetFailed()
 				return ResultFailure
 			}
 		}
@@ -452,23 +443,23 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 
 			// 如果阶段中的技能都不可用，则技能使用失败
 			if !skillFound {
-				logger.Errorf("SkillUsageConditionNode: No available skill found in current phase")
-				n.ActionNode.SetFailed()
+				logger.Errorf("SkillUsageNode: No available skill found in current phase")
+				n.SetFailed()
 				return ResultFailure
 			}
 		}
 	}
 
 	if n.skillId == 0 {
-		logger.Errorf("SkillUsageConditionNode: No available skill found")
-		n.ActionNode.SetFailed()
+		logger.Errorf("SkillUsageNode: No available skill found")
+		n.SetFailed()
 		return ResultFailure
 	}
 
 	err := ctx.Boss.UseSkill(n.skillId, ctx.Target)
 	if err != nil {
-		logger.Errorf("SkillUsageConditionNode: UseSkill failed: %v", err)
-		n.ActionNode.SetFailed()
+		logger.Errorf("SkillUsageNode: UseSkill failed: %v", err)
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -486,25 +477,25 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 	}
 	ctx.ActionHistory = append(ctx.ActionHistory, action)
 
-	n.ActionNode.SetComplete(ResultSuccess)
+	n.SetComplete(ResultSuccess)
 	return ResultSuccess
 }
 
 // EscapeCheckConditionNode 逃跑检查条件节点
 type EscapeCheckConditionNode struct {
-	*ConditionNode
+	*ActionNode
 	escapeThreshold float64
 }
 
 func NewEscapeCheckConditionNode(name string) *EscapeCheckConditionNode {
 	return &EscapeCheckConditionNode{
-		ConditionNode:   NewConditionNode(name),
+		ActionNode:      NewActionNode(name),
 		escapeThreshold: 0.2, // 20%血量以下逃跑
 	}
 }
 
 func (n *EscapeCheckConditionNode) Execute(ctx *BossContext) BehaviorResult {
-	n.ConditionNode.Execute(ctx)
+	n.ActionNode.Execute(ctx)
 
 	currentHP := float64(ctx.Boss.GetCurrentLife()) / float64(ctx.Boss.GetMaxLife())
 	if currentHP > n.escapeThreshold {
@@ -515,7 +506,7 @@ func (n *EscapeCheckConditionNode) Execute(ctx *BossContext) BehaviorResult {
 	reason := fmt.Sprintf("Health below threshold: %.2f < %.2f", currentHP, n.escapeThreshold)
 	ctx.RequestStateTransition(StateRetreat, reason, 100) // 高优先级
 
-	n.ConditionNode.SetComplete(ResultSuccess)
+	n.SetComplete(ResultSuccess)
 	return ResultSuccess
 }
 

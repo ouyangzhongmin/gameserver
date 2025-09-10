@@ -206,17 +206,6 @@ func NewActionNode(name string) *ActionNode {
 	}
 }
 
-// ConditionNode 条件节点基类
-type ConditionNode struct {
-	*BaseBehaviorNode
-}
-
-func NewConditionNode(name string) *ConditionNode {
-	return &ConditionNode{
-		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeCondition),
-	}
-}
-
 // BehaviorTree 行为树
 type BehaviorTree struct {
 	name      string

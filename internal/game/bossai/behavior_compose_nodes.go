@@ -37,7 +37,7 @@ func (n *SetsNode) Execute(ctx *BossContext) BehaviorResult {
 	for i := 0; i < len(n.children); i++ {
 		child := n.children[i]
 		result := child.Execute(ctx)
-		logger.Debugf("SetsNode: %s-%d execute result:%d", n.name, result)
+		logger.Debugf("SetsNode: %s child:%s execute result:%d", n.name, child.GetName(), result)
 	}
 
 	return ResultSuccess
