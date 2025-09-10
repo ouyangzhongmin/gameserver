@@ -448,6 +448,7 @@ func (h *Hero) MoveByPaths(targetx, targety, targetz int, paths [][]int32) error
 				h.SetPos(coord.Coord(firstStep[1]), coord.Coord(firstStep[0]), h.GetPos().Z)
 			}
 		}
+		h.Walk()
 		if !h.isGhost {
 			h.Broadcast(protocol.OnHeroMoveTrace, &protocol.HeroMoveTraceResponse{
 				ID:         h.GetID(),

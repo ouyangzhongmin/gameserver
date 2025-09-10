@@ -12,7 +12,7 @@ type BehaviorNodeType int
 
 const (
 	NodeTypeAction    BehaviorNodeType = iota // 行为节点
-	NodeTypeCondition                         // 条件节点
+	NodeTypeSets                              // 集合节点
 	NodeTypeSequence                          // 顺序节点
 	NodeTypeSelector                          // 选择节点
 	NodeTypeParallel                          // 并行节点

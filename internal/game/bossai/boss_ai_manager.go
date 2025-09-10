@@ -316,6 +316,8 @@ func (ai *BossAIManager) createNodeFromBehaviorConfig(config BehaviorConfig) (IB
 	var err error
 
 	switch config.Type {
+	case "sets":
+		node = ai.createSetsNode(config)
 	case "random":
 		node = ai.createRandomNode(config)
 	case "sequence":
@@ -352,6 +354,23 @@ func (ai *BossAIManager) createNodeFromBehaviorConfig(config BehaviorConfig) (IB
 	}
 
 	return node, nil
+}
+
+// createRandomNode 创建集合节点
+func (ai *BossAIManager) createSetsNode(config BehaviorConfig) IBehaviorNode {
+	node := NewSetsNode(fmt.Sprintf("Sets_%d", len(config.Children)))
+
+	// 添加子节点并设置权重
+	for _, childConfig := range config.Children {
+		child, err := ai.createNodeFromBehaviorConfig(childConfig)
+		if err != nil {
+			logger.Errorf("Failed to create child node for sets: %v", err)
+			continue
+		}
+		node.AddChild(child)
+	}
+
+	return node
 }
 
 // createRandomNode 创建随机节点

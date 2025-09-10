@@ -20,7 +20,7 @@
         }
       ],
       "behaviors": {
-        "type": "selector",
+        "type": "sets",
         "children": [
           {
             "type": "node",

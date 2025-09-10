@@ -31,7 +31,7 @@ func NewRandomMoveActionNode(name string) *RandomMoveActionNode {
 	return &RandomMoveActionNode{
 		ActionNode:   NewActionNode(name),
 		moveRadius:   100.0,
-		moveInterval: time.Second * 5, // 默认5秒移动一次
+		moveInterval: time.Second * 30, // 默认5秒移动一次
 	}
 }
 
@@ -43,8 +43,13 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	// 检查移动时间间隔
 	if ctx.CurrentTime.Sub(n.lastMoveTime) < n.moveInterval {
-		n.ActionNode.SetComplete(ResultSuccess)
-		return ResultSuccess
+		n.ActionNode.SetComplete(ResultFailure)
+		return ResultFailure
+	}
+
+	if ctx.Boss.IsChasing() || ctx.Boss.IsEscaping() || ctx.Boss.IsAttacking() || ctx.Boss.IsDied() {
+		n.ActionNode.SetComplete(ResultFailure)
+		return ResultFailure
 	}
 
 	// 获取移动半径参数
@@ -91,7 +96,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	// 检查Boss是否空闲（可以移动）
 	if !ctx.Boss.IsIdle() {
-		logger.Debugf("RandomMove: Boss not idle, waiting...")
+		logger.Debugf("RandomMove: Boss not idle, distance: %.2f", dist)
 		return ResultRunning // Boss在忩，等待
 	}
 
@@ -269,7 +274,7 @@ type ScanEnemiesActionNode struct {
 func NewScanEnemiesActionNode(name string) *ScanEnemiesActionNode {
 	return &ScanEnemiesActionNode{
 		ActionNode:   NewActionNode(name),
-		scanRadius:   150.0,
+		scanRadius:   10,
 		scanInterval: time.Second * 2, // 默认2秒扫描一次
 	}
 }
@@ -282,8 +287,8 @@ func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	// 检查扫描时间间隔
 	if ctx.CurrentTime.Sub(n.lastScanTime) < n.scanInterval {
-		n.ActionNode.SetComplete(ResultSuccess)
-		return ResultSuccess
+		n.ActionNode.SetComplete(ResultFailure)
+		return ResultFailure
 	}
 
 	// 获取扫描半径参数
@@ -298,6 +303,8 @@ func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
 		ctx.Target = nearest
 		ctx.Boss.SetCombatTarget(nearest)
 		logger.Debugf("Boss %d found enemy %d in range", ctx.Boss.GetID(), nearest.GetID())
+	} else {
+		logger.Debugf("Boss %d not found enemy", ctx.Boss.GetID())
 	}
 
 	n.lastScanTime = ctx.CurrentTime

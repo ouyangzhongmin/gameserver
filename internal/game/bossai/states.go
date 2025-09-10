@@ -48,6 +48,10 @@ func (s *BaseBossState) GetName() string {
 func (s *BaseBossState) OnEnter(ctx *BossContext) error {
 	s.enterTime = ctx.CurrentTime
 	s.isActive = true
+	if s.behaviorTree != nil {
+		// 每次进入时需要重置所有的行为树
+		s.behaviorTree.Reset()
+	}
 	logger.Debugf("Boss %d entering state: %s", ctx.Boss.GetID(), s.name)
 	return nil
 }

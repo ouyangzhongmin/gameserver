@@ -6,6 +6,43 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 )
 
+// 集合节点，所有节点都会执行
+type SetsNode struct {
+	*BaseBehaviorNode
+}
+
+func NewSetsNode(name string) *SetsNode {
+	return &SetsNode{
+		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeSets),
+	}
+}
+
+func (n *SetsNode) Execute(ctx *BossContext) BehaviorResult {
+	// 开始执行
+	if n.executeState == NodeStateIdle {
+		n.executeState = NodeStateRunning
+		n.executeCount++
+		n.startTime = ctx.CurrentTime
+	}
+
+	n.lastExecuteTime = ctx.CurrentTime
+
+	if len(n.children) == 0 {
+		n.executeState = NodeStateComplete
+		n.lastResult = ResultSuccess
+		return ResultSuccess
+	}
+
+	// 循环执行子节点
+	for i := 0; i < len(n.children); i++ {
+		child := n.children[i]
+		result := child.Execute(ctx)
+		logger.Debugf("SetsNode: %s-%d execute result:%d", n.name, result)
+	}
+
+	return ResultSuccess
+}
+
 // SequenceNode 顺序节点 - 所有子节点都成功才成功
 type SequenceNode struct {
 	*BaseBehaviorNode
@@ -17,22 +54,6 @@ func NewSequenceNode(name string) *SequenceNode {
 		BaseBehaviorNode:  NewBaseBehaviorNode(name, NodeTypeSequence),
 		currentChildIndex: 0,
 	}
-}
-
-func (n *SequenceNode) GetName() string {
-	return n.BaseBehaviorNode.GetName()
-}
-
-func (n *SequenceNode) GetType() BehaviorNodeType {
-	return n.BaseBehaviorNode.GetType()
-}
-
-func (n *SequenceNode) AddChild(child IBehaviorNode) error {
-	return n.BaseBehaviorNode.AddChild(child)
-}
-
-func (n *SequenceNode) GetChildren() []IBehaviorNode {
-	return n.BaseBehaviorNode.GetChildren()
 }
 
 func (n *SequenceNode) Execute(ctx *BossContext) BehaviorResult {
@@ -94,14 +115,6 @@ func (n *SequenceNode) Reset() {
 	n.currentChildIndex = 0
 }
 
-func (n *SequenceNode) SetParam(key string, value interface{}) {
-	n.BaseBehaviorNode.SetParam(key, value)
-}
-
-func (n *SequenceNode) GetParam(key string) interface{} {
-	return n.BaseBehaviorNode.GetParam(key)
-}
-
 // SelectorNode 选择节点 - 任一子节点成功就成功
 type SelectorNode struct {
 	*BaseBehaviorNode
@@ -113,22 +126,6 @@ func NewSelectorNode(name string) *SelectorNode {
 		BaseBehaviorNode:  NewBaseBehaviorNode(name, NodeTypeSelector),
 		currentChildIndex: 0,
 	}
-}
-
-func (n *SelectorNode) GetName() string {
-	return n.BaseBehaviorNode.GetName()
-}
-
-func (n *SelectorNode) GetType() BehaviorNodeType {
-	return n.BaseBehaviorNode.GetType()
-}
-
-func (n *SelectorNode) AddChild(child IBehaviorNode) error {
-	return n.BaseBehaviorNode.AddChild(child)
-}
-
-func (n *SelectorNode) GetChildren() []IBehaviorNode {
-	return n.BaseBehaviorNode.GetChildren()
 }
 
 func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
@@ -163,6 +160,7 @@ func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
 		case ResultSuccess:
 			// 找到一个成功的子节点，整个选择节点成功
 			n.lastResult = ResultSuccess
+			n.Reset()
 			return ResultSuccess
 		case ResultFailure:
 			// 子节点失败，重置子节点并试下一个
@@ -174,6 +172,8 @@ func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
 			return ResultRunning
 		}
 	}
+	// 如果执行到最后则重置重新开始执行
+	n.Reset()
 
 	// 所有子节点都失败
 	n.executeState = NodeStateFailed
@@ -189,14 +189,6 @@ func (n *SelectorNode) Reset() {
 	}
 }
 
-func (n *SelectorNode) SetParam(key string, value interface{}) {
-	// 默认实现，暂不支持参数
-}
-
-func (n *SelectorNode) GetParam(key string) interface{} {
-	return nil
-}
-
 // RepeaterNode 重复节点 - 重复执行子节点
 type RepeaterNode struct {
 	*BaseBehaviorNode
@@ -209,22 +201,6 @@ func NewRepeaterNode(name string, maxRepeats int) *RepeaterNode {
 		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeDecorator),
 		maxRepeats:       maxRepeats,
 	}
-}
-
-func (n *RepeaterNode) GetName() string {
-	return n.BaseBehaviorNode.GetName()
-}
-
-func (n *RepeaterNode) GetType() BehaviorNodeType {
-	return n.BaseBehaviorNode.GetType()
-}
-
-func (n *RepeaterNode) AddChild(child IBehaviorNode) error {
-	return n.BaseBehaviorNode.AddChild(child)
-}
-
-func (n *RepeaterNode) GetChildren() []IBehaviorNode {
-	return n.BaseBehaviorNode.GetChildren()
 }
 
 func (n *RepeaterNode) Execute(ctx *BossContext) BehaviorResult {
@@ -327,14 +303,6 @@ func NewRandomNode(name string) *RandomNode {
 		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeSelector), // 使用Selector类型
 		weights:          make([]int, 0),
 	}
-}
-
-func (n *RandomNode) GetName() string {
-	return n.BaseBehaviorNode.GetName()
-}
-
-func (n *RandomNode) GetType() BehaviorNodeType {
-	return n.BaseBehaviorNode.GetType()
 }
 
 func (n *RandomNode) AddChild(child IBehaviorNode) error {
@@ -445,12 +413,4 @@ func (n *RandomNode) Reset() {
 	for _, child := range n.children {
 		child.Reset()
 	}
-}
-
-func (n *RandomNode) SetParam(key string, value interface{}) {
-	// 默认实现，暂不支持参数
-}
-
-func (n *RandomNode) GetParam(key string) interface{} {
-	return nil
 }

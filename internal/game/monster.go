@@ -458,6 +458,7 @@ func (m *Monster) MoveByPaths(paths [][]int32) error {
 	m.tracePath = paths
 	m.traceIndex = 0
 	m.traceTotalTime = 0
+	m.Walk()
 
 	stepTime := m.getStepTime()
 	m.Broadcast(protocol.OnMonsterMoveTrace, &protocol.MonsterMoveTraceResponse{
