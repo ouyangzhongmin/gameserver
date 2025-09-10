@@ -29,15 +29,14 @@ const (
 )
 
 // BossStateID Boss状态ID
-type BossStateID int32
+type BossStateID string
 
 const (
-	StateIdle BossStateID = iota
-	StatePatrol
-	StateChase
-	StateAttack
-	StateRetreat
-	StateDying
+	StateIdle    BossStateID = "idle"
+	StateChase   BossStateID = "chase"
+	StateAttack  BossStateID = "attack"
+	StateRetreat BossStateID = "retreat"
+	StateDying   BossStateID = "dying"
 )
 
 // PhaseCondition 阶段触发条件
@@ -332,7 +331,6 @@ type BossConfig struct {
 
 type StateConfig struct {
 	ID          BossStateID            `json:"id"`
-	Name        string                 `json:"name"`
 	Transitions []StateTransition      `json:"transitions"`
 	Behaviors   interface{}            `json:"behaviors"` // 支持字符串数组或复杂行为树配置
 	Modifiers   map[string]interface{} `json:"modifiers,omitempty"`
@@ -448,39 +446,6 @@ type LLMStatus struct {
 }
 
 // BossContext 方法实现
-
-// GetSkillManager 获取技能管理器
-func (ctx *BossContext) GetSkillManager() ISkillManager {
-	if skillMgr, ok := ctx.CustomData["skill_manager"].(ISkillManager); ok {
-		return skillMgr
-	}
-	return nil
-}
-
-// SetSkillManager 设置技能管理器
-func (ctx *BossContext) SetSkillManager(skillMgr ISkillManager) {
-	if ctx.CustomData == nil {
-		ctx.CustomData = make(map[string]interface{})
-	}
-	ctx.CustomData["skill_manager"] = skillMgr
-}
-
-// GetPatrolIndex 获取当前巡逻点索引
-func (ctx *BossContext) GetPatrolIndex() int {
-	if index, ok := ctx.CustomData["patrol_index"].(int); ok {
-		return index
-	}
-	return 0
-}
-
-// SetPatrolIndex 设置当前巡逻点索引
-func (ctx *BossContext) SetPatrolIndex(index int) {
-	if ctx.CustomData == nil {
-		ctx.CustomData = make(map[string]interface{})
-	}
-	ctx.CustomData["patrol_index"] = index
-}
-
 // GetPhaseManager 获取阶段管理器
 func (ctx *BossContext) GetPhaseManager() IPhaseManager {
 	if phaseMgr, ok := ctx.CustomData["phase_manager"].(IPhaseManager); ok {
@@ -516,21 +481,6 @@ func (ctx *BossContext) SetStateMachine(stateMachine IStateMachine) {
 // IsTargetValid 检查目标是否有效
 func (ctx *BossContext) IsTargetValid() bool {
 	return ctx.Target != nil && ctx.Target.IsAlive()
-}
-
-// GetDistanceToTarget 获取到目标的距离
-func (ctx *BossContext) GetDistanceToTarget() float64 {
-	if !ctx.IsTargetValid() {
-		return -1
-	}
-
-	bossPos := ctx.Boss.GetPos()
-	targetPos := ctx.Target.GetPos()
-
-	dx := float64(targetPos.X - bossPos.X)
-	dy := float64(targetPos.Y - bossPos.Y)
-
-	return math.Sqrt(dx*dx + dy*dy)
 }
 
 // AddActionToHistory 添加动作到历史记录
@@ -579,4 +529,29 @@ func (ctx *BossContext) GetNearbyEnemyCount() int {
 // GetCombatDuration 获取战斗持续时间
 func (ctx *BossContext) GetCombatDuration() time.Duration {
 	return ctx.CombatTime
+}
+
+// GetAvailableSkillsFromCurrentPhase 获取当前阶段的可用技能列表
+func (ctx *BossContext) GetAvailableSkillsFromCurrentPhase() []int32 {
+	if ctx.CurrentPhase != nil {
+		return ctx.CurrentPhase.GetAvailableSkills()
+	}
+	return nil
+}
+
+// IsSkillAllowedInCurrentPhase 检查技能在当前阶段是否被允许使用
+func (ctx *BossContext) IsSkillAllowedInCurrentPhase(skillID int32) bool {
+	availableSkills := ctx.GetAvailableSkillsFromCurrentPhase()
+	if availableSkills == nil || len(availableSkills) == 0 {
+		// 如果当前阶段没有限制可用技能，则所有技能都被允许
+		return true
+	}
+
+	// 检查技能是否在允许列表中
+	for _, allowedSkillID := range availableSkills {
+		if allowedSkillID == skillID {
+			return true
+		}
+	}
+	return false
 }

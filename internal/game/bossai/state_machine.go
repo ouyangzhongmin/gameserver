@@ -59,7 +59,7 @@ func (sm *StateMachine) AddState(state IBossState) error {
 	sm.states[stateID] = state
 
 	if sm.enableLogging {
-		logger.Debugf("Added state: %s (ID: %d)", state.GetName(), stateID)
+		logger.Debugf("Added state: %s (ID: %s)", state.GetName(), stateID)
 	}
 
 	return nil
@@ -187,7 +187,7 @@ func (sm *StateMachine) checkStateTransitionRequest(ctx *BossContext) bool {
 	}
 
 	// 如果已经在目标状态，无需转换
-	if sm.currentState.GetID() == int32(request.TargetState) {
+	if sm.currentState.GetID() == request.TargetState {
 		return false
 	}
 
@@ -226,7 +226,7 @@ func (sm *StateMachine) TransitionTo(stateID BossStateID, ctx *BossContext) erro
 	}
 
 	// 检查是否可以转换
-	if !sm.currentState.CanTransitionTo(int32(stateID), ctx) {
+	if !sm.currentState.CanTransitionTo(stateID, ctx) {
 		if sm.enableLogging {
 			logger.Debugf("Boss %d cannot transition from %s to %s",
 				ctx.Boss.GetID(), sm.currentState.GetName(), targetState.GetName())
@@ -398,14 +398,12 @@ func (sm *StateMachine) GetStatistics() StateMachineStats {
 		StateChangeCount: sm.stateChangeCount,
 		LastUpdateTime:   sm.lastUpdateTime,
 		UpdateDuration:   sm.updateDuration,
-		CurrentStateID:   -1,
-		CurrentStateName: "",
+		CurrentStateID:   "",
 		TotalStates:      len(sm.states),
 	}
 
 	if sm.currentState != nil {
-		stats.CurrentStateID = int32(sm.currentState.GetID())
-		stats.CurrentStateName = sm.currentState.GetName()
+		stats.CurrentStateID = sm.currentState.GetID()
 	}
 
 	// 计算状态持续时间统计
@@ -426,8 +424,7 @@ type StateMachineStats struct {
 	StateChangeCount     int64         `json:"state_change_count"`
 	LastUpdateTime       time.Time     `json:"last_update_time"`
 	UpdateDuration       time.Duration `json:"update_duration"`
-	CurrentStateID       int32         `json:"current_state_id"`
-	CurrentStateName     string        `json:"current_state_name"`
+	CurrentStateID       BossStateID   `json:"current_state_id"`
 	TotalStates          int           `json:"total_states"`
 	AverageStateDuration time.Duration `json:"average_state_duration"`
 }

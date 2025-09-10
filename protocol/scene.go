@@ -192,3 +192,9 @@ type PropertyChangedRequest struct {
 	EntityType int                    `json:"entity_type"`
 	Data       map[string]interface{} `json:"data"`
 }
+
+// 怪物变身响应
+type MonsterTransformResponse struct {
+	ID        int64  `json:"id"`
+	Transform string `json:"transform"`
+}

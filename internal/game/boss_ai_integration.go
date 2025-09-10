@@ -7,6 +7,7 @@ import (
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/bossai"
+	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 )
@@ -234,31 +235,6 @@ func (b *BossEntityAdapter) GetAttackPower() int32 {
 	return int32(b.monster.GetAttack())
 }
 
-func (b *BossEntityAdapter) GetSpawnPosition() coord.Vector3 {
-	return b.monster.bornPos
-}
-
-func (b *BossEntityAdapter) GetPatrolPoints() []coord.Vector3 {
-	// 从预制路径中获取巡逻点
-	if b.monster.preparePaths != nil && len(b.monster.preparePaths.Paths) > 0 {
-		var points []coord.Vector3
-		for _, path := range b.monster.preparePaths.Paths {
-			points = append(points, coord.Vector3{
-				X: coord.Coord(path.Sx),
-				Y: coord.Coord(path.Sy),
-				Z: 0,
-			})
-			points = append(points, coord.Vector3{
-				X: coord.Coord(path.Ex),
-				Y: coord.Coord(path.Ey),
-				Z: 0,
-			})
-		}
-		return points
-	}
-	return []coord.Vector3{}
-}
-
 func (b *BossEntityAdapter) CanUseSkill(skillID int32) bool {
 	// 复用Monster的技能检查逻辑
 	spell := b.monster.GetSpell(int64(skillID))
@@ -281,11 +257,36 @@ func (b *BossEntityAdapter) IsSkillInCD(skillID int32) bool {
 
 // 获取指定类型的可用技能
 func (b *BossEntityAdapter) GetAvailableSkill(rules string) int32 {
+	// 首先尝试从当前阶段获取可用技能
+	if spell := b.GetAvailableSkillFromPhase(); spell != nil {
+		return int32(spell.Id)
+	}
+
+	// 如果当前阶段没有限制或没有可用技能，则使用默认逻辑
 	spell := b.monster.GetCanUseSpell(0)
 	if spell == nil {
 		return 0
 	}
 	return int32(spell.Id)
+}
+
+// 从当前阶段获取可用技能
+func (b *BossEntityAdapter) GetAvailableSkillFromPhase() *object.SpellObject {
+	// 获取当前阶段
+	if currentPhase := b.GetCurrentPhase(); currentPhase != nil {
+		// 检查阶段是否有限制可用技能
+		availableSkills := currentPhase.GetAvailableSkills()
+		if len(availableSkills) > 0 {
+			// 从阶段可用技能中选择一个可用的技能
+			for _, skillID := range availableSkills {
+				if b.CanUseSkill(skillID) {
+					// 通过Monster获取实际的技能对象
+					return b.monster.GetSpell(int64(skillID))
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // 复用Monster的技能范围检查
@@ -327,6 +328,14 @@ func (b *BossEntityAdapter) GetCanAttackPos(target bossai.IEntity, offset int) (
 		return b.monster.GetCanAttackPos(entityAdapter.entity, offset)
 	}
 	return coord.Vector3{}, fmt.Errorf("invalid target type")
+}
+
+func (b *BossEntityAdapter) GetRandomPos(radius int) (coord.Vector3, error) {
+	rx, ry, err := b.monster.scene.GetRandomXY(b.monster.GetMovableRect(), 20)
+	if err != nil {
+		return coord.Vector3{}, err
+	}
+	return coord.Vector3{X: rx, Y: ry, Z: 0}, nil
 }
 
 // 复用Monster的移动速度计算
@@ -480,7 +489,53 @@ func (b *BossEntityAdapter) IsDied() bool {
 	return b.monster.GetState() == constants.ACTION_STATE_DIE
 }
 
-// 使用示例函数
+// GetCurrentPhase 获取当前阶段
+func (b *BossEntityAdapter) GetCurrentPhase() bossai.IBossPhase {
+	// 通过BossAIManagerAdapter访问BossAIManager，然后获取当前阶段
+	if bossAI := b.monster.GetBossAI(); bossAI != nil {
+		return bossAI.GetBossAIManager().GetCurrentPhase()
+	}
+	return nil
+}
+
+// OnPhaseEnter 当进入新阶段时调用
+func (b *BossEntityAdapter) OnPhaseEnter(phase bossai.IBossPhase) {
+	// 获取阶段修饰器
+	modifiers := phase.GetStateModifiers()
+
+	// 创建阶段修饰器对象
+	phaseModifier := &PhaseModifier{
+		SkillCooldownMultiplier: 1.0,
+		DamageMultiplier:        1.0,
+		DefenseMultiplier:       1.0,
+		Transform:               "",
+	}
+
+	// 应用修饰器
+	if skillCooldownMultiplier, ok := modifiers["skill_cooldown_multiplier"].(float64); ok {
+		phaseModifier.SkillCooldownMultiplier = skillCooldownMultiplier
+	}
+
+	if damageMultiplier, ok := modifiers["damage_multiplier"].(float64); ok {
+		phaseModifier.DamageMultiplier = damageMultiplier
+	}
+
+	if defenseMultiplier, ok := modifiers["defense_multiplier"].(float64); ok {
+		phaseModifier.DefenseMultiplier = defenseMultiplier
+	}
+
+	if transform, ok := modifiers["transform"].(string); ok {
+		phaseModifier.Transform = transform
+	}
+
+	// 设置阶段修饰器到Monster
+	b.monster.SetPhaseModifier(phaseModifier)
+
+	// 如果有变身，则应用变身
+	if phaseModifier.Transform != "" {
+		b.monster.ApplyTransform(phaseModifier.Transform)
+	}
+}
 
 // CreateExampleBossMonster 创建示例Boss怪物
 func CreateExampleBossMonster(scene *Scene) *Monster {

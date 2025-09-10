@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
 // BaseAIPlugin 基础AI插件实现
@@ -260,7 +261,7 @@ func (p *CombatAnalysisPlugin) calculateThreatLevel(ctx *BossContext, enemy IEnt
 	threat := 1.0
 
 	// 根据距离调整
-	distance := calculateDistance(
+	distance := shape.CalculateDistance(
 		float64(ctx.Boss.GetPos().X), float64(ctx.Boss.GetPos().Y),
 		float64(enemy.GetPos().X), float64(enemy.GetPos().Y),
 	)
@@ -815,7 +816,7 @@ func (p *LLMPlugin) createGameSnapshot(ctx *BossContext) *GameSnapshot {
 			ID:       enemy.GetID(),
 			Type:     "enemy",
 			Position: enemy.GetPos(),
-			Distance: calculateDistance(
+			Distance: shape.CalculateDistance(
 				float64(ctx.Boss.GetPos().X), float64(ctx.Boss.GetPos().Y),
 				float64(enemy.GetPos().X), float64(enemy.GetPos().Y),
 			),
@@ -829,7 +830,7 @@ func (p *LLMPlugin) createGameSnapshot(ctx *BossContext) *GameSnapshot {
 			ID:       ally.GetID(),
 			Type:     "ally",
 			Position: ally.GetPos(),
-			Distance: calculateDistance(
+			Distance: shape.CalculateDistance(
 				float64(ctx.Boss.GetPos().X), float64(ctx.Boss.GetPos().Y),
 				float64(ally.GetPos().X), float64(ally.GetPos().Y),
 			),

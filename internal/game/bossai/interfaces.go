@@ -51,8 +51,6 @@ type IBossEntity interface {
 	GetMaxLife() int32
 	GetCurrentLife() int32
 	GetAttackPower() int32
-	GetSpawnPosition() coord.Vector3  // 获取出生点位置
-	GetPatrolPoints() []coord.Vector3 // 获取巡逻点列表
 
 	// 技能相关
 	CanUseSkill(skillID int32) bool
@@ -66,7 +64,8 @@ type IBossEntity interface {
 	// 战斗功能（复用Monster基础功能）
 	DoAttackTarget(target IEntity) error                               // 复用Monster的doAttackTarget方法
 	GetCanAttackPos(target IEntity, offset int) (coord.Vector3, error) // 复用Monster的GetCanAttackPos方法
-	GetStepTime() int                                                  // 复用Monster的getStepTime方法
+	GetRandomPos(radius int) (coord.Vector3, error)
+	GetStepTime() int // 复用Monster的getStepTime方法
 
 	// 状态相关
 	IsInCombat() bool
@@ -95,21 +94,32 @@ type IBossEntity interface {
 	IsEscaping() bool
 	IsAttacking() bool
 	IsDied() bool
+
+	// 阶段相关
+	GetCurrentPhase() IBossPhase
+	OnPhaseEnter(phase IBossPhase) // 当进入新阶段时调用
 }
 
 // IBossState Boss状态接口
 type IBossState interface {
+	GetID() BossStateID
 	GetName() string
-	GetID() int32
-
 	// 状态生命周期
 	OnEnter(ctx *BossContext) error
 	OnUpdate(ctx *BossContext, deltaTime time.Duration) error
 	OnExit(ctx *BossContext) error
 
+	IsActive() bool
+
 	// 状态转换条件
-	CanTransitionTo(stateID int32, ctx *BossContext) bool
-	GetNextState(ctx *BossContext) int32
+	CanTransitionTo(stateID BossStateID, ctx *BossContext) bool
+	GetNextState(ctx *BossContext) BossStateID
+
+	SetModifier(key string, value interface{})
+	GetModifier(key string) interface{}
+
+	SetBehaviorTree(tree *BehaviorTree)
+	GetBehaviorTree() *BehaviorTree
 }
 
 // IBehaviorNode 行为树节点接口
@@ -139,8 +149,6 @@ type IBossPhase interface {
 	OnExit(ctx *BossContext) error
 
 	// 阶段行为
-	GetBehaviorTree() IBehaviorNode
-	GetBehaviorTreeName() string
 	GetAvailableSkills() []int32
 	GetStateModifiers() map[string]interface{}
 }

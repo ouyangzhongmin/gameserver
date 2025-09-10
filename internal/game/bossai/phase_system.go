@@ -16,10 +16,8 @@ type BossPhase struct {
 	triggerCondition PhaseCondition
 
 	// 阶段配置
-	availableSkills  []int32
-	behaviorTree     IBehaviorNode
-	behaviorTreeName string
-	stateModifiers   map[string]interface{}
+	availableSkills []int32
+	stateModifiers  map[string]interface{}
 
 	// 阶段状态
 	isActive  bool
@@ -85,22 +83,6 @@ func (p *BossPhase) AddAvailableSkill(skillID int32) {
 
 func (p *BossPhase) GetAvailableSkills() []int32 {
 	return p.availableSkills
-}
-
-func (p *BossPhase) SetBehaviorTree(tree IBehaviorNode) {
-	p.behaviorTree = tree
-}
-
-func (p *BossPhase) SetBehaviorTreeName(name string) {
-	p.behaviorTreeName = name
-}
-
-func (p *BossPhase) GetBehaviorTree() IBehaviorNode {
-	return p.behaviorTree
-}
-
-func (p *BossPhase) GetBehaviorTreeName() string {
-	return p.behaviorTreeName
 }
 
 func (p *BossPhase) SetStateModifier(key string, value interface{}) {
@@ -347,6 +329,11 @@ func (p *BossPhase) applyStateModifiers(ctx *BossContext) {
 
 		phaseModKey := fmt.Sprintf("phase_%d_%s", p.id, key)
 		ctx.CustomData[phaseModKey] = value
+	}
+
+	// 调用Boss实体的OnPhaseEnter方法
+	if ctx.Boss != nil {
+		ctx.Boss.OnPhaseEnter(p)
 	}
 }
 

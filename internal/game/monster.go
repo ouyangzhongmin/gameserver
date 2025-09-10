@@ -29,6 +29,14 @@ type rebornMonster struct {
 	RebornTimestamp int64
 }
 
+// PhaseModifier 阶段修饰器
+type PhaseModifier struct {
+	SkillCooldownMultiplier float64 // 技能冷却时间乘数
+	DamageMultiplier        float64 // 伤害乘数
+	DefenseMultiplier       float64 // 防御乘数
+	Transform               string  // 变身形态
+}
+
 type Monster struct {
 	*object.MonsterObject
 	movableEntity
@@ -43,6 +51,9 @@ type Monster struct {
 	bornPos         coord.Vector3
 	spells          []*object.SpellObject
 	propertyChanged atomic.Bool
+
+	// Boss AI相关字段
+	currentPhaseModifier *PhaseModifier // 当前阶段修饰器
 }
 
 func NewMonster(data *model.Monster, offset int) *Monster {
@@ -141,6 +152,29 @@ func (m *Monster) TransitionBossAIState(stateID int32) error {
 		return fmt.Errorf("monster %d is not using Boss AI", m.GetID())
 	}
 	return bossAI.TransitionTo(stateID)
+}
+
+// SetPhaseModifier 设置阶段修饰器
+func (m *Monster) SetPhaseModifier(modifier *PhaseModifier) {
+	m.currentPhaseModifier = modifier
+}
+
+// GetPhaseModifier 获取阶段修饰器
+func (m *Monster) GetPhaseModifier() *PhaseModifier {
+	return m.currentPhaseModifier
+}
+
+// ApplyTransform 应用变身
+func (m *Monster) ApplyTransform(transform string) {
+	// 这里可以实现具体的变身逻辑
+	// 比如改变外观、属性等
+	logger.Printf("Monster %d applying transform: %s", m.GetID(), transform)
+
+	// 示例：发送变身消息给客户端
+	m.Broadcast("OnMonsterTransform", &protocol.MonsterTransformResponse{
+		ID:        m.GetID(),
+		Transform: transform,
+	})
 }
 
 func (m *Monster) SetSpells(spells []*object.SpellObject) {
@@ -569,15 +603,31 @@ func (m *Monster) doAttackTarget(target IMovableEntity) {
 	m.PushTask(func() {
 		m.AttackAction()
 		attack := m.GetAttack()
+
+		// 应用伤害乘数
+		if m.currentPhaseModifier != nil && m.currentPhaseModifier.DamageMultiplier > 0 {
+			attack = int64(float64(attack) * m.currentPhaseModifier.DamageMultiplier)
+		}
+
 		var defense int64 = 0
 		ttype := constants.ENTITY_TYPE_HERO
 		switch val := target.(type) {
 		case *Hero:
 			ttype = constants.ENTITY_TYPE_HERO
 			defense = val.GetDefense()
+
+			// 应用防御乘数
+			if m.currentPhaseModifier != nil && m.currentPhaseModifier.DefenseMultiplier > 0 {
+				defense = int64(float64(defense) * m.currentPhaseModifier.DefenseMultiplier)
+			}
 		case *Monster:
 			ttype = constants.ENTITY_TYPE_MONSTER
 			defense = val.GetDefense()
+
+			// 应用防御乘数
+			if m.currentPhaseModifier != nil && m.currentPhaseModifier.DefenseMultiplier > 0 {
+				defense = int64(float64(defense) * m.currentPhaseModifier.DefenseMultiplier)
+			}
 		}
 		damage := attack - defense
 		if damage < 1 { //至少有1点伤害
@@ -690,7 +740,17 @@ func (m *Monster) SpellAttack(spell *object.SpellObject, target IMovableEntity) 
 		m.Stop()
 	}
 	m.AttackAction()
+
+	// 应用技能冷却时间乘数
+	cdTime := time.Duration(spell.CdTime) * time.Millisecond
+	if m.currentPhaseModifier != nil && m.currentPhaseModifier.SkillCooldownMultiplier > 0 {
+		cdTime = time.Duration(float64(cdTime) * m.currentPhaseModifier.SkillCooldownMultiplier)
+	}
+
+	// 重置技能冷却时间
 	spell.ResetCDTime()
+
+	// 创建法术实体
 	m.scene.CreateSpellEntity(m, spell, target)
 	return nil
 }

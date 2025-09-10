@@ -7,6 +7,7 @@ import (
 
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
 var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -16,15 +17,13 @@ var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 // RandomMoveActionNode 随机移动节点
 type RandomMoveActionNode struct {
 	*ActionNode
-	moveRadius   float64
+	moveRadius   int
 	lastMoveTime time.Time
 	moveInterval time.Duration
-	executeState NodeExecuteState
-	lastResult   BehaviorResult
 	// 移动目标位置
-	targetX   float64
-	targetY   float64
-	targetZ   float64
+	targetX   int
+	targetY   int
+	targetZ   int
 	hasTarget bool
 }
 
@@ -49,7 +48,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	}
 
 	// 获取移动半径参数
-	if radius := n.GetParamAsFloat64("radius", 0); radius > 0 {
+	if radius := n.GetParamAsInt("radius", 0); radius > 0 {
 		n.moveRadius = radius
 	}
 	if interval := n.GetParam("interval"); interval != nil {
@@ -64,21 +63,26 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	// 如果没有目标位置，生成随机目标
 	if !n.hasTarget {
-		n.targetX = float64(bossPos.X) + (2*rnd.Float64()-1)*n.moveRadius
-		n.targetY = float64(bossPos.Y) + (2*rnd.Float64()-1)*n.moveRadius
-		n.targetZ = float64(bossPos.Z)
+		rpos, err := ctx.Boss.GetRandomPos(n.moveRadius)
+		if err != nil {
+			n.ActionNode.SetFailed()
+			return ResultFailure
+		}
+		n.targetX = int(rpos.X)
+		n.targetY = int(rpos.Y)
+		n.targetZ = int(bossPos.Z)
 		n.hasTarget = true
-		logger.Debugf("RandomMove: Generated target (%.2f, %.2f, %.2f)", n.targetX, n.targetY, n.targetZ)
+		logger.Debugf("RandomMove: Generated target (%d, %d, %d)", n.targetX, n.targetY, n.targetZ)
 	}
 
 	// 检查是否已到达目标位置
-	currentDistance := calculateDistance(
+	dist := shape.CalculateDistance(
 		float64(bossPos.X), float64(bossPos.Y),
-		n.targetX, n.targetY,
+		float64(n.targetX), float64(n.targetY),
 	)
 
-	if currentDistance < 5.0 { // 到达目标附近
-		logger.Debugf("RandomMove: Reached target, distance: %.2f", currentDistance)
+	if dist < 1 { // 到达目标附近
+		logger.Debugf("RandomMove: Reached target, distance: %.2f", dist)
 		n.lastMoveTime = ctx.CurrentTime
 		n.hasTarget = false // 清除目标，下次会重新生成
 		n.ActionNode.SetComplete(ResultSuccess)
@@ -100,7 +104,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 		return ResultFailure
 	}
 
-	logger.Debugf("RandomMove: Moving to target (%.2f, %.2f), distance: %.2f", n.targetX, n.targetY, currentDistance)
+	logger.Debugf("RandomMove: Moving to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
 	return ResultRunning // 继续移动
 }
 
@@ -112,7 +116,7 @@ func (n *RandomMoveActionNode) Reset() {
 // PatrolMoveActionNode 巡逻移动节点
 type PatrolMoveActionNode struct {
 	*ActionNode
-	patrolPoints    []Position
+	patrolPoints    []coord.Vector3
 	currentPointIdx int
 	// 性能优化：限制MoveTo调用频率
 	lastMoveTime time.Time     // 上次执行MoveTo的时间
@@ -122,9 +126,9 @@ type PatrolMoveActionNode struct {
 func NewPatrolMoveActionNode(name string) *PatrolMoveActionNode {
 	return &PatrolMoveActionNode{
 		ActionNode:      NewActionNode(name),
-		patrolPoints:    make([]Position, 0),
+		patrolPoints:    make([]coord.Vector3, 0),
 		currentPointIdx: 0,
-		moveInterval:    time.Millisecond * 800, // 默认800ms间隔（巡逻可以稍慢一些）
+		moveInterval:    time.Millisecond * 3, // 默认3s间隔（巡逻可以稍慢一些）
 	}
 }
 
@@ -134,16 +138,16 @@ func (n *PatrolMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	// 获取巡逻点配置
 	if points := n.GetParam("patrol_points"); points != nil {
 		if pointsSlice, ok := points.([]interface{}); ok {
-			n.patrolPoints = make([]Position, 0, len(pointsSlice))
+			n.patrolPoints = make([]coord.Vector3, 0, len(pointsSlice))
 			for _, point := range pointsSlice {
 				if pointMap, ok := point.(map[string]interface{}); ok {
-					if x, okX := pointMap["x"].(float64); okX {
-						if y, okY := pointMap["y"].(float64); okY {
-							z := 0.0
-							if zVal, okZ := pointMap["z"].(float64); okZ {
-								z = zVal
+					if x, okX := pointMap["x"].(coord.Coord); okX {
+						if y, okY := pointMap["y"].(coord.Coord); okY {
+							var z coord.Coord = 0
+							if zVal, okZ := pointMap["z"].(coord.Coord); okZ {
+								z = coord.Coord(zVal)
 							}
-							n.patrolPoints = append(n.patrolPoints, Position{X: x, Y: y, Z: z})
+							n.patrolPoints = append(n.patrolPoints, coord.Vector3{X: x, Y: y, Z: z})
 						}
 					}
 				}
@@ -166,12 +170,12 @@ func (n *PatrolMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	// 移动到目标点
 	target := n.patrolPoints[n.currentPointIdx]
 	bossPos := ctx.Boss.GetPos()
-	distance := calculateDistance(
+	distance := shape.CalculateDistance(
 		float64(bossPos.X), float64(bossPos.Y),
-		target.X, target.Y,
+		float64(target.X), float64(target.Y),
 	)
 
-	if distance < 5.0 { // 到达目标点
+	if distance < 1.0 { // 到达目标点
 		n.currentPointIdx = (n.currentPointIdx + 1) % len(n.patrolPoints)
 		return ResultSuccess
 	}
@@ -205,11 +209,12 @@ type RandomSpeechActionNode struct {
 }
 
 func NewRandomSpeechActionNode(name string) *RandomSpeechActionNode {
+	speechTexts := []string{"Hello!", "Hi there!", "How are you?"}
 	return &RandomSpeechActionNode{
 		ActionNode:     NewActionNode(name),
-		speechTexts:    make([]string, 0),
+		speechTexts:    speechTexts,
 		speechInterval: time.Second * 10, // 默认10秒检查一次
-		speechChance:   0.3,              // 默认30%概率
+		speechChance:   0.1,              // 默认30%概率
 	}
 }
 
@@ -422,6 +427,29 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 			}
 		}
 		n.skillId = skillId
+	}
+
+	// 检查当前阶段是否限制了可用技能
+	if !ctx.IsSkillAllowedInCurrentPhase(n.skillId) {
+		// 技能不在当前阶段允许列表中，尝试从阶段可用技能中选择一个
+		availableSkills := ctx.GetAvailableSkillsFromCurrentPhase()
+		if len(availableSkills) > 0 {
+			skillFound := false
+			for _, skillID := range availableSkills {
+				if ctx.Boss.CanUseSkill(skillID) {
+					n.skillId = skillID
+					skillFound = true
+					break
+				}
+			}
+
+			// 如果阶段中的技能都不可用，则技能使用失败
+			if !skillFound {
+				logger.Errorf("SkillUsageConditionNode: No available skill found in current phase")
+				n.ActionNode.SetFailed()
+				return ResultFailure
+			}
+		}
 	}
 
 	if n.skillId == 0 {

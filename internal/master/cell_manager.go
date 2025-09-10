@@ -3,14 +3,13 @@ package master
 import (
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 	"github.com/ouyangzhongmin/gameserver/protocol"
 	"github.com/ouyangzhongmin/nano"
 	"github.com/ouyangzhongmin/nano/component"
 	"github.com/ouyangzhongmin/nano/session"
+	"time"
 )
 
 type sceneCell struct {
@@ -93,24 +92,31 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		IsNew:       true,
 		//Session:     newsession,
 	}
-
-	time.Sleep(time.Millisecond * 50)
 	scell.Cells = append(scell.Cells, c)
 	for i := 0; i < len(scell.Cells); i++ {
 		//更新到所有scene的具体的cell信息
 		tmp := scell.Cells[i]
 		logger.Printf("当前场景cell:%d, remoteAddr:%s \n", tmp.CellID, tmp.RemoteAddr)
-		err := nano.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
-			SceneId: tmp.SceneId,
-			CellId:  tmp.CellID,
-			Cells:   scell.Cells,
-		}, tmp.RemoteAddr)
-		if err != nil {
-			// todo 这里需要确保能把cell信息通知到
-			logger.Errorln("cell.SceneManager.SceneCells err:", err)
-			continue
+		for retry := 0; retry < 3; retry++ {
+			err := s.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
+				SceneId: tmp.SceneId,
+				CellId:  tmp.CellID,
+				Cells:   scell.Cells,
+			}, tmp.RemoteAddr)
+			if err != nil {
+				// todo 这里需要确保能把cell信息通知到
+				logger.Errorln("cell.SceneManager.SceneCells:", tmp.RemoteAddr, retry, " err:", err)
+				time.Sleep(time.Millisecond * 100)
+				continue
+			}
+			break
 		}
 	}
+	//go func() {
+	//	time.Sleep(time.Millisecond * 100)
+	//
+	//}()
+
 	return nil
 }
 

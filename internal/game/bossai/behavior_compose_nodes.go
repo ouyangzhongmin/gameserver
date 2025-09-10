@@ -162,7 +162,6 @@ func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
 		switch result {
 		case ResultSuccess:
 			// 找到一个成功的子节点，整个选择节点成功
-			n.executeState = NodeStateComplete
 			n.lastResult = ResultSuccess
 			return ResultSuccess
 		case ResultFailure:

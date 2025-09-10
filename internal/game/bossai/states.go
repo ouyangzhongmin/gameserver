@@ -5,6 +5,7 @@ import (
 
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 )
 
 // BaseBossState 基础Boss状态实现
@@ -36,12 +37,12 @@ func NewBaseBossState(id BossStateID, name string) *BaseBossState {
 	}
 }
 
-func (s *BaseBossState) GetName() string {
-	return s.name
+func (s *BaseBossState) GetID() BossStateID {
+	return s.id
 }
 
-func (s *BaseBossState) GetID() int32 {
-	return int32(s.id)
+func (s *BaseBossState) GetName() string {
+	return s.name
 }
 
 func (s *BaseBossState) OnEnter(ctx *BossContext) error {
@@ -52,30 +53,10 @@ func (s *BaseBossState) OnEnter(ctx *BossContext) error {
 }
 
 func (s *BaseBossState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 检查是否有逃跑标记
-	if ctx.CustomData != nil {
-		if shouldEscape, ok := ctx.CustomData["should_escape"].(bool); ok && shouldEscape {
-			// 清除标记
-			ctx.CustomData["should_escape"] = false
-
-			// 如果当前不是逃跑状态，则触发状态转换到逃跑状态
-			if s.id != StateRetreat {
-				// 这里我们不能直接转换状态，而是通过返回特定错误或设置标记来通知状态机
-				// 在实际实现中，状态机应该定期检查这个条件
-				if stateMachine := ctx.GetStateMachine(); stateMachine != nil {
-					// 尝试强制转换到逃跑状态
-					stateMachine.ForceTransition(StateRetreat, ctx)
-					return nil
-				}
-			}
-		}
-	}
-
 	// 执行行为树
 	if s.behaviorTree != nil && ctx.CurrentTime.Sub(s.lastBehaviorTime) >= s.behaviorInterval {
 		s.lastBehaviorTime = ctx.CurrentTime
 		result := s.behaviorTree.Execute(ctx)
-
 		logger.Debugf("State %s executed behavior tree, result: %v", s.name, result)
 	}
 
@@ -89,7 +70,7 @@ func (s *BaseBossState) OnExit(ctx *BossContext) error {
 	return nil
 }
 
-func (s *BaseBossState) CanTransitionTo(stateID int32, ctx *BossContext) bool {
+func (s *BaseBossState) CanTransitionTo(stateID BossStateID, ctx *BossContext) bool {
 	transition, exists := s.transitions[BossStateID(stateID)]
 	if !exists {
 		return false
@@ -98,10 +79,10 @@ func (s *BaseBossState) CanTransitionTo(stateID int32, ctx *BossContext) bool {
 	return s.evaluateCondition(transition.Condition, ctx)
 }
 
-func (s *BaseBossState) GetNextState(ctx *BossContext) int32 {
+func (s *BaseBossState) GetNextState(ctx *BossContext) BossStateID {
 	// 按优先级检查可能的状态转换
 	var bestTransition *StateTransition
-	var bestStateID BossStateID = -1
+	var bestStateID BossStateID = ""
 	maxPriority := -1
 
 	for stateID, transition := range s.transitions {
@@ -113,10 +94,10 @@ func (s *BaseBossState) GetNextState(ctx *BossContext) int32 {
 	}
 
 	if bestTransition != nil {
-		return int32(bestStateID)
+		return BossStateID(bestStateID)
 	}
 
-	return int32(s.id) // 保持当前状态
+	return BossStateID(s.id) // 保持当前状态
 }
 
 func (s *BaseBossState) AddTransition(toState BossStateID, transition StateTransition) {
@@ -314,7 +295,7 @@ func (s *BaseBossState) evaluateCustomScript(scriptName string, ctx *BossContext
 		// 检查距离
 		bossPos := ctx.Boss.GetPos()
 		targetPos := ctx.Target.GetPos()
-		distance := calculateDistance(
+		distance := shape.CalculateDistance(
 			float64(bossPos.X), float64(bossPos.Y),
 			float64(targetPos.X), float64(targetPos.Y),
 		)
@@ -374,77 +355,6 @@ func (s *IdleState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
-// PatrolState 巡逻状态
-type PatrolState struct {
-	*BaseBossState
-	patrolPoints    []Position
-	currentPointIdx int
-	moveSpeed       float64
-	patrolRadius    float64
-	alertRadius     float64
-}
-
-type Position struct {
-	X, Y, Z float64
-}
-
-func NewPatrolState(points []Position) *PatrolState {
-	base := NewBaseBossState(StatePatrol, "Patrol")
-	return &PatrolState{
-		BaseBossState:   base,
-		patrolPoints:    points,
-		currentPointIdx: 0,
-		moveSpeed:       50.0,
-		patrolRadius:    200.0,
-		alertRadius:     150.0,
-	}
-}
-
-func (s *PatrolState) OnEnter(ctx *BossContext) error {
-	if err := s.BaseBossState.OnEnter(ctx); err != nil {
-		return err
-	}
-
-	// 控制Monster真实状态
-	ctx.Boss.Walk()
-
-	return nil
-}
-
-func (s *PatrolState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
-	// 检查是否有敌人进入警戒范围
-	enemies := ctx.GetEnemiesInRange(s.alertRadius)
-	if len(enemies) > 0 {
-		nearest := ctx.GetNearestEnemyInRange(s.alertRadius)
-		if nearest != nil {
-			ctx.Target = nearest
-			ctx.Boss.SetCombatTarget(nearest)
-			return nil
-		}
-	}
-
-	// 继续巡逻逻辑
-	if len(s.patrolPoints) > 0 {
-		target := s.patrolPoints[s.currentPointIdx]
-		currentPos := ctx.Boss.GetPos()
-
-		// 检查是否到达目标点
-		distance := calculateDistance(
-			float64(currentPos.X), float64(currentPos.Y),
-			target.X, target.Y,
-		)
-
-		if distance < 5.0 { // 接近目标点
-			s.currentPointIdx = (s.currentPointIdx + 1) % len(s.patrolPoints)
-		} else {
-			// 移动向目标点
-			return ctx.Boss.MoveTo(coord.Coord(target.X), coord.Coord(target.Y), coord.Coord(target.Z))
-		}
-	}
-
-	return nil
-}
-
 // ChaseState 追击状态 - 现在依赖行为树执行具体行为
 type ChaseState struct {
 	*BaseBossState
@@ -485,7 +395,7 @@ func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 检查距离
 	bossPos := ctx.Boss.GetPos()
 	targetPos := ctx.Target.GetPos()
-	distance := calculateDistance(
+	distance := shape.CalculateDistance(
 		float64(bossPos.X), float64(bossPos.Y),
 		float64(targetPos.X), float64(targetPos.Y),
 	)
@@ -508,7 +418,7 @@ func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 1. 检查时间间隔限制
 	if ctx.CurrentTime.Sub(s.lastMoveTime) >= s.moveInterval {
 		// 2. 检查目标位置是否发生显著变化
-		targetMoveDistance := calculateDistance(
+		targetMoveDistance := shape.CalculateDistance(
 			float64(s.lastTargetPos.X), float64(s.lastTargetPos.Y),
 			float64(targetPos.X), float64(targetPos.Y),
 		)
@@ -576,7 +486,7 @@ type RetreatState struct {
 	moveInterval time.Duration // MoveTo执行间隔
 }
 
-func NewRetreatState(spawnPoint Position) *RetreatState {
+func NewRetreatState() *RetreatState {
 	base := NewBaseBossState(StateRetreat, "Retreat")
 	return &RetreatState{
 		BaseBossState: base,
@@ -613,7 +523,7 @@ func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error
 
 	if ctx.CurrentTime.Sub(s.lastMoveTime) >= moveInterval {
 		bossPos := ctx.Boss.GetPos()
-		distance := calculateDistance(
+		distance := shape.CalculateDistance(
 			float64(bossPos.X), float64(bossPos.Y),
 			float64(ctx.OriginPosition.X), float64(ctx.OriginPosition.Y),
 		)
@@ -670,12 +580,12 @@ func (s *DyingState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	return s.BaseBossState.OnUpdate(ctx, deltaTime)
 }
 
-func (s *DyingState) CanTransitionTo(stateID int32, ctx *BossContext) bool {
+func (s *DyingState) CanTransitionTo(stateID BossStateID, ctx *BossContext) bool {
 	// 死亡状态不能转换到其他状态
 	return false
 }
 
-func (s *DyingState) GetNextState(ctx *BossContext) int32 {
+func (s *DyingState) GetNextState(ctx *BossContext) BossStateID {
 	// 保持死亡状态
-	return int32(StateDying)
+	return StateDying
 }

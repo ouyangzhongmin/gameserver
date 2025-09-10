@@ -63,9 +63,6 @@ func NewBossAIManager() *BossAIManager {
 
 // Initialize 初始化Boss AI
 func (ai *BossAIManager) Initialize(boss IBossEntity) error {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
 	if ai.isInitialized {
 		return fmt.Errorf("AI manager already initialized")
 	}
@@ -142,16 +139,15 @@ func (ai *BossAIManager) configureStateMachine() error {
 	for _, stateConfig := range ai.config.States {
 		state, err := ai.createStateFromConfig(stateConfig)
 		if err != nil {
-			logger.Errorf("Failed to create state %s: %v", stateConfig.Name, err)
+			logger.Errorf("Failed to create state %s: %v", stateConfig.ID, err)
 			continue
 		}
 
 		// 添加到状态机
 		if err := ai.stateMachine.AddState(state); err != nil {
-			logger.Errorf("Failed to add state %s: %v", state.GetName(), err)
+			logger.Errorf("Failed to add state %s: %v", state.GetID(), err)
 		}
 
-		logger.Debugf("Added state: %s (ID: %d)", stateConfig.Name, stateConfig.ID)
 	}
 
 	// 设置状态转换关系
@@ -165,8 +161,8 @@ func (ai *BossAIManager) configureStateMachine() error {
 		for _, transition := range stateConfig.Transitions {
 			if baseState, ok := state.(*BaseBossState); ok {
 				baseState.AddTransition(transition.ToState, transition)
-				logger.Debugf("Added transition from %s to %d (priority: %d)",
-					stateConfig.Name, transition.ToState, transition.Priority)
+				logger.Debugf("Added transition from %s to %s (priority: %d)",
+					stateConfig.ID, transition.ToState, transition.Priority)
 			}
 		}
 	}
@@ -192,37 +188,33 @@ func (ai *BossAIManager) createStateFromConfig(config StateConfig) (IBossState, 
 	case StateAttack:
 		state = NewAttackState()
 	case StateRetreat:
-		// 从 modifiers 中获取撤退目标点，如果没有则使用默认值
-		spawnPoint := Position{X: 0, Y: 0, Z: 0} // 默认出生点
-		state = NewRetreatState(spawnPoint)
+		state = NewRetreatState()
 	case StateDying:
 		state = NewDyingState()
 	}
 
 	if state == nil {
-		return nil, fmt.Errorf("failed to create state for ID %d", config.ID)
+		return nil, fmt.Errorf("failed to create state for ID %v", config.ID)
 	}
 
 	// 应用 modifiers
-	if baseState, ok := state.(*BaseBossState); ok {
-		for key, value := range config.Modifiers {
-			baseState.SetModifier(key, value)
-		}
+	for key, value := range config.Modifiers {
+		state.SetModifier(key, value)
+	}
 
-		// 创建状态对应的行为树
-		behaviorTree, err := ai.createBehaviorTreeFromConfig(config.Name, config.Behaviors)
-		if err != nil {
-			logger.Errorf("Failed to create behavior tree for state %s: %v", config.Name, err)
-		} else if behaviorTree != nil {
-			baseState.SetBehaviorTree(behaviorTree)
-		}
+	// 创建状态对应的行为树
+	behaviorTree, err := ai.createBehaviorTreeFromConfig(config.ID, config.Behaviors)
+	if err != nil {
+		logger.Errorf("Failed to create behavior tree for state %s: %v", config.ID, err)
+	} else if behaviorTree != nil {
+		state.SetBehaviorTree(behaviorTree)
 	}
 
 	return state, nil
 }
 
 // createBehaviorTreeFromConfig 从行为配置创建行为树
-func (ai *BossAIManager) createBehaviorTreeFromConfig(stateName string, behaviors interface{}) (*BehaviorTree, error) {
+func (ai *BossAIManager) createBehaviorTreeFromConfig(stateName BossStateID, behaviors interface{}) (*BehaviorTree, error) {
 	if behaviors == nil {
 		return nil, nil
 	}
@@ -256,7 +248,7 @@ func (ai *BossAIManager) createBehaviorTreeFromConfig(stateName string, behavior
 }
 
 // createBehaviorTreeForState 从行为名称列表创建行为树（旧格式支持）
-func (ai *BossAIManager) createBehaviorTreeForState(stateName string, behaviors []string) (*BehaviorTree, error) {
+func (ai *BossAIManager) createBehaviorTreeForState(stateName BossStateID, behaviors []string) (*BehaviorTree, error) {
 	if len(behaviors) == 0 {
 		return nil, nil
 	}
@@ -680,7 +672,7 @@ func (ai *BossAIManager) SetDebugEnabled(enabled bool) {
 func (ai *BossAIManager) updateDebugInfo() {
 	ai.debugInfo.CurrentState = ""
 	if ai.context.CurrentState != nil {
-		ai.debugInfo.CurrentState = ai.context.CurrentState.GetName()
+		ai.debugInfo.CurrentState = string(ai.context.CurrentState.GetID())
 	}
 
 	ai.debugInfo.CurrentPhase = ""
@@ -713,7 +705,6 @@ func (ai *BossAIManager) configurePhaseSystem() error {
 		phase := NewBossPhase(phaseConfig.ID, phaseConfig.Name)
 		phase.SetTriggerCondition(phaseConfig.TriggerCondition)
 		phase.SetAvailableSkills(phaseConfig.AvailableSkills)
-		phase.SetBehaviorTreeName(phaseConfig.BehaviorTree)
 
 		// 应用修改器
 		for key, value := range phaseConfig.Modifiers {

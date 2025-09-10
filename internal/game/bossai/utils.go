@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"strconv"
 	"time"
 )
@@ -241,11 +240,4 @@ func parseSkillNumbers(config map[string]interface{}) error {
 	}
 
 	return nil
-}
-
-// calculateDistance 计算两点间距离
-func calculateDistance(x1, y1, x2, y2 float64) float64 {
-	dx := x2 - x1
-	dy := y2 - y1
-	return math.Sqrt(dx*dx + dy*dy)
 }
