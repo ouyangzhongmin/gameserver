@@ -315,13 +315,11 @@ func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
 type BasicAttackActionNode struct {
 	*ActionNode
 	lastAttackTime time.Time
-	attackCooldown time.Duration
 }
 
 func NewBasicAttackActionNode(name string) *BasicAttackActionNode {
 	return &BasicAttackActionNode{
-		ActionNode:     NewActionNode(name),
-		attackCooldown: time.Millisecond * 1500, // 默认1.5秒攻击间隔
+		ActionNode: NewActionNode(name),
 	}
 }
 
@@ -337,17 +335,10 @@ func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
 	}
 
 	// 检查攻击冷却
-	if ctx.CurrentTime.Sub(n.lastAttackTime) < n.attackCooldown {
+	attackCooldown := time.Duration(ctx.Boss.GetAttackDuration()) * time.Millisecond
+	delta := ctx.CurrentTime.Sub(n.lastAttackTime)
+	if delta < attackCooldown {
 		return ResultRunning
-	}
-
-	// 获取攻击冷却参数
-	if cooldown := n.GetParam("cooldown"); cooldown != nil {
-		if cooldownStr, ok := cooldown.(string); ok {
-			if parsed, err := time.ParseDuration(cooldownStr); err == nil {
-				n.attackCooldown = parsed
-			}
-		}
 	}
 
 	// 执行攻击

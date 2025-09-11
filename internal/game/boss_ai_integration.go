@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/bossai"
@@ -231,8 +233,18 @@ func (b *BossEntityAdapter) GetCurrentLife() int32 {
 	return int32(b.monster.Life)
 }
 
-func (b *BossEntityAdapter) GetAttackPower() int32 {
-	return int32(b.monster.GetAttack())
+func (b *BossEntityAdapter) GetAttackDuration() int {
+	return b.monster.GetAttackDuration()
+}
+
+// 复用Monster的移动速度计算
+func (b *BossEntityAdapter) GetStepTime() int {
+	return b.monster.getStepTime()
+}
+
+// 获取出生点
+func (b *BossEntityAdapter) GetBornPos() coord.Vector3 {
+	return b.monster.bornPos
 }
 
 func (b *BossEntityAdapter) CanUseSkill(skillID int32) bool {
@@ -331,16 +343,15 @@ func (b *BossEntityAdapter) GetCanAttackPos(target bossai.IEntity, offset int) (
 }
 
 func (b *BossEntityAdapter) GetRandomPos(radius int) (coord.Vector3, error) {
-	rx, ry, err := b.monster.scene.GetRandomXY(b.monster.GetMovableRect(), 20)
+	rx, ry, err := b.monster.scene.GetRandomXY(b.GetMovableRect(), 20)
 	if err != nil {
 		return coord.Vector3{}, err
 	}
 	return coord.Vector3{X: rx, Y: ry, Z: 0}, nil
 }
 
-// 复用Monster的移动速度计算
-func (b *BossEntityAdapter) GetStepTime() int {
-	return b.monster.getStepTime()
+func (b *BossEntityAdapter) GetMovableRect() shape.Rect {
+	return b.monster.GetMovableRect()
 }
 
 func (b *BossEntityAdapter) IsInCombat() bool {
@@ -505,25 +516,26 @@ func (b *BossEntityAdapter) OnPhaseEnter(phase bossai.IBossPhase) {
 
 	// 创建阶段修饰器对象
 	phaseModifier := &PhaseModifier{
-		SkillCooldownMultiplier: 1.0,
-		DamageMultiplier:        1.0,
-		DefenseMultiplier:       1.0,
-		Transform:               "",
+		SkillCooldownMultiplier:  1.0,
+		AttackCooldownMultiplier: 1.0,
+		DamageMultiplier:         1.0,
+		DefenseMultiplier:        1.0,
+		Transform:                "",
 	}
 
 	// 应用修饰器
 	if skillCooldownMultiplier, ok := modifiers["skill_cooldown_multiplier"].(float64); ok {
 		phaseModifier.SkillCooldownMultiplier = skillCooldownMultiplier
 	}
-
+	if attackCooldownMultiplier, ok := modifiers["attack_cooldown_multiplier"].(float64); ok {
+		phaseModifier.AttackCooldownMultiplier = attackCooldownMultiplier // 普通攻击
+	}
 	if damageMultiplier, ok := modifiers["damage_multiplier"].(float64); ok {
 		phaseModifier.DamageMultiplier = damageMultiplier
 	}
-
 	if defenseMultiplier, ok := modifiers["defense_multiplier"].(float64); ok {
 		phaseModifier.DefenseMultiplier = defenseMultiplier
 	}
-
 	if transform, ok := modifiers["transform"].(string); ok {
 		phaseModifier.Transform = transform
 	}

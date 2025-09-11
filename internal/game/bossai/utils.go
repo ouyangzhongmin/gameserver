@@ -27,7 +27,7 @@ func LoadBossConfigFromFile(filename string) (*BossConfig, error) {
 	}
 
 	// 处理数值类型
-	if err := parseSkillNumbers(raw); err != nil {
+	if err := parseStateNumbers(raw); err != nil {
 		return nil, err
 	}
 
@@ -57,46 +57,6 @@ func processTimeStrings(config map[string]interface{}) error {
 				return fmt.Errorf("failed to parse behavior tree update interval: %v", err)
 			}
 			behaviorTree["update_interval"] = duration
-		}
-	}
-
-	// 处理技能配置
-	if skills, ok := config["skills"].([]interface{}); ok {
-		for _, v := range skills {
-			if skill, ok := v.(map[string]interface{}); ok {
-				// 处理冷却时间
-				if cooldownStr, ok := skill["cooldown"].(string); ok {
-					duration, err := time.ParseDuration(cooldownStr)
-					if err != nil {
-						return fmt.Errorf("failed to parse cooldown: %v", err)
-					}
-					skill["cooldown"] = duration
-				}
-
-				// 处理施法时间
-				if castTimeStr, ok := skill["cast_time"].(string); ok {
-					duration, err := time.ParseDuration(castTimeStr)
-					if err != nil {
-						return fmt.Errorf("failed to parse cast time: %v", err)
-					}
-					skill["cast_time"] = duration
-				}
-
-				// 处理效果中的持续时间
-				if effects, ok := skill["effects"].([]interface{}); ok {
-					for _, e := range effects {
-						if effect, ok := e.(map[string]interface{}); ok {
-							if durationStr, ok := effect["duration"].(string); ok {
-								duration, err := time.ParseDuration(durationStr)
-								if err != nil {
-									return fmt.Errorf("failed to parse effect duration: %v", err)
-								}
-								effect["duration"] = duration
-							}
-						}
-					}
-				}
-			}
 		}
 	}
 
@@ -158,41 +118,9 @@ func processTimeStrings(config map[string]interface{}) error {
 	return nil
 }
 
-// parseSkillNumbers 解析技能配置中的数值类型
+// parseStateNumbers 解析状态配置中的数值类型
 // 将JSON中的数值字符串转换为float64类型
-func parseSkillNumbers(config map[string]interface{}) error {
-	// 处理技能配置
-	if skills, ok := config["skills"].([]interface{}); ok {
-		for _, v := range skills {
-			if skill, ok := v.(map[string]interface{}); ok {
-				// 处理范围字段
-				if rangeStr, ok := skill["range"].(string); ok {
-					value, err := strconv.ParseFloat(rangeStr, 64)
-					if err != nil {
-						return fmt.Errorf("failed to parse range: %v", err)
-					}
-					skill["range"] = value
-				}
-
-				// 处理效果值中的数值
-				if effects, ok := skill["effects"].([]interface{}); ok {
-					for _, e := range effects {
-						if effect, ok := e.(map[string]interface{}); ok {
-							if valueStr, ok := effect["value"].(string); ok {
-								if value, err := strconv.ParseFloat(valueStr, 64); err == nil {
-									effect["value"] = value
-								} else {
-									// 如果转换失败，保留原始字符串
-									effect["value"] = valueStr
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
+func parseStateNumbers(config map[string]interface{}) error {
 	// 处理状态配置
 	if states, ok := config["states"].([]interface{}); ok {
 		for _, v := range states {

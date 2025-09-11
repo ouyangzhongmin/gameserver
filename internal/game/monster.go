@@ -31,10 +31,11 @@ type rebornMonster struct {
 
 // PhaseModifier 阶段修饰器
 type PhaseModifier struct {
-	SkillCooldownMultiplier float64 // 技能冷却时间乘数
-	DamageMultiplier        float64 // 伤害乘数
-	DefenseMultiplier       float64 // 防御乘数
-	Transform               string  // 变身形态
+	SkillCooldownMultiplier  float64 // 技能冷却时间乘数
+	AttackCooldownMultiplier float64 // 技能冷却时间乘数
+	DamageMultiplier         float64 // 伤害乘数
+	DefenseMultiplier        float64 // 防御乘数
+	Transform                string  // 变身形态
 }
 
 type Monster struct {
@@ -162,6 +163,14 @@ func (m *Monster) SetPhaseModifier(modifier *PhaseModifier) {
 // GetPhaseModifier 获取阶段修饰器
 func (m *Monster) GetPhaseModifier() *PhaseModifier {
 	return m.currentPhaseModifier
+}
+
+// 返回普通攻击间隔
+func (m *Monster) GetAttackDuration() int {
+	if m.currentPhaseModifier != nil && m.currentPhaseModifier.AttackCooldownMultiplier > 0 {
+		return int(float64(m.Data.AttackDuration) * m.currentPhaseModifier.AttackCooldownMultiplier)
+	}
+	return m.Data.AttackDuration
 }
 
 // ApplyTransform 应用变身

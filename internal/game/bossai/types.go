@@ -4,6 +4,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 )
 
@@ -39,22 +41,27 @@ const (
 	StateDying   BossStateID = "dying"
 )
 
-// PhaseCondition 阶段触发条件
-type PhaseCondition struct {
-	Type     ConditionType          `json:"type"`
+// TriggerCondition 阶段触发条件
+type TriggerCondition struct {
+	Key      string                 `json:"key"` // 这个条件会优先判定，如果是复合条件这里可以为空
 	Params   map[string]interface{} `json:"params"`
-	Operator LogicalOperator        `json:"operator,omitempty"`
-	SubConds []PhaseCondition       `json:"sub_conditions,omitempty"`
+	Operator LogicalOperator        `json:"operator,omitempty"`  // 与或非等
+	SubConds []TriggerCondition     `json:"sub_conds,omitempty"` // 复合条件
 }
 
-type ConditionType int
-
 const (
-	CondHealthPercent ConditionType = iota
-	CondTimeElapsed
-	CondSkillUsed
-	CondTargetCount
-	CondCustomScript
+	CondHealthPercent            = "health_percent"
+	CondTimeElapsed              = "time_elapsed"
+	CondTargetCount              = "target_count"
+	CondScannedEnemy             = "scanned_enemy"
+	CondMissEnemy                = "miss_enemy"
+	CondInAttackRange            = "in_attack_range"
+	CondOutOfAttackRange         = "out_of_attack_range"
+	CondOutOfMovableRange        = "out_of_movable_range"
+	CondChaseTimeoutOrOutOfRange = "chase_timeout_or_out_of_range"
+	CondReachedBornPoint         = "reached_born_point"
+	CondSkillCastComplete        = "skill_cast_complete"
+	CondStunExpired              = "stun_expired"
 )
 
 type LogicalOperator int
@@ -90,9 +97,9 @@ type BossContext struct {
 	SkillsUsed     map[int32]int // skillID -> usage count
 
 	// 环境信息（由BossAIManager在updateContext中更新）
-	NearbyEnemies  []IEntity     // 附近敌人
-	NearbyAllies   []IEntity     // 附近盟友
-	OriginPosition coord.Vector3 // 追击前的原始位置
+	NearbyEnemies []IEntity     // 附近敌人
+	NearbyAllies  []IEntity     // 附近盟友
+	ChaseStartPos coord.Vector3 // 追击前的原始位置
 
 	// AI决策缓存
 	LastAction    *AIAction
@@ -144,10 +151,7 @@ func (ctx *BossContext) GetEnemiesInRange(radius float64) []IEntity {
 	for _, enemy := range ctx.NearbyEnemies {
 		enemyPos := enemy.GetPos()
 		// 计算距离
-		dx := float64(bossPos.X - enemyPos.X)
-		dy := float64(bossPos.Y - enemyPos.Y)
-		distance := math.Sqrt(dx*dx + dy*dy)
-
+		distance := shape.CalculateDistance(float64(bossPos.X), float64(bossPos.Y), float64(enemyPos.X), float64(enemyPos.Y))
 		if distance <= radius {
 			filteredEnemies = append(filteredEnemies, enemy)
 		}
@@ -315,9 +319,6 @@ type BossConfig struct {
 	// 阶段配置
 	Phases []PhaseConfig `json:"phases"`
 
-	// 技能配置
-	Skills []SkillConfig `json:"skills"`
-
 	// 行为树配置
 	BehaviorTree BehaviorTreeConfig `json:"behavior_tree"`
 
@@ -347,28 +348,28 @@ type BehaviorConfig struct {
 }
 
 type StateTransition struct {
-	ToState   BossStateID    `json:"to_state"`
-	Condition PhaseCondition `json:"condition"`
-	Priority  int            `json:"priority"`
+	ToState   BossStateID      `json:"to_state"`
+	Condition TriggerCondition `json:"condition"`
+	Priority  int              `json:"priority"`
 }
 
 type PhaseConfig struct {
 	ID               int32                  `json:"id"`
 	Name             string                 `json:"name"`
-	TriggerCondition PhaseCondition         `json:"trigger_condition"`
+	TriggerCondition TriggerCondition       `json:"trigger_condition"`
 	AvailableSkills  []int32                `json:"available_skills"`
 	BehaviorTree     string                 `json:"behavior_tree"`
 	Modifiers        map[string]interface{} `json:"modifiers,omitempty"`
 }
 
 type SkillConfig struct {
-	ID         int32            `json:"id"`
-	Name       string           `json:"name"`
-	Cooldown   time.Duration    `json:"cooldown"`
-	Range      float64          `json:"range"`
-	CastTime   time.Duration    `json:"cast_time"`
-	Conditions []PhaseCondition `json:"conditions,omitempty"`
-	Effects    []SkillEffect    `json:"effects"`
+	ID         int32              `json:"id"`
+	Name       string             `json:"name"`
+	Cooldown   time.Duration      `json:"cooldown"`
+	Range      float64            `json:"range"`
+	CastTime   time.Duration      `json:"cast_time"`
+	Conditions []TriggerCondition `json:"conditions,omitempty"`
+	Effects    []SkillEffect      `json:"effects"`
 }
 
 type SkillEffect struct {

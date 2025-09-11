@@ -13,7 +13,7 @@ type BossPhase struct {
 	id               int32
 	name             string
 	description      string
-	triggerCondition PhaseCondition
+	triggerCondition TriggerCondition
 
 	// 阶段配置
 	availableSkills []int32
@@ -60,11 +60,11 @@ func (p *BossPhase) GetName() string {
 	return p.name
 }
 
-func (p *BossPhase) GetTriggerCondition() PhaseCondition {
+func (p *BossPhase) GetTriggerCondition() TriggerCondition {
 	return p.triggerCondition
 }
 
-func (p *BossPhase) SetTriggerCondition(condition PhaseCondition) {
+func (p *BossPhase) SetTriggerCondition(condition TriggerCondition) {
 	p.triggerCondition = condition
 }
 
@@ -207,114 +207,7 @@ func (p *BossPhase) GetTimeInPhase(currentTime time.Time) time.Duration {
 
 // CanTrigger 检查是否可以触发阶段
 func (p *BossPhase) CanTrigger(ctx *BossContext) bool {
-	return p.evaluateCondition(p.triggerCondition, ctx)
-}
-
-// evaluateCondition 评估条件
-func (p *BossPhase) evaluateCondition(condition PhaseCondition, ctx *BossContext) bool {
-	switch condition.Type {
-	case CondHealthPercent:
-		threshold, ok := condition.Params["threshold"].(float64)
-		if !ok {
-			return false
-		}
-
-		currentPercent := float64(ctx.Boss.GetCurrentLife()) / float64(ctx.Boss.GetMaxLife())
-		operator, ok := condition.Params["operator"].(string)
-		if !ok {
-			operator = "less_than"
-		}
-
-		switch operator {
-		case "less_than":
-			return currentPercent < threshold
-		case "greater_than":
-			return currentPercent > threshold
-		case "equal":
-			return currentPercent == threshold
-		}
-
-	case CondTimeElapsed:
-		duration, ok := condition.Params["duration"].(time.Duration)
-		if !ok {
-			return false
-		}
-
-		return ctx.CombatTime >= duration
-
-	case CondSkillUsed:
-		skillID, ok := condition.Params["skill_id"].(int32)
-		if !ok {
-			return false
-		}
-
-		count, exists := ctx.SkillsUsed[skillID]
-		if !exists {
-			return false
-		}
-
-		minCount, ok := condition.Params["min_count"].(int)
-		if !ok {
-			minCount = 1
-		}
-
-		return count >= minCount
-
-	case CondTargetCount:
-		minCount, ok := condition.Params["min_count"].(int)
-		if !ok {
-			return false
-		}
-
-		return len(ctx.NearbyEnemies) >= minCount
-
-	case CondCustomScript:
-		// 自定义脚本逻辑
-		scriptName, ok := condition.Params["script"].(string)
-		if !ok {
-			return false
-		}
-
-		return p.evaluateCustomScript(scriptName, ctx)
-	}
-
-	// 处理复合条件
-	if len(condition.SubConds) > 0 {
-		results := make([]bool, len(condition.SubConds))
-		for i, subCond := range condition.SubConds {
-			results[i] = p.evaluateCondition(subCond, ctx)
-		}
-
-		switch condition.Operator {
-		case OpAnd:
-			for _, result := range results {
-				if !result {
-					return false
-				}
-			}
-			return true
-		case OpOr:
-			for _, result := range results {
-				if result {
-					return true
-				}
-			}
-			return false
-		case OpNot:
-			if len(results) > 0 {
-				return !results[0]
-			}
-		}
-	}
-
-	return false
-}
-
-// evaluateCustomScript 评估自定义脚本
-func (p *BossPhase) evaluateCustomScript(scriptName string, ctx *BossContext) bool {
-	logger.Debugf("Custom script evaluation for phase %s: %s", p.name, scriptName)
-	// 这里可以集成脚本引擎
-	return false
+	return evaluateCondition(p.triggerCondition, ctx)
 }
 
 // applyStateModifiers 应用状态修改器

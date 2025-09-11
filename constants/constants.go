@@ -5,7 +5,7 @@ const (
 )
 
 const (
-	DEFAULT_SCENE  = 1
+	DEFAULT_SCENE  = 3 //1
 	DEFAULT_SCENE2 = 2
 
 	MONSTER_TYPE_NORMAL = 0

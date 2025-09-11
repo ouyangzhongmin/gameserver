@@ -11,9 +11,8 @@
         {
           "to_state": "chase",
           "condition": {
-            "type": 3,
+            "key": "scanned_enemy",
             "params": {
-              "min_count": 1
             }
           },
           "priority": 5
@@ -33,7 +32,7 @@
             "type": "node",
             "node": "scan_enemies",
             "params": {
-              "radius": 10
+              "radius": 20
             }
           }
         ]
@@ -48,9 +47,8 @@
         {
           "to_state": "attack",
           "condition": {
-            "type": 4,
+            "key": "in_attack_range",
             "params": {
-              "script": "in_attack_range"
             }
           },
           "priority": 10
@@ -58,22 +56,29 @@
         {
           "to_state": "retreat",
           "condition": {
-            "type": 4,
+            "key": "chase_timeout_or_out_of_range",
             "params": {
-              "script": "chase_timeout_or_out_of_range"
             }
           },
-          "priority": 6
+          "priority": 10
         },
         {
           "to_state": "retreat",
           "condition": {
-            "type": 3,
+            "key": "out_of_movable_range",
             "params": {
-              "min_count": 0
             }
           },
-          "priority": 3
+          "priority": 10
+        },
+        {
+          "to_state": "retreat",
+          "condition": {
+            "key": "miss_enemy",
+            "params": {
+            }
+          },
+          "priority": 10
         }
       ],
       "behaviors": {},
@@ -87,9 +92,8 @@
         {
           "to_state": "chase",
           "condition": {
-            "type": 4,
+            "key": "out_of_attack_range",
             "params": {
-              "script": "target_out_of_attack_range"
             }
           },
           "priority": 8
@@ -97,9 +101,8 @@
         {
           "to_state": "retreat",
           "condition": {
-            "type": 3,
+            "key": "miss_enemy",
             "params": {
-              "min_count": 0
             }
           },
           "priority": 3
@@ -151,9 +154,8 @@
         {
           "to_state": "idle",
           "condition": {
-            "type": 4,
+            "key": "reached_born_point",
             "params": {
-              "script": "reached_spawn_point"
             }
           },
           "priority": 10
@@ -161,9 +163,8 @@
         {
           "to_state": "chase",
           "condition": {
-            "type": 3,
+            "key": "been_attacked",
             "params": {
-              "script": "been_attacked"
             }
           },
           "priority": 8
@@ -199,7 +200,7 @@
       "id": 1,
       "name": "Normal Phase",
       "trigger_condition": {
-        "type": 0,
+        "key": "health_percent",
         "params": {
           "threshold": 1.0,
           "operator": "less_than"
@@ -217,7 +218,7 @@
       "id": 2,
       "name": "Aggressive Phase",
       "trigger_condition": {
-        "type": 0,
+        "key": "health_percent",
         "params": {
           "threshold": 0.7,
           "operator": "less_than"
@@ -235,7 +236,7 @@
       "id": 3,
       "name": "Desperate Phase",
       "trigger_condition": {
-        "type": 0,
+        "key": "health_percent",
         "params": {
           "threshold": 0.3,
           "operator": "less_than"
@@ -254,7 +255,7 @@
       "id": 4,
       "name": "Final Stand",
       "trigger_condition": {
-        "type": 0,
+        "key": "health_percent",
         "params": {
           "threshold": 0.1,
           "operator": "less_than"

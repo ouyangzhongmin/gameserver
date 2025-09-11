@@ -235,7 +235,7 @@ func NewBehaviorTree(name string) *BehaviorTree {
 	return &BehaviorTree{
 		name:           name,
 		isRunning:      false,
-		updateInterval: time.Millisecond * 100,
+		updateInterval: time.Millisecond * 500,
 		maxDepth:       10,
 		enableLogging:  false,
 		executionPath:  make([]string, 0),

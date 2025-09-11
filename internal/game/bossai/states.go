@@ -12,7 +12,7 @@ import (
 type BaseBossState struct {
 	id          BossStateID
 	name        string
-	transitions map[BossStateID]StateTransition
+	transitions []StateTransition
 	modifiers   map[string]interface{}
 	enterTime   time.Time
 	isActive    bool
@@ -29,7 +29,7 @@ func NewBaseBossState(id BossStateID, name string) *BaseBossState {
 	return &BaseBossState{
 		id:               id,
 		name:             name,
-		transitions:      make(map[BossStateID]StateTransition),
+		transitions:      make([]StateTransition, 0),
 		modifiers:        make(map[string]interface{}),
 		isActive:         false,
 		behaviorConfigs:  make([]string, 0),
@@ -60,8 +60,13 @@ func (s *BaseBossState) OnUpdate(ctx *BossContext, deltaTime time.Duration) erro
 	// 执行行为树
 	if s.behaviorTree != nil && ctx.CurrentTime.Sub(s.lastBehaviorTime) >= s.behaviorInterval {
 		s.lastBehaviorTime = ctx.CurrentTime
-		result := s.behaviorTree.Execute(ctx)
-		logger.Debugf("State %s executed behavior tree, result: %v", s.name, result)
+		s.behaviorTree.Execute(ctx)
+		//logger.Debugf("State %s executed behavior tree, result: %v", s.name,  result)
+	}
+
+	if ctx.Boss.IsDied() {
+		// 死亡时强制进入
+		ctx.RequestStateTransition(StateDying, "boss_died", 1000)
 	}
 
 	return nil
@@ -75,12 +80,14 @@ func (s *BaseBossState) OnExit(ctx *BossContext) error {
 }
 
 func (s *BaseBossState) CanTransitionTo(stateID BossStateID, ctx *BossContext) bool {
-	transition, exists := s.transitions[BossStateID(stateID)]
-	if !exists {
-		return false
+	for _, transition := range s.transitions {
+		if transition.ToState == stateID {
+			if ok := evaluateCondition(transition.Condition, ctx); ok {
+				return true
+			}
+		}
 	}
-
-	return s.evaluateCondition(transition.Condition, ctx)
+	return false
 }
 
 func (s *BaseBossState) GetNextState(ctx *BossContext) BossStateID {
@@ -89,11 +96,11 @@ func (s *BaseBossState) GetNextState(ctx *BossContext) BossStateID {
 	var bestStateID BossStateID = ""
 	maxPriority := -1
 
-	for stateID, transition := range s.transitions {
-		if transition.Priority > maxPriority && s.evaluateCondition(transition.Condition, ctx) {
+	for _, transition := range s.transitions {
+		if transition.Priority > maxPriority && evaluateCondition(transition.Condition, ctx) {
 			maxPriority = transition.Priority
 			bestTransition = &transition
-			bestStateID = stateID
+			bestStateID = transition.ToState
 		}
 	}
 
@@ -105,7 +112,7 @@ func (s *BaseBossState) GetNextState(ctx *BossContext) BossStateID {
 }
 
 func (s *BaseBossState) AddTransition(toState BossStateID, transition StateTransition) {
-	s.transitions[toState] = transition
+	s.transitions = append(s.transitions, transition)
 }
 
 func (s *BaseBossState) SetModifier(key string, value interface{}) {
@@ -182,151 +189,6 @@ func (s *BaseBossState) ExecuteBehaviorTree(ctx *BossContext) BehaviorResult {
 	return s.behaviorTree.Execute(ctx)
 }
 
-// evaluateCondition 评估条件
-func (s *BaseBossState) evaluateCondition(condition PhaseCondition, ctx *BossContext) bool {
-	switch condition.Type {
-	case CondHealthPercent:
-		threshold, ok := condition.Params["threshold"].(float64)
-		if !ok {
-			return false
-		}
-		currentPercent := float64(ctx.Boss.GetCurrentLife()) / float64(ctx.Boss.GetMaxLife())
-		operator, ok := condition.Params["operator"].(string)
-		if !ok {
-			operator = "less_than"
-		}
-
-		switch operator {
-		case "less_than":
-			return currentPercent < threshold
-		case "greater_than":
-			return currentPercent > threshold
-		case "equal":
-			return currentPercent == threshold
-		default:
-			return false
-		}
-
-	case CondTimeElapsed:
-		duration, ok := condition.Params["duration"].(time.Duration)
-		if !ok {
-			return false
-		}
-		return s.GetTimeInState(ctx.CurrentTime) >= duration
-
-	// case CondSkillUsed:
-	// 	skillID, ok := condition.Params["skill_id"].(int32)
-	// 	if !ok {
-	// 		return false
-	// 	}
-	// 	count, exists := ctx.SkillsUsed[skillID]
-	// 	if !exists {
-	// 		return false
-	// 	}
-	// 	minCount, ok := condition.Params["min_count"].(int)
-	// 	if !ok {
-	// 		minCount = 1
-	// 	}
-	// 	return count >= minCount
-
-	case CondTargetCount:
-		minCount, ok := condition.Params["min_count"].(int)
-		if !ok {
-			return false
-		}
-		return len(ctx.NearbyEnemies) >= minCount
-
-	case CondCustomScript:
-		// 这里可以扩展自定义脚本逻辑
-		scriptName, ok := condition.Params["script"].(string)
-		if !ok {
-			return false
-		}
-		return s.evaluateCustomScript(scriptName, ctx)
-	}
-
-	// 处理复合条件
-	if len(condition.SubConds) > 0 {
-		results := make([]bool, len(condition.SubConds))
-		for i, subCond := range condition.SubConds {
-			results[i] = s.evaluateCondition(subCond, ctx)
-		}
-
-		switch condition.Operator {
-		case OpAnd:
-			for _, result := range results {
-				if !result {
-					return false
-				}
-			}
-			return true
-		case OpOr:
-			for _, result := range results {
-				if result {
-					return true
-				}
-			}
-			return false
-		case OpNot:
-			if len(results) > 0 {
-				return !results[0]
-			}
-		}
-	}
-
-	return false
-}
-
-// evaluateCustomScript 评估自定义脚本
-func (s *BaseBossState) evaluateCustomScript(scriptName string, ctx *BossContext) bool {
-	// 这里可以实现脚本引擎或者预定义的逻辑
-	switch scriptName {
-	case "in_attack_range":
-		if ctx.Target == nil {
-			return false
-		}
-		return ctx.Boss.IsInAttackRange(ctx.Target.GetPos().X, ctx.Target.GetPos().Y)
-
-	case "chase_timeout_or_out_of_range":
-		// 检查追击超时或超出范围
-		if ctx.Target == nil {
-			return true
-		}
-		maxChaseTime := time.Second * 30
-		if s.GetTimeInState(ctx.CurrentTime) > maxChaseTime {
-			return true
-		}
-		// 检查距离
-		bossPos := ctx.Boss.GetPos()
-		targetPos := ctx.Target.GetPos()
-		distance := shape.CalculateDistance(
-			float64(bossPos.X), float64(bossPos.Y),
-			float64(targetPos.X), float64(targetPos.Y),
-		)
-		return distance > 300.0 // 超出追击范围
-
-	case "target_out_of_attack_range":
-		if ctx.Target == nil {
-			return true
-		}
-		return !ctx.Boss.IsInAttackRange(ctx.Target.GetPos().X, ctx.Target.GetPos().Y)
-
-	case "skill_cast_complete":
-		// 这里需要检查技能释放是否完成
-		// 暂时简单的时间检查
-		return s.GetTimeInState(ctx.CurrentTime) > time.Second*2
-
-	case "stun_expired":
-		// 检查眩晕是否结束
-		stunDuration := time.Second * 3 // 默认3秒
-		return s.GetTimeInState(ctx.CurrentTime) >= stunDuration
-
-	default:
-		logger.Debugf("Custom script evaluation not implemented: %s", scriptName)
-		return false
-	}
-}
-
 // IdleState 空闲状态 - 现在依赖行为树执行具体行为
 type IdleState struct {
 	*BaseBossState
@@ -383,7 +245,7 @@ func (s *ChaseState) OnEnter(ctx *BossContext) error {
 		return err
 	}
 	// 这里需要记录开始追击的原始位置，怪物在返回时需要回到这个位置
-	ctx.OriginPosition = ctx.Boss.GetPos()
+	ctx.ChaseStartPos = ctx.Boss.GetPos()
 
 	// 控制Monster真实状态
 	ctx.Boss.Chase()
@@ -502,24 +364,26 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 		return err
 	}
 
+	bornPos := ctx.Boss.GetBornPos()
 	// 控制Monster真实状态
 	ctx.Boss.Escape()
 	// 返回出生点
-	ctx.Boss.MoveTo(ctx.OriginPosition.X, ctx.OriginPosition.Y, ctx.OriginPosition.Z)
+	ctx.Boss.MoveTo(bornPos.X, bornPos.Y, bornPos.Z)
 	// 清除战斗目标
 	ctx.Target = nil
 	ctx.Boss.SetCombatTarget(nil)
 
-	logger.Debugf("Boss %d retreating to spawn point (%f, %f)",
-		ctx.Boss.GetID(), ctx.OriginPosition.X, ctx.OriginPosition.Y)
+	logger.Debugf("Boss %d retreating to born point (%f, %f)",
+		ctx.Boss.GetID(), bornPos.X, bornPos.Y)
 
 	return nil
 }
 
 func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 获取出生点参数
+	bornPos := ctx.Boss.GetBornPos()
 	if !ctx.Boss.IsEscaping() {
-		ctx.Boss.MoveTo(ctx.OriginPosition.X, ctx.OriginPosition.Y, ctx.OriginPosition.Z)
+		ctx.Boss.MoveTo(bornPos.X, bornPos.Y, bornPos.Z)
 	}
 
 	// 获取移动间隔参数
@@ -529,15 +393,15 @@ func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error
 		bossPos := ctx.Boss.GetPos()
 		distance := shape.CalculateDistance(
 			float64(bossPos.X), float64(bossPos.Y),
-			float64(ctx.OriginPosition.X), float64(ctx.OriginPosition.Y),
+			float64(bornPos.X), float64(bornPos.Y),
 		)
 
 		if distance <= 1 {
 			// 到达目的地,请求转换到idle状态
-			reason := "ReturnToSpawn"
+			reason := "ReturnToBorn"
 			ctx.RequestStateTransition(StateIdle, reason, 100) // 高优先级
-			logger.Debugf("ReturnToSpawn: Moved to spawn point (%.2f, %.2f), distance: %.2f",
-				ctx.OriginPosition.X, ctx.OriginPosition.Y, distance)
+			logger.Debugf("ReturnToBorn: Moved to born point (%.2f, %.2f), distance: %.2f",
+				bornPos.X, bornPos.Y, distance)
 		}
 		s.lastMoveTime = ctx.CurrentTime
 	}

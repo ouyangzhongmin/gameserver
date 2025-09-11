@@ -80,8 +80,8 @@ func (m *MockMonster) GetCurrentLife() int32 {
 	return int32(m.Life)
 }
 
-func (m *MockMonster) GetAttackPower() int32 {
-	return int32(m.Attack)
+func (m *MockMonster) GetAttackDuration() int {
+	return 2000
 }
 
 func (m *MockMonster) CanUseSkill(skillID int32) bool {
@@ -275,7 +275,7 @@ func TestBossAIManager(t *testing.T) {
 				Transitions: []bossai.StateTransition{
 					{
 						ToState: bossai.StateChase,
-						Condition: bossai.PhaseCondition{
+						Condition: bossai.TriggerCondition{
 							Type: bossai.CondTargetCount,
 							Params: map[string]interface{}{
 								"min_count": 1,
@@ -294,7 +294,7 @@ func TestBossAIManager(t *testing.T) {
 				Transitions: []bossai.StateTransition{
 					{
 						ToState: bossai.StateAttack,
-						Condition: bossai.PhaseCondition{
+						Condition: bossai.TriggerCondition{
 							Type: bossai.CondCustomScript,
 							Params: map[string]interface{}{
 								"script": "in_attack_range",
@@ -313,7 +313,7 @@ func TestBossAIManager(t *testing.T) {
 				Transitions: []bossai.StateTransition{
 					{
 						ToState: bossai.StateChase,
-						Condition: bossai.PhaseCondition{
+						Condition: bossai.TriggerCondition{
 							Type: bossai.CondCustomScript,
 							Params: map[string]interface{}{
 								"script": "target_out_of_attack_range",
@@ -332,7 +332,7 @@ func TestBossAIManager(t *testing.T) {
 			{
 				ID:   1,
 				Name: "Normal Phase",
-				TriggerCondition: bossai.PhaseCondition{
+				TriggerCondition: bossai.TriggerCondition{
 					Type: bossai.CondHealthPercent,
 					Params: map[string]interface{}{
 						"threshold": 1.0,
@@ -349,7 +349,7 @@ func TestBossAIManager(t *testing.T) {
 			{
 				ID:   2,
 				Name: "Aggressive Phase",
-				TriggerCondition: bossai.PhaseCondition{
+				TriggerCondition: bossai.TriggerCondition{
 					Type: bossai.CondHealthPercent,
 					Params: map[string]interface{}{
 						"threshold": 0.7,
@@ -366,7 +366,7 @@ func TestBossAIManager(t *testing.T) {
 			{
 				ID:   3,
 				Name: "Desperate Phase",
-				TriggerCondition: bossai.PhaseCondition{
+				TriggerCondition: bossai.TriggerCondition{
 					Type: bossai.CondHealthPercent,
 					Params: map[string]interface{}{
 						"threshold": 0.3,

@@ -53,7 +53,7 @@ func (sm *StateMachine) AddState(state IBossState) error {
 	stateID := BossStateID(state.GetID())
 
 	if _, exists := sm.states[stateID]; exists {
-		return fmt.Errorf("state %d already exists", stateID)
+		return fmt.Errorf("state %s already exists", stateID)
 	}
 
 	sm.states[stateID] = state
@@ -80,18 +80,18 @@ func (sm *StateMachine) RemoveState(stateID BossStateID) error {
 
 	state, exists := sm.states[stateID]
 	if !exists {
-		return fmt.Errorf("state %d not found", stateID)
+		return fmt.Errorf("state %s not found", stateID)
 	}
 
 	// 如果是当前状态，不能删除
 	if sm.currentState != nil && BossStateID(sm.currentState.GetID()) == stateID {
-		return fmt.Errorf("cannot remove current state %d", stateID)
+		return fmt.Errorf("cannot remove current state %s", stateID)
 	}
 
 	delete(sm.states, stateID)
 
 	if sm.enableLogging {
-		logger.Debugf("Removed state: %s (ID: %d)", state.GetName(), stateID)
+		logger.Debugf("Removed state: %s (ID: %s)", state.GetName(), stateID)
 	}
 
 	return nil
@@ -104,7 +104,7 @@ func (sm *StateMachine) SetInitialState(stateID BossStateID, ctx *BossContext) e
 
 	state, exists := sm.states[stateID]
 	if !exists {
-		return fmt.Errorf("initial state %d not found", stateID)
+		return fmt.Errorf("initial state %s not found", stateID)
 	}
 
 	sm.context = ctx
@@ -182,7 +182,7 @@ func (sm *StateMachine) checkStateTransitionRequest(ctx *BossContext) bool {
 	// 检查目标状态是否存在
 	targetState, exists := sm.states[request.TargetState]
 	if !exists {
-		logger.Warnf("State transition request to non-existent state: %d", request.TargetState)
+		logger.Warnf("State transition request to non-existent state: %s", request.TargetState)
 		return false
 	}
 
@@ -193,7 +193,7 @@ func (sm *StateMachine) checkStateTransitionRequest(ctx *BossContext) bool {
 
 	// 执行状态转换
 	if err := sm.ForceTransition(request.TargetState, ctx); err != nil {
-		logger.Errorf("Failed to transition to state %d: %v", request.TargetState, err)
+		logger.Errorf("Failed to transition to state %s: %v", request.TargetState, err)
 		return false
 	}
 
@@ -222,7 +222,7 @@ func (sm *StateMachine) checkStateTransitions(ctx *BossContext) error {
 func (sm *StateMachine) TransitionTo(stateID BossStateID, ctx *BossContext) error {
 	targetState, exists := sm.states[stateID]
 	if !exists {
-		return fmt.Errorf("target state %d not found", stateID)
+		return fmt.Errorf("target state %s not found", stateID)
 	}
 
 	// 检查是否可以转换
@@ -275,7 +275,7 @@ func (sm *StateMachine) ForceTransition(stateID BossStateID, ctx *BossContext) e
 
 	targetState, exists := sm.states[stateID]
 	if !exists {
-		return fmt.Errorf("target state %d not found", stateID)
+		return fmt.Errorf("target state %v not found", stateID)
 	}
 
 	if sm.currentState != nil {

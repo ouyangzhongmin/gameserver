@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/ouyangzhongmin/gameserver/pkg/shape"
+
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 )
 
@@ -50,7 +52,9 @@ type IBossEntity interface {
 	// 基础属性
 	GetMaxLife() int32
 	GetCurrentLife() int32
-	GetAttackPower() int32
+	GetAttackDuration() int    // 攻击间隔
+	GetStepTime() int          // 复用Monster的getStepTime方法
+	GetBornPos() coord.Vector3 // 获取出生点
 
 	// 技能相关
 	CanUseSkill(skillID int32) bool
@@ -65,7 +69,7 @@ type IBossEntity interface {
 	DoAttackTarget(target IEntity) error                               // 复用Monster的doAttackTarget方法
 	GetCanAttackPos(target IEntity, offset int) (coord.Vector3, error) // 复用Monster的GetCanAttackPos方法
 	GetRandomPos(radius int) (coord.Vector3, error)
-	GetStepTime() int // 复用Monster的getStepTime方法
+	GetMovableRect() shape.Rect
 
 	// 状态相关
 	IsInCombat() bool
@@ -118,8 +122,11 @@ type IBossState interface {
 	SetModifier(key string, value interface{})
 	GetModifier(key string) interface{}
 
+	AddTransition(toState BossStateID, transition StateTransition)
 	SetBehaviorTree(tree *BehaviorTree)
 	GetBehaviorTree() *BehaviorTree
+
+	GetTimeInState(currentTime time.Time) time.Duration
 }
 
 // IBehaviorNode 行为树节点接口
@@ -142,7 +149,7 @@ type IBehaviorNode interface {
 type IBossPhase interface {
 	GetID() int32
 	GetName() string
-	GetTriggerCondition() PhaseCondition
+	GetTriggerCondition() TriggerCondition
 
 	// 阶段生命周期
 	OnEnter(ctx *BossContext) error

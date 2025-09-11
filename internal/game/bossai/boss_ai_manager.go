@@ -159,11 +159,9 @@ func (ai *BossAIManager) configureStateMachine() error {
 
 		// 配置状态转换
 		for _, transition := range stateConfig.Transitions {
-			if baseState, ok := state.(*BaseBossState); ok {
-				baseState.AddTransition(transition.ToState, transition)
-				logger.Debugf("Added transition from %s to %s (priority: %d)",
-					stateConfig.ID, transition.ToState, transition.Priority)
-			}
+			state.AddTransition(transition.ToState, transition)
+			logger.Debugf("Added transition from %s to %s (priority: %d)",
+				stateConfig.ID, transition.ToState, transition.Priority)
 		}
 	}
 
@@ -338,19 +336,7 @@ func (ai *BossAIManager) createNodeFromBehaviorConfig(config BehaviorConfig) (IB
 
 	// 设置节点参数
 	if config.Params != nil {
-		for key, value := range config.Params {
-			if baseNode, ok := node.(*BaseBehaviorNode); ok {
-				baseNode.SetParam(key, value)
-			} else if randomNode, ok := node.(*RandomNode); ok {
-				randomNode.SetParam(key, value)
-			} else if sequenceNode, ok := node.(*SequenceNode); ok {
-				sequenceNode.SetParam(key, value)
-			} else if selectorNode, ok := node.(*SelectorNode); ok {
-				selectorNode.SetParam(key, value)
-			} else if repeaterNode, ok := node.(*RepeaterNode); ok {
-				repeaterNode.SetParam(key, value)
-			}
-		}
+		node.SetParams(config.Params)
 	}
 
 	return node, nil
@@ -832,7 +818,7 @@ func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
 	}
 
 	// 更新附近实体
-	entites := ai.boss.GetEntitesInRange(10)
+	entites := ai.boss.GetEntitesInRange(30)
 	ai.context.NearbyEnemies = make([]IEntity, 0)
 	ai.context.NearbyAllies = make([]IEntity, 0)
 	for _, entity := range entites {
