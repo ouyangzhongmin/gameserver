@@ -387,10 +387,6 @@ func NewSkillUsageNode(name string) *SkillUsageNode {
 
 func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 	n.ActionNode.Execute(ctx)
-	if stateResult := n.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
-		return stateResult
-	}
-
 	if ctx.Target == nil || !ctx.Target.IsAlive() {
 		n.SetFailed()
 		return ResultFailure
@@ -398,7 +394,8 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 
 	// 检查攻击冷却
 	if ctx.CurrentTime.Sub(n.lastAttackTime) < n.attackCooldown {
-		return ResultRunning
+		n.SetFailed()
+		return ResultFailure
 	}
 	n.lastAttackTime = ctx.CurrentTime
 
@@ -408,14 +405,15 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 		if skillId == 0 {
 			rules := n.GetParamAsString("rules", "")
 			skillId = ctx.Boss.GetAvailableSkill(rules)
+			n.skillId = skillId
 		} else {
 			if !ctx.Boss.CanUseSkill(skillId) {
 				// 技能不可用
 				n.SetFailed()
 				return ResultFailure
 			}
+			n.skillId = skillId
 		}
-		n.skillId = skillId
 	}
 
 	// 检查当前阶段是否限制了可用技能

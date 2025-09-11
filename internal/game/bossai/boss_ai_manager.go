@@ -96,9 +96,6 @@ func (ai *BossAIManager) Initialize(boss IBossEntity) error {
 
 // LoadConfig 加载配置
 func (ai *BossAIManager) LoadConfig(config *BossConfig) error {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
 	ai.config = config
 
 	if ai.isInitialized {
@@ -552,7 +549,7 @@ func (ai *BossAIManager) GetCurrentState() IBossState {
 }
 
 // TransitionTo 强制转换状态
-func (ai *BossAIManager) TransitionTo(stateID int32) error {
+func (ai *BossAIManager) TransitionTo(stateID string) error {
 	return ai.stateMachine.ForceTransition(BossStateID(stateID), ai.context)
 }
 
@@ -608,9 +605,6 @@ func (ai *BossAIManager) OnTargetChanged(newTarget IEntity) error {
 
 // Start 启动AI
 func (ai *BossAIManager) Start() error {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
 	if !ai.isInitialized {
 		return fmt.Errorf("AI not initialized")
 	}
@@ -635,41 +629,26 @@ func (ai *BossAIManager) Stop() error {
 
 // Pause 暂停AI
 func (ai *BossAIManager) Pause() {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
 	ai.isPaused = true
 }
 
 // Resume 恢复AI
 func (ai *BossAIManager) Resume() {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
 	ai.isPaused = false
 }
 
 // IsRunning 检查是否运行中
 func (ai *BossAIManager) IsRunning() bool {
-	ai.mutex.RLock()
-	defer ai.mutex.RUnlock()
-
 	return ai.isRunning && !ai.isPaused
 }
 
 // GetDebugInfo 获取调试信息
 func (ai *BossAIManager) GetDebugInfo() *AIDebugInfo {
-	ai.mutex.RLock()
-	defer ai.mutex.RUnlock()
-
 	return ai.debugInfo
 }
 
 // SetDebugEnabled 设置调试模式
 func (ai *BossAIManager) SetDebugEnabled(enabled bool) {
-	ai.mutex.Lock()
-	defer ai.mutex.Unlock()
-
 	ai.enableDebug = enabled
 }
 

@@ -239,11 +239,14 @@ func (s *Scene) initMonsterByConfig(cfg model.SceneMonsterConfig) error {
 		m.bornPos.Copy(m.GetPos())
 		m.SetMovableRect(rect)
 		m.SetSpells(spells)
+		// 设置ai
 		if monsterData.Grade == constants.MONSTER_GRADE_BOSS {
-			err := m.EnableBossAI(fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
+			// 基于状态机与行为树的 AI适配器
+			bossAI, err := NewBossAIManagerAdapter(m, aidata, fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
 			if err != nil {
-				logger.Errorln(err)
+				return fmt.Errorf("failed to create boss AI: %w", err)
 			}
+			m.SetAiData(bossAI)
 		} else if aidata != nil {
 			m.SetAiData(newMonsterAi(m, aidata))
 		}

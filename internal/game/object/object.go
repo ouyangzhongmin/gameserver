@@ -138,6 +138,7 @@ func (m *MonsterObject) GetDefense() int64 {
 	return m.Data.BaseDefense + m.Data.Agility*DEFENSE_AGILITY_PERM
 }
 
+// 这个是用于服务器与前端同步用的对象
 type SpellObject struct {
 	GameObject
 	Data         model.Spell        `json:"-"`
@@ -165,6 +166,7 @@ func NewSpellObject(data *model.Spell, buf *model.BufferState) *SpellObject {
 		Buf:        buf,
 	}
 	//构造一个id
+	o.Id = int64(data.Id)
 	o.SpellId = data.Id
 	o.Name = data.Name
 	o.Description = data.Description
@@ -175,6 +177,7 @@ func NewSpellObject(data *model.Spell, buf *model.BufferState) *SpellObject {
 	return o
 }
 
+// 这里主要用在spellentity的id生成
 func (s *SpellObject) GenId() {
 	s.Id = time.Now().UnixMilli()%1000000*100 + int64(rand.Intn(100))
 }

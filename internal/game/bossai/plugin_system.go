@@ -51,9 +51,6 @@ func (p *BaseAIPlugin) GetVersion() string {
 }
 
 func (p *BaseAIPlugin) SetEnabled(enabled bool) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
 	p.enabled = enabled
 }
 
@@ -76,16 +73,10 @@ func (p *BaseAIPlugin) SetConfig(config map[string]interface{}) {
 }
 
 func (p *BaseAIPlugin) IsEnabled() bool {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	return p.enabled
 }
 
 func (p *BaseAIPlugin) GetConfig() map[string]interface{} {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	// 返回副本
 	result := make(map[string]interface{})
 	for k, v := range p.config {
@@ -104,10 +95,6 @@ func (p *BaseAIPlugin) Update(ctx *BossContext, deltaTime time.Duration) error {
 	if !p.enabled {
 		return nil
 	}
-
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
 	start := time.Now()
 	defer func() {
 		p.totalUpdateTime += time.Since(start)
@@ -135,9 +122,6 @@ func (p *BaseAIPlugin) ModifyBehavior(ctx *BossContext, originalAction *AIAction
 }
 
 func (p *BaseAIPlugin) GetStatistics() PluginStatistics {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	stats := PluginStatistics{
 		Name:            p.name,
 		Version:         p.version,
@@ -370,9 +354,6 @@ func (p *OpenAIProvider) GetName() string {
 }
 
 func (p *OpenAIProvider) Configure(config map[string]interface{}) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
 	if endpoint, exists := config["endpoint"]; exists {
 		if endpointStr, ok := endpoint.(string); ok {
 			p.endpoint = endpointStr
@@ -416,15 +397,11 @@ func (p *OpenAIProvider) GenerateStrategy(ctx context.Context, bossState *BossSn
 		return nil, fmt.Errorf("LLM provider not available")
 	}
 
-	p.mutex.Lock()
 	p.requestCount++
-	p.mutex.Unlock()
 
 	start := time.Now()
 	defer func() {
-		p.mutex.Lock()
 		p.totalLatency += time.Since(start)
-		p.mutex.Unlock()
 	}()
 
 	// 构建提示词
@@ -433,18 +410,14 @@ func (p *OpenAIProvider) GenerateStrategy(ctx context.Context, bossState *BossSn
 	// 调用LLM API
 	response, err := p.callLLMAPI(ctx, prompt)
 	if err != nil {
-		p.mutex.Lock()
 		p.errorCount++
-		p.mutex.Unlock()
 		return nil, err
 	}
 
 	// 解析响应
 	strategy, err := p.parseStrategyResponse(response)
 	if err != nil {
-		p.mutex.Lock()
 		p.errorCount++
-		p.mutex.Unlock()
 		return nil, err
 	}
 
@@ -456,15 +429,11 @@ func (p *OpenAIProvider) AdaptBehavior(ctx context.Context, feedback *ActionFeed
 		return nil, fmt.Errorf("LLM provider not available")
 	}
 
-	p.mutex.Lock()
 	p.requestCount++
-	p.mutex.Unlock()
 
 	start := time.Now()
 	defer func() {
-		p.mutex.Lock()
 		p.totalLatency += time.Since(start)
-		p.mutex.Unlock()
 	}()
 
 	// 构建适应性提示词
@@ -473,18 +442,14 @@ func (p *OpenAIProvider) AdaptBehavior(ctx context.Context, feedback *ActionFeed
 	// 调用LLM API
 	response, err := p.callLLMAPI(ctx, prompt)
 	if err != nil {
-		p.mutex.Lock()
 		p.errorCount++
-		p.mutex.Unlock()
 		return nil, err
 	}
 
 	// 解析响应
 	adjustment, err := p.parseAdaptationResponse(response)
 	if err != nil {
-		p.mutex.Lock()
 		p.errorCount++
-		p.mutex.Unlock()
 		return nil, err
 	}
 
@@ -766,17 +731,13 @@ func (p *LLMPlugin) updateStrategy(ctx *BossContext) {
 	strategy, err := p.provider.GenerateStrategy(context.Background(), bossSnapshot, gameSnapshot)
 	if err != nil {
 		logger.Errorf("Failed to generate LLM strategy: %v", err)
-		p.mutex.Lock()
 		p.errorCount++
-		p.mutex.Unlock()
 		return
 	}
 
 	// 更新当前策略
-	p.mutex.Lock()
 	p.currentStrategy = strategy
 	p.strategyAge = 0
-	p.mutex.Unlock()
 
 	logger.Debugf("LLM strategy updated: %s (confidence: %.2f)",
 		strategy.Reasoning, strategy.Confidence)

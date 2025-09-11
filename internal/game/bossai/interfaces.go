@@ -55,6 +55,7 @@ type IBossEntity interface {
 	GetAttackDuration() int    // 攻击间隔
 	GetStepTime() int          // 复用Monster的getStepTime方法
 	GetBornPos() coord.Vector3 // 获取出生点
+	GetMaxChaseDist() int      // 获取最大的追击距离
 
 	// 技能相关
 	CanUseSkill(skillID int32) bool
@@ -99,8 +100,6 @@ type IBossEntity interface {
 	IsAttacking() bool
 	IsDied() bool
 
-	// 阶段相关
-	GetCurrentPhase() IBossPhase
 	OnPhaseEnter(phase IBossPhase) // 当进入新阶段时调用
 }
 

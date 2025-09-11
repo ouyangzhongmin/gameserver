@@ -95,66 +95,6 @@ func (m *Monster) SetAiData(aimgr IAiManager) {
 	m.aimgr = aimgr
 }
 
-// Boss AI相关的扩展方法
-// EnableBossAI 为Monster启用Boss AI系统
-// 这个函数可以直接在Monster上调用，替换原有的AI系统
-func (m *Monster) EnableBossAI(configPath string) error {
-	// 如果已经有AI管理器，先清理
-	if m.aimgr != nil {
-		m.aimgr.clear()
-		m.aimgr = nil
-	}
-
-	// 创建Boss AI适配器
-	bossAI, err := NewBossAIManagerAdapter(m, configPath)
-	if err != nil {
-		return fmt.Errorf("failed to create boss AI: %w", err)
-	}
-
-	// 设置为新的AI管理器
-	m.SetAiData(bossAI)
-
-	logger.Printf("Boss AI enabled for monster %d (%s)", m.GetID(), m._name)
-	return nil
-}
-
-// IsBossAI 检查是否使用 Boss AI
-func (m *Monster) IsBossAI() bool {
-	if m.aimgr == nil {
-		return false
-	}
-	_, ok := m.aimgr.(*BossAIManagerAdapter)
-	return ok
-}
-
-// GetBossAI 获取 Boss AI 管理器
-func (m *Monster) GetBossAI() *BossAIManagerAdapter {
-	if m.aimgr == nil {
-		return nil
-	}
-	bossAI, ok := m.aimgr.(*BossAIManagerAdapter)
-	if !ok {
-		return nil
-	}
-	return bossAI
-}
-
-// SetBossAIDebug 设置 Boss AI 调试模式
-func (m *Monster) SetBossAIDebug(enabled bool) {
-	if bossAI := m.GetBossAI(); bossAI != nil {
-		bossAI.SetDebugEnabled(enabled)
-	}
-}
-
-// TransitionBossAIState 强制转换 Boss AI 状态
-func (m *Monster) TransitionBossAIState(stateID int32) error {
-	bossAI := m.GetBossAI()
-	if bossAI == nil {
-		return fmt.Errorf("monster %d is not using Boss AI", m.GetID())
-	}
-	return bossAI.TransitionTo(stateID)
-}
-
 // SetPhaseModifier 设置阶段修饰器
 func (m *Monster) SetPhaseModifier(modifier *PhaseModifier) {
 	m.currentPhaseModifier = modifier
@@ -712,12 +652,12 @@ func (m *Monster) getStepTime() int {
 	return stepTime
 }
 
-func (m *Monster) GetSpell(spellId int64) *object.SpellObject {
+func (m *Monster) GetSpell(spellId int) *object.SpellObject {
 	if m.spells == nil || len(m.spells) == 0 {
 		return nil
 	}
 	for _, spell := range m.spells {
-		if spell.Id == spellId {
+		if spell.SpellId == spellId {
 			return spell
 		}
 	}

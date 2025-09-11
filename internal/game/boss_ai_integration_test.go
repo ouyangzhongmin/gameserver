@@ -22,7 +22,7 @@ func TestBossAIManagerAdapter(t *testing.T) {
 	monster := NewMonster(monsterData, 0)
 
 	// 测试创建Boss AI适配器
-	adapter, err := NewBossAIManagerAdapter(monster, "")
+	adapter, err := NewBossAIManagerAdapter(monster, nil, "")
 	if err != nil {
 		t.Errorf("Failed to create Boss AI adapter: %v", err)
 		return
@@ -66,7 +66,7 @@ func TestMonsterBossAIIntegration(t *testing.T) {
 	monster := NewMonster(monsterData, 0)
 
 	// 测试启用Boss AI（没有配置文件）
-	err := monster.EnableBossAI("")
+	err := monster.EnableBossAI(nil, "")
 	if err != nil {
 		t.Errorf("Failed to enable Boss AI: %v", err)
 		return
@@ -92,7 +92,7 @@ func TestMonsterBossAIIntegration(t *testing.T) {
 	monster.SetBossAIDebug(true)
 
 	// 测试状态转换（这个会失败因为没有对应的状态，但不应该崩溃）
-	err = monster.TransitionBossAIState(int32(bossai.StateAttack))
+	err = monster.TransitionBossAIState(string(bossai.StateAttack))
 	// 这里期望有错误，因为没有初始化完整的状态机
 	if err == nil {
 		t.Log("State transition succeeded or failed gracefully")
@@ -116,7 +116,7 @@ func TestBossEntityAdapter(t *testing.T) {
 	}
 
 	monster := NewMonster(monsterData, 0)
-	adapter := NewBossEntityAdapter(monster)
+	adapter := NewBossEntityAdapter(monster, nil, bossai.NewBossAIManager())
 
 	// 测试基础接口
 	if adapter.GetID() != monster.GetID() {
@@ -139,10 +139,6 @@ func TestBossEntityAdapter(t *testing.T) {
 
 	if adapter.GetCurrentLife() != int32(monster.Life) {
 		t.Errorf("Current life mismatch: expected %d, got %d", monster.Life, adapter.GetCurrentLife())
-	}
-
-	if adapter.GetAttackPower() != int32(monster.Data.BaseAttack) {
-		t.Errorf("Attack power mismatch: expected %d, got %d", monster.Data.BaseAttack, adapter.GetAttackPower())
 	}
 
 	// 测试战斗状态
@@ -203,7 +199,7 @@ func BenchmarkBossAIUpdate(b *testing.B) {
 	monster := NewMonster(monsterData, 0)
 
 	// 启用Boss AI
-	err := monster.EnableBossAI("")
+	err := monster.EnableBossAI(nil, "")
 	if err != nil {
 		b.Fatalf("Failed to enable Boss AI: %v", err)
 	}

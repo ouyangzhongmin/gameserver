@@ -115,8 +115,8 @@ func evaluateCustomScript(key string, params map[string]interface{}, ctx *BossCo
 		if ctx.Target == nil {
 			return true
 		}
-		maxChaseTime := time.Second * 10 // 超出追击时间
-		maxChaseDist := 20.0             // 超出追击范围
+		maxChaseTime := time.Second * 10           // 超出追击时间
+		maxChaseDist := ctx.Boss.GetMaxChaseDist() // 超出追击范围
 		if ctx.CurrentState != nil && ctx.CurrentState.GetTimeInState(ctx.CurrentTime) > maxChaseTime {
 			return true
 		}
@@ -127,7 +127,7 @@ func evaluateCustomScript(key string, params map[string]interface{}, ctx *BossCo
 			float64(bossPos.X), float64(bossPos.Y),
 			float64(targetPos.X), float64(targetPos.Y),
 		)
-		return distance > maxChaseDist
+		return distance > float64(maxChaseDist)
 
 	case CondReachedBornPoint:
 		// 回到了出生点

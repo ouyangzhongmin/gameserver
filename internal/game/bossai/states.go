@@ -257,7 +257,7 @@ func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	if ctx.Target == nil || !ctx.Target.IsAlive() {
 		return nil
 	}
-	s.moveInterval = time.Duration(ctx.Boss.GetStepTime() * 1000)
+	s.moveInterval = time.Duration(ctx.Boss.GetStepTime()) * time.Millisecond
 	// 检查距离
 	bossPos := ctx.Boss.GetPos()
 	targetPos := ctx.Target.GetPos()
@@ -382,12 +382,12 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	// 获取出生点参数
 	bornPos := ctx.Boss.GetBornPos()
-	if !ctx.Boss.IsEscaping() {
+	if !ctx.Boss.IsEscaping() && !ctx.Boss.IsWalking() && !ctx.Boss.IsRunning() {
 		ctx.Boss.MoveTo(bornPos.X, bornPos.Y, bornPos.Z)
 	}
 
 	// 获取移动间隔参数
-	moveInterval := time.Duration(ctx.Boss.GetStepTime() * 1000)
+	moveInterval := time.Duration(ctx.Boss.GetStepTime()) * time.Millisecond
 
 	if ctx.CurrentTime.Sub(s.lastMoveTime) >= moveInterval {
 		bossPos := ctx.Boss.GetPos()

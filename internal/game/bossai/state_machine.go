@@ -131,9 +131,6 @@ func (sm *StateMachine) SetInitialState(stateID BossStateID, ctx *BossContext) e
 
 // Update 更新状态机
 func (sm *StateMachine) Update(ctx *BossContext, deltaTime time.Duration) error {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
-
 	start := time.Now()
 	defer func() {
 		sm.updateDuration = time.Since(start)

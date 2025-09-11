@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"time"
 
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
@@ -25,20 +26,21 @@ type BossAIManagerAdapter struct {
 	updateRate time.Duration
 	isActive   bool
 
-	// 用于与原有系统兼容的AI数据
-	aiData interface{}
+	// 数据库中的ai配置
+	aiData *model.Aiconfig
 }
 
 // NewBossAIManagerAdapter 创建兼容IAiManager的Boss AI适配器
-func NewBossAIManagerAdapter(monster *Monster, configPath string) (*BossAIManagerAdapter, error) {
+func NewBossAIManagerAdapter(monster *Monster, aidata *model.Aiconfig, configPath string) (*BossAIManagerAdapter, error) {
 	adapter := &BossAIManagerAdapter{
 		monster:    monster,
 		aiManager:  bossai.NewBossAIManager(),
 		updateRate: time.Millisecond * 300, // 30Hz更新频率
+		aiData:     aidata,
 	}
 
 	// 创建Boss实体适配器
-	adapter.bossEntity = NewBossEntityAdapter(monster)
+	adapter.bossEntity = NewBossEntityAdapter(monster, aidata, adapter.aiManager)
 
 	// 加载配置（如果提供）
 	if configPath != "" {
@@ -47,7 +49,6 @@ func NewBossAIManagerAdapter(monster *Monster, configPath string) (*BossAIManage
 			return nil, fmt.Errorf("failed to load boss config: %w", err)
 		}
 		adapter.config = config
-		adapter.aiData = config // 用作AI数据返回
 
 		err = adapter.aiManager.LoadConfig(config)
 		if err != nil {
@@ -145,7 +146,7 @@ func (a *BossAIManagerAdapter) SetDebugEnabled(enabled bool) {
 }
 
 // TransitionTo 强制转换到指定状态
-func (a *BossAIManagerAdapter) TransitionTo(stateID int32) error {
+func (a *BossAIManagerAdapter) TransitionTo(stateID string) error {
 	return a.aiManager.TransitionTo(stateID)
 }
 
@@ -177,11 +178,16 @@ func (a *BossAIManagerAdapter) IsRunning() bool {
 // BossEntityAdapter 将Monster适配为IBossEntity接口
 type BossEntityAdapter struct {
 	monster *Monster
+	// 数据库中的ai配置
+	aiData    *model.Aiconfig
+	aiManager *bossai.BossAIManager
 }
 
-func NewBossEntityAdapter(monster *Monster) *BossEntityAdapter {
+func NewBossEntityAdapter(monster *Monster, aiData *model.Aiconfig, aiManager *bossai.BossAIManager) *BossEntityAdapter {
 	return &BossEntityAdapter{
-		monster: monster,
+		monster:   monster,
+		aiData:    aiData,
+		aiManager: aiManager,
 	}
 }
 
@@ -247,9 +253,17 @@ func (b *BossEntityAdapter) GetBornPos() coord.Vector3 {
 	return b.monster.bornPos
 }
 
+// 获取最大的追击距离
+func (b *BossEntityAdapter) GetMaxChaseDist() int {
+	if b.aiData != nil {
+		return b.aiData.ChaseRange
+	}
+	return 20
+}
+
 func (b *BossEntityAdapter) CanUseSkill(skillID int32) bool {
 	// 复用Monster的技能检查逻辑
-	spell := b.monster.GetSpell(int64(skillID))
+	spell := b.monster.GetSpell(int(skillID))
 	if spell == nil {
 		logger.Println("Invalid spell ID")
 		return false
@@ -259,7 +273,7 @@ func (b *BossEntityAdapter) CanUseSkill(skillID int32) bool {
 
 // 获取技能是否还在cd中
 func (b *BossEntityAdapter) IsSkillInCD(skillID int32) bool {
-	spell := b.monster.GetSpell(int64(skillID))
+	spell := b.monster.GetSpell(int(skillID))
 	if spell == nil {
 		logger.Println("Invalid spell ID")
 		return true
@@ -271,7 +285,7 @@ func (b *BossEntityAdapter) IsSkillInCD(skillID int32) bool {
 func (b *BossEntityAdapter) GetAvailableSkill(rules string) int32 {
 	// 首先尝试从当前阶段获取可用技能
 	if spell := b.GetAvailableSkillFromPhase(); spell != nil {
-		return int32(spell.Id)
+		return int32(spell.SpellId)
 	}
 
 	// 如果当前阶段没有限制或没有可用技能，则使用默认逻辑
@@ -279,13 +293,13 @@ func (b *BossEntityAdapter) GetAvailableSkill(rules string) int32 {
 	if spell == nil {
 		return 0
 	}
-	return int32(spell.Id)
+	return int32(spell.SpellId)
 }
 
 // 从当前阶段获取可用技能
 func (b *BossEntityAdapter) GetAvailableSkillFromPhase() *object.SpellObject {
 	// 获取当前阶段
-	if currentPhase := b.GetCurrentPhase(); currentPhase != nil {
+	if currentPhase := b.aiManager.GetCurrentPhase(); currentPhase != nil {
 		// 检查阶段是否有限制可用技能
 		availableSkills := currentPhase.GetAvailableSkills()
 		if len(availableSkills) > 0 {
@@ -293,7 +307,7 @@ func (b *BossEntityAdapter) GetAvailableSkillFromPhase() *object.SpellObject {
 			for _, skillID := range availableSkills {
 				if b.CanUseSkill(skillID) {
 					// 通过Monster获取实际的技能对象
-					return b.monster.GetSpell(int64(skillID))
+					return b.monster.GetSpell(int(skillID))
 				}
 			}
 		}
@@ -303,7 +317,7 @@ func (b *BossEntityAdapter) GetAvailableSkillFromPhase() *object.SpellObject {
 
 // 复用Monster的技能范围检查
 func (b *BossEntityAdapter) IsInSkillAttackRange(skillID int32, x, y coord.Coord) bool {
-	spell := b.monster.GetSpell(int64(skillID))
+	spell := b.monster.GetSpell(int(skillID))
 	if spell == nil {
 		logger.Println("Invalid spell ID")
 		return false
@@ -313,7 +327,7 @@ func (b *BossEntityAdapter) IsInSkillAttackRange(skillID int32, x, y coord.Coord
 
 func (b *BossEntityAdapter) UseSkill(skillID int32, target bossai.IEntity) error {
 	// 复用Monster的技能释放逻辑
-	spell := b.monster.GetSpell(int64(skillID))
+	spell := b.monster.GetSpell(int(skillID))
 	if spell == nil {
 		logger.Println("Invalid spell ID")
 		return fmt.Errorf("skill %d not available", skillID)
@@ -500,15 +514,6 @@ func (b *BossEntityAdapter) IsDied() bool {
 	return b.monster.GetState() == constants.ACTION_STATE_DIE
 }
 
-// GetCurrentPhase 获取当前阶段
-func (b *BossEntityAdapter) GetCurrentPhase() bossai.IBossPhase {
-	// 通过BossAIManagerAdapter访问BossAIManager，然后获取当前阶段
-	if bossAI := b.monster.GetBossAI(); bossAI != nil {
-		return bossAI.GetBossAIManager().GetCurrentPhase()
-	}
-	return nil
-}
-
 // OnPhaseEnter 当进入新阶段时调用
 func (b *BossEntityAdapter) OnPhaseEnter(phase bossai.IBossPhase) {
 	// 获取阶段修饰器
@@ -565,37 +570,16 @@ func CreateExampleBossMonster(scene *Scene) *Monster {
 	monster := NewMonster(monsterData, 0)
 
 	// 启用Boss AI
-	err := monster.EnableBossAI("configs/boss_fire_dragon_lord.json")
+	bossAI, err := NewBossAIManagerAdapter(monster, nil, fileutil.FindResourcePth("configs/boss_fire_dragon_lord.json"))
 	if err != nil {
-		logger.Errorf("Failed to enable Boss AI: %v", err)
-		// 如果Boss AI启用失败，可以回退到普通AI
-		// monster.SetAiData(newMonsterAi(monster, defaultAiConfig))
+		logger.Errorln(err)
 		return monster
 	}
+	monster.SetAiData(bossAI)
 
 	// 添加到场景
 	scene.addMonster(monster)
 
 	logger.Debugf("Created Boss monster with advanced AI: %s", monster._name)
 	return monster
-}
-
-// 在场景更新中集成Boss AI - 这个函数是可选的，因为Monster.update会自动调用aimgr.update
-func (s *Scene) updateBossAI(curMilliSecond int64, elapsedTime int64) {
-	// 更新所有Boss怪物的AI
-	// 注意：这个函数是可选的，因为Scene.update -> Monster.update -> aimgr.update 会自动处理
-	s.monsters.Range(func(key, value interface{}) bool {
-		monster := value.(*Monster)
-
-		// 检查是否是Boss AI并提供额外的状态监控
-		if monster.IsBossAI() {
-			bossAI := monster.GetBossAI()
-			if bossAI != nil && !bossAI.IsRunning() {
-				logger.Warnf("Boss AI for monster %d is not running", monster.GetID())
-				// 可以在这里添加重启逻辑或其他处理
-			}
-		}
-
-		return true
-	})
 }

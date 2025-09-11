@@ -115,9 +115,6 @@ func (p *BossPhase) GetCustomLogic(key string) interface{} {
 
 // OnEnter 进入阶段
 func (p *BossPhase) OnEnter(ctx *BossContext) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
 	p.isActive = true
 	p.enterTime = ctx.CurrentTime
 
@@ -139,9 +136,6 @@ func (p *BossPhase) OnEnter(ctx *BossContext) error {
 
 // OnExit 退出阶段
 func (p *BossPhase) OnExit(ctx *BossContext) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
 	if !p.isActive {
 		return nil
 	}
@@ -167,9 +161,6 @@ func (p *BossPhase) OnExit(ctx *BossContext) error {
 
 // Update 更新阶段
 func (p *BossPhase) Update(ctx *BossContext, deltaTime time.Duration) error {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	if !p.isActive {
 		return nil
 	}
@@ -187,17 +178,11 @@ func (p *BossPhase) Update(ctx *BossContext, deltaTime time.Duration) error {
 
 // IsActive 检查阶段是否激活
 func (p *BossPhase) IsActive() bool {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	return p.isActive
 }
 
 // GetTimeInPhase 获取在阶段中的时间
 func (p *BossPhase) GetTimeInPhase(currentTime time.Time) time.Duration {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	if !p.isActive {
 		return p.duration
 	}
@@ -242,9 +227,6 @@ func (p *BossPhase) removeStateModifiers(ctx *BossContext) {
 
 // GetStatistics 获取阶段统计
 func (p *BossPhase) GetStatistics() PhaseStatistics {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
 	stats := PhaseStatistics{
 		ID:          p.id,
 		Name:        p.name,
@@ -362,18 +344,18 @@ func (pm *PhaseManager) GetPhase(phaseID int32) (*BossPhase, error) {
 }
 
 // GetCurrentPhase 获取当前阶段
-func (pm *PhaseManager) GetCurrentPhase() *BossPhase {
-	pm.mutex.RLock()
-	defer pm.mutex.RUnlock()
-
+func (pm *PhaseManager) GetCurrentPhase() IBossPhase {
+	if pm.currentPhase == nil {
+		return nil
+	}
+	//当你从一个函数返回一个实现接口的struct对象，并且这个struct对象是nil时，如果直接返回这个nil对象，
+	//那么接口变量会存储nil值，但是类型部分可能是非nil的（因为接口知道它原本的类型）。
+	//因此，当你检查这个接口变量是否为nil时，它会返回false，因为它包含的类型信息不是nil。
 	return pm.currentPhase
 }
 
 // GetPreviousPhase 获取前一个阶段
 func (pm *PhaseManager) GetPreviousPhase() *BossPhase {
-	pm.mutex.RLock()
-	defer pm.mutex.RUnlock()
-
 	return pm.previousPhase
 }
 
@@ -406,9 +388,6 @@ func (pm *PhaseManager) SetInitialPhase(phaseID int32, ctx *BossContext) error {
 
 // Update 更新阶段管理器
 func (pm *PhaseManager) Update(ctx *BossContext, deltaTime time.Duration) error {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
-
 	pm.context = ctx
 
 	// 检查阶段转换
@@ -497,25 +476,16 @@ func (pm *PhaseManager) TransitionTo(phaseID int32, ctx *BossContext) error {
 
 // ForceTransition 强制转换阶段
 func (pm *PhaseManager) ForceTransition(phaseID int32, ctx *BossContext) error {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
-
 	return pm.TransitionTo(phaseID, ctx)
 }
 
 // IsTransitioning 检查是否正在转换
 func (pm *PhaseManager) IsTransitioning() bool {
-	pm.mutex.RLock()
-	defer pm.mutex.RUnlock()
-
 	return pm.isTransitioning
 }
 
 // SetPhaseOrder 设置阶段检查顺序
 func (pm *PhaseManager) SetPhaseOrder(phaseOrder []int32) error {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
-
 	// 验证所有阶段都存在
 	for _, phaseID := range phaseOrder {
 		if _, exists := pm.phases[phaseID]; !exists {
@@ -545,9 +515,6 @@ func (pm *PhaseManager) GetAllPhases() map[int32]*BossPhase {
 
 // GetStatistics 获取阶段管理器统计
 func (pm *PhaseManager) GetStatistics() PhaseManagerStatistics {
-	pm.mutex.RLock()
-	defer pm.mutex.RUnlock()
-
 	stats := PhaseManagerStatistics{
 		PhaseTransitions: pm.phaseTransitions,
 		TotalPhaseTime:   pm.totalPhaseTime,

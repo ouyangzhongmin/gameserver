@@ -98,7 +98,7 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		tmp := scell.Cells[i]
 		logger.Printf("当前场景cell:%d, remoteAddr:%s \n", tmp.CellID, tmp.RemoteAddr)
 		for retry := 0; retry < 3; retry++ {
-			err := s.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
+			err := nano.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
 				SceneId: tmp.SceneId,
 				CellId:  tmp.CellID,
 				Cells:   scell.Cells,

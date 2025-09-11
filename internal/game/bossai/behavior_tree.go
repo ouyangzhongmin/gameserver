@@ -244,24 +244,16 @@ func NewBehaviorTree(name string) *BehaviorTree {
 
 // SetRootNode 设置根节点
 func (bt *BehaviorTree) SetRootNode(node IBehaviorNode) {
-	bt.mutex.Lock()
-	defer bt.mutex.Unlock()
-
 	bt.rootNode = node
 }
 
 // GetRootNode 获取根节点
 func (bt *BehaviorTree) GetRootNode() IBehaviorNode {
-	bt.mutex.RLock()
-	defer bt.mutex.RUnlock()
-
 	return bt.rootNode
 }
 
 // Execute 执行行为树
 func (bt *BehaviorTree) Execute(ctx *BossContext) BehaviorResult {
-	bt.mutex.Lock()
-	defer bt.mutex.Unlock()
 
 	if bt.rootNode == nil {
 		return ResultFailure
@@ -325,17 +317,11 @@ func (bt *BehaviorTree) Reset() {
 
 // IsRunning 检查是否正在运行
 func (bt *BehaviorTree) IsRunning() bool {
-	bt.mutex.RLock()
-	defer bt.mutex.RUnlock()
-
 	return bt.isRunning
 }
 
 // GetLastResult 获取最后执行结果
 func (bt *BehaviorTree) GetLastResult() BehaviorResult {
-	bt.mutex.RLock()
-	defer bt.mutex.RUnlock()
-
 	return bt.lastResult
 }
 
@@ -352,9 +338,6 @@ func (bt *BehaviorTree) GetExecutionPath() []string {
 
 // GetStatistics 获取统计信息
 func (bt *BehaviorTree) GetStatistics() BehaviorTreeStats {
-	bt.mutex.RLock()
-	defer bt.mutex.RUnlock()
-
 	stats := BehaviorTreeStats{
 		Name:             bt.name,
 		ExecuteCount:     bt.executeCount,
@@ -385,9 +368,6 @@ type BehaviorTreeStats struct {
 
 // SetConfiguration 设置配置
 func (bt *BehaviorTree) SetConfiguration(config BehaviorTreeConfiguration) {
-	bt.mutex.Lock()
-	defer bt.mutex.Unlock()
-
 	bt.updateInterval = config.UpdateInterval
 	bt.maxDepth = config.MaxDepth
 	bt.enableLogging = config.EnableLogging
