@@ -31,37 +31,38 @@ func NewRandomMoveActionNode(name string) *RandomMoveActionNode {
 	return &RandomMoveActionNode{
 		ActionNode:   NewActionNode(name),
 		moveRadius:   100.0,
-		moveInterval: time.Second * 30, // 默认5秒移动一次
+		moveInterval: time.Second * 20, // 默认10秒移动一次
 	}
 }
 
 func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
-	// 使用基类的通用状态检查
-	if stateResult := n.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
-		return stateResult
+	// 检查移动时间间隔
+	if ctx.CurrentTime.Sub(n.lastMoveTime) < n.moveInterval && n.executeState != NodeStateRunning {
+		return ResultFailure
 	}
 
-	// 检查移动时间间隔
-	if ctx.CurrentTime.Sub(n.lastMoveTime) < n.moveInterval {
-		n.SetComplete(ResultFailure)
-		return ResultFailure
+	// 使用基类的通用状态检查
+	if n.executeState == NodeStateIdle {
+		// 初始化数据
+		n.executeState = NodeStateRunning
+		n.hasTarget = false
+
+		// 获取移动半径参数
+		if radius := n.GetParamAsInt("radius", 0); radius > 0 {
+			n.moveRadius = radius
+		}
+		if interval := n.GetParam("interval"); interval != nil {
+			if intervalStr, ok := interval.(string); ok {
+				if parsed, err := time.ParseDuration(intervalStr); err == nil {
+					n.moveInterval = parsed
+				}
+			}
+		}
 	}
 
 	if ctx.Boss.IsChasing() || ctx.Boss.IsEscaping() || ctx.Boss.IsAttacking() || ctx.Boss.IsDied() {
 		n.SetComplete(ResultFailure)
 		return ResultFailure
-	}
-
-	// 获取移动半径参数
-	if radius := n.GetParamAsInt("radius", 0); radius > 0 {
-		n.moveRadius = radius
-	}
-	if interval := n.GetParam("interval"); interval != nil {
-		if intervalStr, ok := interval.(string); ok {
-			if parsed, err := time.ParseDuration(intervalStr); err == nil {
-				n.moveInterval = parsed
-			}
-		}
 	}
 
 	bossPos := ctx.Boss.GetPos()
@@ -79,7 +80,7 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 		n.hasTarget = true
 		logger.Debugf("RandomMove: Generated target (%d, %d, %d)", n.targetX, n.targetY, n.targetZ)
 	}
-
+	n.lastMoveTime = ctx.CurrentTime
 	// 检查是否已到达目标位置
 	dist := shape.CalculateDistance(
 		float64(bossPos.X), float64(bossPos.Y),
@@ -88,28 +89,24 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	if dist < 1 { // 到达目标附近
 		logger.Debugf("RandomMove: Reached target, distance: %.2f", dist)
-		n.lastMoveTime = ctx.CurrentTime
-		n.hasTarget = false // 清除目标，下次会重新生成
-		n.SetComplete(ResultSuccess)
+		n.Reset() // 清除目标，下次会重新生成
 		return ResultSuccess
 	}
 
 	// 检查Boss是否空闲（可以移动）
-	if !ctx.Boss.IsIdle() {
-		logger.Debugf("RandomMove: Boss not idle, distance: %.2f", dist)
-		return ResultRunning // Boss在忩，等待
+	if ctx.Boss.IsIdle() {
+		// 执行移动
+		err := ctx.Boss.MoveTo(coord.Coord(n.targetX), coord.Coord(n.targetY), coord.Coord(n.targetZ))
+		if err != nil {
+			logger.Debugf("RandomMove: MoveTo failed: %v", err)
+			n.Reset()
+			return ResultFailure
+		}
+		logger.Debugf("RandomMove: Moving to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
+		return ResultRunning // Boss在移动中，等待
 	}
 
-	// 执行移动
-	err := ctx.Boss.MoveTo(coord.Coord(n.targetX), coord.Coord(n.targetY), coord.Coord(n.targetZ))
-	if err != nil {
-		logger.Debugf("RandomMove: MoveTo failed: %v", err)
-		n.hasTarget = false // 移动失败，清除目标
-		n.SetFailed()
-		return ResultFailure
-	}
-
-	logger.Debugf("RandomMove: Moving to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
+	logger.Debugf("RandomMove: Boss is moving, distance: %.2f", dist)
 	return ResultRunning // 继续移动
 }
 
@@ -138,37 +135,53 @@ func NewPatrolMoveActionNode(name string) *PatrolMoveActionNode {
 }
 
 func (n *PatrolMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
-	n.ActionNode.Execute(ctx) // 调用基类统计
+	if len(n.patrolPoints) == 0 {
+		n.SetFailed()
+		return ResultFailure
+	}
 
-	// 获取巡逻点配置
-	if points := n.GetParam("patrol_points"); points != nil {
-		if pointsSlice, ok := points.([]interface{}); ok {
-			n.patrolPoints = make([]coord.Vector3, 0, len(pointsSlice))
-			for _, point := range pointsSlice {
-				if pointMap, ok := point.(map[string]interface{}); ok {
-					if x, okX := pointMap["x"].(coord.Coord); okX {
-						if y, okY := pointMap["y"].(coord.Coord); okY {
-							var z coord.Coord = 0
-							if zVal, okZ := pointMap["z"].(coord.Coord); okZ {
-								z = coord.Coord(zVal)
+	// 检查移动时间间隔
+	if ctx.CurrentTime.Sub(n.lastMoveTime) < n.moveInterval && n.executeState != NodeStateRunning {
+		n.SetComplete(ResultFailure)
+		return ResultFailure
+	}
+
+	if n.executeState == NodeStateIdle {
+		// 初始化数据
+		n.executeState = NodeStateRunning
+		n.currentPointIdx = 0
+
+		// 获取巡逻点配置
+		if points := n.GetParam("patrol_points"); points != nil {
+			if pointsSlice, ok := points.([]interface{}); ok {
+				n.patrolPoints = make([]coord.Vector3, 0, len(pointsSlice))
+				for _, point := range pointsSlice {
+					if pointMap, ok := point.(map[string]interface{}); ok {
+						if x, okX := pointMap["x"].(coord.Coord); okX {
+							if y, okY := pointMap["y"].(coord.Coord); okY {
+								var z coord.Coord = 0
+								if zVal, okZ := pointMap["z"].(coord.Coord); okZ {
+									z = coord.Coord(zVal)
+								}
+								n.patrolPoints = append(n.patrolPoints, coord.Vector3{X: x, Y: y, Z: z})
 							}
-							n.patrolPoints = append(n.patrolPoints, coord.Vector3{X: x, Y: y, Z: z})
 						}
 					}
 				}
 			}
 		}
-	}
-	// 获取移动间隔参数
-	if interval := n.GetParam("move_interval"); interval != nil {
-		if intervalStr, ok := interval.(string); ok {
-			if parsed, err := time.ParseDuration(intervalStr); err == nil {
-				n.moveInterval = parsed
+		// 获取移动间隔参数
+		if interval := n.GetParam("move_interval"); interval != nil {
+			if intervalStr, ok := interval.(string); ok {
+				if parsed, err := time.ParseDuration(intervalStr); err == nil {
+					n.moveInterval = parsed
+				}
 			}
 		}
 	}
 
-	if len(n.patrolPoints) == 0 {
+	if ctx.Boss.IsChasing() || ctx.Boss.IsEscaping() || ctx.Boss.IsAttacking() || ctx.Boss.IsDied() {
+		n.SetComplete(ResultFailure)
 		return ResultFailure
 	}
 
@@ -179,28 +192,28 @@ func (n *PatrolMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 		float64(bossPos.X), float64(bossPos.Y),
 		float64(target.X), float64(target.Y),
 	)
+	n.lastMoveTime = ctx.CurrentTime
 
 	if distance < 1.0 { // 到达目标点
-		n.currentPointIdx = (n.currentPointIdx + 1) % len(n.patrolPoints)
+		n.currentPointIdx++
+		n.currentPointIdx = n.currentPointIdx % len(n.patrolPoints) // 循环
+		n.SetComplete(ResultSuccess)
 		return ResultSuccess
 	}
 
-	// 性能优化：限制MoveTo调用频率
-	if ctx.CurrentTime.Sub(n.lastMoveTime) >= n.moveInterval {
+	// 检查Boss是否空闲（可以移动）
+	if ctx.Boss.IsIdle() {
 		err := ctx.Boss.MoveTo(coord.Coord(target.X), coord.Coord(target.Y), coord.Coord(target.Z))
 		if err != nil {
 			logger.Debugf("PatrolMove: MoveTo failed: %v", err)
 			return ResultFailure
 		}
 
-		n.lastMoveTime = ctx.CurrentTime
 		logger.Debugf("PatrolMove: Moving to patrol point %d (%.2f, %.2f), distance: %.2f",
 			n.currentPointIdx, target.X, target.Y, distance)
-	} else {
-		// 跨过MoveTo调用，节省性能
-		logger.Debugf("PatrolMove: Skipping MoveTo - interval not reached")
+		return ResultRunning
 	}
-
+	logger.Debugf("PatrolMove: Boss is moving, distance: %.2f", distance)
 	return ResultRunning
 }
 
@@ -218,14 +231,12 @@ func NewRandomSpeechActionNode(name string) *RandomSpeechActionNode {
 	return &RandomSpeechActionNode{
 		ActionNode:     NewActionNode(name),
 		speechTexts:    speechTexts,
-		speechInterval: time.Second * 10, // 默认10秒检查一次
+		speechInterval: time.Second * 20, // 默认10秒检查一次
 		speechChance:   0.1,              // 默认30%概率
 	}
 }
 
 func (n *RandomSpeechActionNode) Execute(ctx *BossContext) BehaviorResult {
-	n.ActionNode.Execute(ctx) // 调用基类统计
-
 	// 检查时间间隔
 	if ctx.CurrentTime.Sub(n.lastSpeechTime) < n.speechInterval {
 		return ResultSuccess
@@ -304,7 +315,7 @@ func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
 		ctx.Boss.SetCombatTarget(nearest)
 		logger.Debugf("Boss %d found enemy %d in range", ctx.Boss.GetID(), nearest.GetID())
 	} else {
-		logger.Debugf("Boss %d not found enemy", ctx.Boss.GetID())
+		//logger.Debugf("Boss %d not found enemy", ctx.Boss.GetID())
 	}
 
 	n.lastScanTime = ctx.CurrentTime
@@ -324,13 +335,8 @@ func NewBasicAttackActionNode(name string) *BasicAttackActionNode {
 }
 
 func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
-	// 使用基类的通用状态检查
-	if stateResult := n.CheckStateAndBeginExecution(ctx); stateResult != ResultRunning {
-		return stateResult
-	}
-
 	if ctx.Target == nil || !ctx.Target.IsAlive() {
-		n.SetFailed()
+		n.SetComplete(ResultFailure)
 		return ResultFailure
 	}
 
@@ -338,6 +344,11 @@ func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
 	attackCooldown := time.Duration(ctx.Boss.GetAttackDuration()) * time.Millisecond
 	delta := ctx.CurrentTime.Sub(n.lastAttackTime)
 	if delta < attackCooldown {
+		n.SetComplete(ResultFailure)
+		return ResultFailure
+	}
+
+	if ctx.Boss.IsAttacking() {
 		return ResultRunning
 	}
 
@@ -369,35 +380,120 @@ func (n *BasicAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
 	return ResultSuccess
 }
 
+// CombatAttackActionNode 组合基础连击节点
+type CombatAttackActionNode struct {
+	*ActionNode
+	lastAttackTime time.Time
+	attackCount    int           // 连击次数
+	attackIndex    int           //
+	combatInterval time.Duration // 连击间隔
+	attackInterval time.Duration // 攻击间隔
+}
+
+func NewCombatAttackActionNode(name string) *CombatAttackActionNode {
+	return &CombatAttackActionNode{
+		ActionNode:     NewActionNode(name),
+		attackCount:    3,
+		attackIndex:    0,
+		combatInterval: 300 * time.Millisecond,  // 连招间隔
+		attackInterval: 5000 * time.Millisecond, // 攻击间隔
+	}
+}
+
+func (n *CombatAttackActionNode) Execute(ctx *BossContext) BehaviorResult {
+	// 检查攻击冷却
+	if ctx.CurrentTime.Sub(n.lastAttackTime) < n.attackInterval && n.executeState != NodeStateRunning {
+		n.SetFailed()
+		return ResultFailure
+	}
+
+	if n.executeState == NodeStateIdle {
+		// 初始化数据
+		n.executeState = NodeStateRunning
+		n.attackIndex = 0
+		if count := n.GetParamAsInt("count", 0); count > 0 {
+			n.attackCount = count
+		}
+		if interval := n.GetParamAsInt("interval", 0); interval > 0 {
+			n.combatInterval = time.Duration(interval) * time.Millisecond
+		}
+	}
+
+	if ctx.Target == nil || !ctx.Target.IsAlive() {
+		n.SetFailed()
+		return ResultFailure
+	}
+
+	// 连招的间隔
+	delta2 := ctx.CurrentTime.Sub(n.lastAttackTime)
+	if delta2 < n.combatInterval {
+		return ResultRunning
+	}
+
+	// 执行攻击
+	err := ctx.Boss.DoAttackTarget(ctx.Target)
+	if err != nil {
+		logger.Errorf("Basic attack failed: %v", err)
+		n.SetFailed()
+		return ResultFailure
+	}
+
+	n.lastAttackTime = ctx.CurrentTime
+
+	// 记录攻击动作
+	action := &AIAction{
+		Type:      ActionCombatAttack,
+		TargetID:  ctx.Target.GetID(),
+		Timestamp: ctx.CurrentTime,
+		Priority:  5,
+		Executed:  true,
+	}
+	ctx.LastAction = action
+	if ctx.ActionHistory == nil {
+		ctx.ActionHistory = make([]*AIAction, 0)
+	}
+	ctx.ActionHistory = append(ctx.ActionHistory, action)
+	n.attackIndex++
+	if n.attackIndex >= n.attackCount {
+		// 连击完成
+		n.Reset()
+		return ResultSuccess
+	}
+	return ResultRunning
+}
+
+func (n *CombatAttackActionNode) Reset() {
+	n.BaseBehaviorNode.Reset()
+	n.attackIndex = 0
+}
+
 // SkillUsageConditionNode 技能使用条件节点
 type SkillUsageNode struct {
 	*ActionNode
 	skillId        int32 // 技能id， 如果是配置未指定，则通过GetAvailableSkill获取一个可用的技能
 	lastAttackTime time.Time
-	attackCooldown time.Duration
+	attackInterval time.Duration
 }
 
 func NewSkillUsageNode(name string) *SkillUsageNode {
 	return &SkillUsageNode{
 		ActionNode:     NewActionNode(name),
 		skillId:        0,
-		attackCooldown: time.Millisecond * 1500, // 默认1.5秒攻击间隔
+		attackInterval: time.Millisecond * 5000, // 默认5秒攻击间隔
 	}
 }
 
 func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 	n.ActionNode.Execute(ctx)
+	// 检查攻击冷却
+	if ctx.CurrentTime.Sub(n.lastAttackTime) < n.attackInterval {
+		n.SetFailed()
+		return ResultFailure
+	}
 	if ctx.Target == nil || !ctx.Target.IsAlive() {
 		n.SetFailed()
 		return ResultFailure
 	}
-
-	// 检查攻击冷却
-	if ctx.CurrentTime.Sub(n.lastAttackTime) < n.attackCooldown {
-		n.SetFailed()
-		return ResultFailure
-	}
-	n.lastAttackTime = ctx.CurrentTime
 
 	// 技能id， 如果是配置未指定，则通过GetAvailableSkill获取一个可用的技能
 	if n.skillId == 0 {
@@ -414,6 +510,12 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 			}
 			n.skillId = skillId
 		}
+	}
+
+	if n.skillId == 0 {
+		logger.Errorf("SkillUsageNode: No available skill found")
+		n.SetFailed()
+		return ResultFailure
 	}
 
 	// 检查当前阶段是否限制了可用技能
@@ -439,19 +541,13 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 		}
 	}
 
-	if n.skillId == 0 {
-		logger.Errorf("SkillUsageNode: No available skill found")
-		n.SetFailed()
-		return ResultFailure
-	}
-
 	err := ctx.Boss.UseSkill(n.skillId, ctx.Target)
 	if err != nil {
 		logger.Errorf("SkillUsageNode: UseSkill failed: %v", err)
 		n.SetFailed()
 		return ResultFailure
 	}
-
+	n.lastAttackTime = ctx.CurrentTime
 	// 记录攻击动作
 	action := &AIAction{
 		Type:      ActionCastSkill,
@@ -466,8 +562,13 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 	}
 	ctx.ActionHistory = append(ctx.ActionHistory, action)
 
-	n.SetComplete(ResultSuccess)
+	n.Reset() // 重置下一次重新获取新的skillid
 	return ResultSuccess
+}
+
+func (n *SkillUsageNode) Reset() {
+	n.BaseBehaviorNode.Reset()
+	n.skillId = 0
 }
 
 // EscapeCheckConditionNode 逃跑检查条件节点
@@ -488,6 +589,7 @@ func (n *EscapeCheckConditionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	currentHP := float64(ctx.Boss.GetCurrentLife()) / float64(ctx.Boss.GetMaxLife())
 	if currentHP > n.escapeThreshold {
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -553,6 +655,7 @@ func (n *TriggerRewardActionNode) Execute(ctx *BossContext) BehaviorResult {
 	n.ActionNode.Execute(ctx)
 
 	if n.rewardTriggered {
+		// 这里奖励只允许触发一次
 		return ResultSuccess
 	}
 
@@ -562,30 +665,5 @@ func (n *TriggerRewardActionNode) Execute(ctx *BossContext) BehaviorResult {
 	// 例如：经验值、装备掉落、称号等
 
 	n.rewardTriggered = true
-	return ResultSuccess
-}
-
-// PatrolMovementActionNode 巡逻移动节点
-type PatrolMovementActionNode struct {
-	*ActionNode
-	moveSpeed float64
-}
-
-func NewPatrolMovementActionNode(name string) *PatrolMovementActionNode {
-	return &PatrolMovementActionNode{
-		ActionNode: NewActionNode(name),
-		moveSpeed:  50.0,
-	}
-}
-
-func (n *PatrolMovementActionNode) Execute(ctx *BossContext) BehaviorResult {
-	n.ActionNode.Execute(ctx)
-
-	// 获取移动速度参数
-	if speed := n.GetParamAsFloat64("speed", 0); speed > 0 {
-		n.moveSpeed = speed
-	}
-
-	// 实际的巡逻移动逻辑将由PatrolMoveActionNode处理
 	return ResultSuccess
 }

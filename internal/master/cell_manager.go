@@ -93,29 +93,22 @@ func (m *CellManager) RegisterSceneCell(s *session.Session, req *protocol.Regist
 		//Session:     newsession,
 	}
 	scell.Cells = append(scell.Cells, c)
-	for i := 0; i < len(scell.Cells); i++ {
-		//更新到所有scene的具体的cell信息
-		tmp := scell.Cells[i]
-		logger.Printf("当前场景cell:%d, remoteAddr:%s \n", tmp.CellID, tmp.RemoteAddr)
-		for retry := 0; retry < 3; retry++ {
-			err := nano.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
+
+	go func() {
+		time.Sleep(time.Millisecond * 500)
+		for i := 0; i < len(scell.Cells); i++ {
+			//更新到所有scene的具体的cell信息
+			tmp := scell.Cells[i]
+			logger.Printf("当前场景cell:%d, remoteAddr:%s \n", tmp.CellID, tmp.RemoteAddr)
+			// nano这个rpc函数无法返回error数据，这是个大问题
+			nano.RPCWithAddr("SceneManager.SceneCells", &protocol.SceneCelllsRequest{
 				SceneId: tmp.SceneId,
 				CellId:  tmp.CellID,
 				Cells:   scell.Cells,
 			}, tmp.RemoteAddr)
-			if err != nil {
-				// todo 这里需要确保能把cell信息通知到
-				logger.Errorln("cell.SceneManager.SceneCells:", tmp.RemoteAddr, retry, " err:", err)
-				time.Sleep(time.Millisecond * 100)
-				continue
-			}
 			break
 		}
-	}
-	//go func() {
-	//	time.Sleep(time.Millisecond * 100)
-	//
-	//}()
+	}()
 
 	return nil
 }

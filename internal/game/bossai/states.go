@@ -336,7 +336,16 @@ func (s *AttackState) OnEnter(ctx *BossContext) error {
 
 	// 停止移动
 	ctx.Boss.Stop()
+	ctx.Boss.SetInCombat(true)
 
+	return nil
+}
+
+func (s *AttackState) OnExit(ctx *BossContext) error {
+	if err := s.BaseBossState.OnExit(ctx); err != nil {
+		return err
+	}
+	ctx.Boss.SetInCombat(false)
 	return nil
 }
 

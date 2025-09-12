@@ -74,20 +74,29 @@ func evaluateCustomScript(key string, params map[string]interface{}, ctx *BossCo
 			return false
 		}
 
-	case CondTimeElapsed:
+	case CondStateTimeElapsed:
+		// 当前state停留时间
 		tmp, ok := params["duration"].(int)
 		if !ok {
 			return false
 		}
-		duration := time.Duration(tmp)
+		duration := time.Duration(tmp) * time.Microsecond
 		return ctx.CurrentState != nil && ctx.CurrentState.GetTimeInState(ctx.CurrentTime) >= duration
 
-	case CondTargetCount:
+	case CondEnemyCount:
 		minCount, ok := params["min_count"].(int)
 		if !ok {
 			return false
 		}
 		return len(ctx.NearbyEnemies) >= minCount
+
+	case CondAllyCount:
+		// 队友数量
+		minCount, ok := params["min_count"].(int)
+		if !ok {
+			return false
+		}
+		return len(ctx.NearbyAllies) >= minCount
 	case CondScannedEnemy:
 		return ctx.Target != nil && ctx.Target.IsAlive()
 
@@ -146,6 +155,12 @@ func evaluateCustomScript(key string, params map[string]interface{}, ctx *BossCo
 		// 这里需要检查技能释放是否完成
 		// 暂时简单的时间检查
 		return ctx.CurrentState != nil && ctx.CurrentState.GetTimeInState(ctx.CurrentTime) > time.Second*2
+	case CondSkillUsed:
+		// 已使用技能
+		if c, ok := ctx.SkillsUsed[ctx.LastAction.SkillID]; ok && c > 0 {
+			return true
+		}
+		return false
 
 	case CondStunExpired:
 		// 检查眩晕是否结束

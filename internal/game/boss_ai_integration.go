@@ -2,8 +2,9 @@ package game
 
 import (
 	"fmt"
-	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 	"time"
+
+	"github.com/ouyangzhongmin/gameserver/pkg/fileutil"
 
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
 
@@ -25,7 +26,6 @@ type BossAIManagerAdapter struct {
 	lastUpdate time.Time
 	updateRate time.Duration
 	isActive   bool
-
 	// 数据库中的ai配置
 	aiData *model.Aiconfig
 }
@@ -179,8 +179,9 @@ func (a *BossAIManagerAdapter) IsRunning() bool {
 type BossEntityAdapter struct {
 	monster *Monster
 	// 数据库中的ai配置
-	aiData    *model.Aiconfig
-	aiManager *bossai.BossAIManager
+	aiData     *model.Aiconfig
+	aiManager  *bossai.BossAIManager
+	isInCombat bool
 }
 
 func NewBossEntityAdapter(monster *Monster, aiData *model.Aiconfig, aiManager *bossai.BossAIManager) *BossEntityAdapter {
@@ -333,7 +334,13 @@ func (b *BossEntityAdapter) UseSkill(skillID int32, target bossai.IEntity) error
 		return fmt.Errorf("skill %d not available", skillID)
 	}
 	if entityAdapter, ok := target.(*EntityAdapter); ok {
-		return b.monster.SpellAttack(spell, entityAdapter.entity)
+		err := b.monster.SpellAttack(spell, entityAdapter.entity)
+		if err != nil {
+			return err
+		}
+		// 记录已使用技能
+		b.aiManager.OnSkillUsed(skillID, true)
+		return nil
 	}
 
 	return fmt.Errorf("skill:%d use invalid target", skillID)
@@ -370,8 +377,11 @@ func (b *BossEntityAdapter) GetMovableRect() shape.Rect {
 
 func (b *BossEntityAdapter) IsInCombat() bool {
 	// 检查是否在战斗中
-	return b.monster.State == constants.ACTION_STATE_ATTACK ||
-		b.monster.State == constants.ACTION_STATE_CHASE
+	return b.isInCombat
+}
+
+func (b *BossEntityAdapter) SetInCombat(val bool) {
+	b.isInCombat = val
 }
 
 func (b *BossEntityAdapter) GetCombatTarget() bossai.IEntity {

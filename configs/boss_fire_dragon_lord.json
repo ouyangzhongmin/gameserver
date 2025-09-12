@@ -123,20 +123,23 @@
             "node": "use_skill"
           },
           {
-            "type": "sequence",
+            "type": "random",
             "children": [
               {
                 "type": "node",
                 "node": "basic_attack",
+                "rand": 70,
                 "params": {
                     "action": "attack1"
                 }
               },
               {
                 "type": "node",
-                "node": "basic_attack",
+                "node": "combat_attack",
+                "rand": 30,
                 "params": {
-                    "action": "attack2"
+                    "count": 3,
+                    "interval": 300
                 }
               }
             ]
@@ -144,8 +147,7 @@
         ]
       },
       "modifiers": {
-        "attack_cooldown": "1.5s",
-        "behavior_interval": "200ms"
+        "behavior_interval": "100ms"
       }
     },
     {

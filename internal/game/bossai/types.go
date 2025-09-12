@@ -49,18 +49,21 @@ type TriggerCondition struct {
 	SubConds []TriggerCondition     `json:"sub_conds,omitempty"` // 复合条件
 }
 
+// TriggerCondition 类型定义
 const (
 	CondHealthPercent            = "health_percent"
-	CondTimeElapsed              = "time_elapsed"
-	CondTargetCount              = "target_count"
-	CondScannedEnemy             = "scanned_enemy"
-	CondMissEnemy                = "miss_enemy"
+	CondStateTimeElapsed         = "state_time_elapsed" // 当前state停留时间
+	CondEnemyCount               = "enemy_count"        // 敌人数量
+	CondAllyCount                = "ally_count"         // 队友数量
+	CondScannedEnemy             = "scanned_enemy"      // 扫描到敌人
+	CondMissEnemy                = "miss_enemy"         // 丢失敌人
 	CondInAttackRange            = "in_attack_range"
 	CondOutOfAttackRange         = "out_of_attack_range"
 	CondOutOfMovableRange        = "out_of_movable_range"
 	CondChaseTimeoutOrOutOfRange = "chase_timeout_or_out_of_range"
-	CondReachedBornPoint         = "reached_born_point"
+	CondReachedBornPoint         = "reached_born_point" // 回到出生点
 	CondSkillCastComplete        = "skill_cast_complete"
+	CondSkillUsed                = "skill_used"
 	CondStunExpired              = "stun_expired"
 )
 
@@ -212,6 +215,7 @@ const (
 	ActionIdle ActionType = iota
 	ActionMove
 	ActionAttack
+	ActionCombatAttack
 	ActionCastSkill
 	ActionRetreat
 	ActionSummon

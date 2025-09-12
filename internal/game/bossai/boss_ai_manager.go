@@ -459,14 +459,12 @@ func (ai *BossAIManager) createNodeFromBehaviorName(behaviorName string) (IBehav
 		return NewRandomSpeechActionNode("Random Speech"), nil
 	case "basic_attack":
 		return NewBasicAttackActionNode("Basic Attack"), nil
+	case "combat_attack":
+		return NewCombatAttackActionNode("CombatAttack"), nil
 	case "auto_recover":
 		return NewAutoRecoverActionNode("Auto Recover"), nil
 	case "trigger_reward":
 		return NewTriggerRewardActionNode("Trigger Reward"), nil
-	case "attack1":
-		return NewBasicAttackActionNode("Attack1"), nil
-	case "attack2":
-		return NewBasicAttackActionNode("Attack2"), nil
 	case "use_skill":
 		return NewSkillUsageNode("Use skill"), nil
 	case "escape_check":

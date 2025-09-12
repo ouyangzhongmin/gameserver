@@ -28,18 +28,33 @@ func (n *SetsNode) Execute(ctx *BossContext) BehaviorResult {
 	n.lastExecuteTime = ctx.CurrentTime
 
 	if len(n.children) == 0 {
-		n.executeState = NodeStateComplete
-		n.lastResult = ResultSuccess
+		n.SetComplete(ResultSuccess)
 		return ResultSuccess
 	}
 
+	isChildRunning := false
+	failCnt := 0
 	// 循环执行子节点
 	for i := 0; i < len(n.children); i++ {
 		child := n.children[i]
 		result := child.Execute(ctx)
-		logger.Debugf("SetsNode: %s child:%s execute result:%d", n.name, child.GetName(), result)
+		//logger.Debugf("SetsNode: %s child:%s execute result:%d", n.name, child.GetName(), result)
+		if result == ResultRunning {
+			isChildRunning = true
+		} else if result == ResultFailure {
+			failCnt++
+		}
 	}
 
+	if isChildRunning {
+		n.executeState = NodeStateRunning
+		return ResultRunning
+	}
+	n.Reset() // 这里重置表示本轮运行已结束了
+	if failCnt == len(n.children) {
+		// 全部都失败了
+		return ResultFailure
+	}
 	return ResultSuccess
 }
 
@@ -57,14 +72,6 @@ func NewSequenceNode(name string) *SequenceNode {
 }
 
 func (n *SequenceNode) Execute(ctx *BossContext) BehaviorResult {
-	// 调用基类的状态检查
-	if n.executeState == NodeStateComplete {
-		return n.lastResult
-	}
-	if n.executeState == NodeStateFailed {
-		return ResultFailure
-	}
-
 	// 开始执行
 	if n.executeState == NodeStateIdle {
 		n.executeState = NodeStateRunning
@@ -76,8 +83,7 @@ func (n *SequenceNode) Execute(ctx *BossContext) BehaviorResult {
 	n.lastExecuteTime = ctx.CurrentTime
 
 	if len(n.children) == 0 {
-		n.executeState = NodeStateComplete
-		n.lastResult = ResultSuccess
+		n.SetComplete(ResultSuccess)
 		return ResultSuccess
 	}
 
@@ -88,15 +94,13 @@ func (n *SequenceNode) Execute(ctx *BossContext) BehaviorResult {
 
 		switch result {
 		case ResultSuccess:
-			// 当前子节点成功，重置子节点并转到下一个
-			child.Reset()
+			// 当前子节点成功, 转到下一个
 			n.currentChildIndex++
 			continue
 		case ResultFailure:
 			// 子节点失败，整个序列失败
 			logger.Debugf("SequenceNode: %s-%d execute failed", n.name, n.currentChildIndex)
-			n.executeState = NodeStateFailed
-			n.lastResult = ResultFailure
+			n.Reset() // 这里需要重置下轮从新开始
 			return ResultFailure
 		case ResultRunning:
 			// 子节点运行中，继续等待
@@ -104,9 +108,8 @@ func (n *SequenceNode) Execute(ctx *BossContext) BehaviorResult {
 		}
 	}
 
-	// 所有子节点都成功
-	n.executeState = NodeStateComplete
-	n.lastResult = ResultSuccess
+	// 所有子节点都成功 本轮执行结束了
+	n.Reset() // 重置下轮从新开始
 	return ResultSuccess
 }
 
@@ -129,25 +132,16 @@ func NewSelectorNode(name string) *SelectorNode {
 }
 
 func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
-	// 如果节点已完成，直接返回结果
-	if n.executeState == NodeStateComplete {
-		return n.lastResult
-	}
-
-	// 如果节点失败，直接返回失败结果
-	if n.executeState == NodeStateFailed {
-		return ResultFailure
-	}
-
 	// 开始执行
 	if n.executeState == NodeStateIdle {
 		n.executeState = NodeStateRunning
 		n.currentChildIndex = 0
+		n.executeCount++
+		n.startTime = ctx.CurrentTime
 	}
 
 	if len(n.children) == 0 {
-		n.executeState = NodeStateFailed
-		n.lastResult = ResultFailure
+		n.SetFailed()
 		return ResultFailure
 	}
 
@@ -164,7 +158,6 @@ func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
 			return ResultSuccess
 		case ResultFailure:
 			// 子节点失败，重置子节点并试下一个
-			child.Reset()
 			n.currentChildIndex++
 			continue
 		case ResultRunning:
@@ -172,46 +165,42 @@ func (n *SelectorNode) Execute(ctx *BossContext) BehaviorResult {
 			return ResultRunning
 		}
 	}
-	// 如果执行到最后则重置重新开始执行
+	// 如果执行到最后都失败了则重置重新开始执行
 	n.Reset()
-
-	// 所有子节点都失败
-	n.executeState = NodeStateFailed
-	n.lastResult = ResultFailure
 	return ResultFailure
 }
 
 func (n *SelectorNode) Reset() {
-	n.executeState = NodeStateIdle
+	n.BaseBehaviorNode.Reset()
 	n.currentChildIndex = 0
-	for _, child := range n.children {
-		child.Reset()
-	}
 }
 
 // RepeaterNode 重复节点 - 重复执行子节点
 type RepeaterNode struct {
 	*BaseBehaviorNode
-	maxRepeats     int
-	currentRepeats int
+	maxRepeats        int
+	currentRepeats    int
+	currentChildIndex int
 }
 
 func NewRepeaterNode(name string, maxRepeats int) *RepeaterNode {
 	return &RepeaterNode{
-		BaseBehaviorNode: NewBaseBehaviorNode(name, NodeTypeDecorator),
-		maxRepeats:       maxRepeats,
+		BaseBehaviorNode:  NewBaseBehaviorNode(name, NodeTypeDecorator),
+		maxRepeats:        maxRepeats,
+		currentChildIndex: 0,
 	}
 }
 
 func (n *RepeaterNode) Execute(ctx *BossContext) BehaviorResult {
-	// 如果节点已完成，直接返回结果
-	if n.executeState == NodeStateComplete {
-		return n.lastResult
-	}
-
-	// 如果节点失败，直接返回失败结果
-	if n.executeState == NodeStateFailed {
-		return ResultFailure
+	if n.executeState == NodeStateIdle {
+		n.executeState = NodeStateRunning
+		n.executeCount++
+		n.currentRepeats = 0
+		n.currentChildIndex = 0
+		n.startTime = ctx.CurrentTime
+		if n.maxRepeats < 1 {
+			n.maxRepeats = 1
+		}
 	}
 
 	if len(n.children) == 0 {
@@ -220,75 +209,58 @@ func (n *RepeaterNode) Execute(ctx *BossContext) BehaviorResult {
 		return ResultFailure
 	}
 
-	// 开始执行
-	if n.executeState == NodeStateIdle {
-		n.executeState = NodeStateRunning
-		n.currentRepeats = 0
-	}
-
 	// 检查是否达到最大重复次数
 	if n.maxRepeats > 0 && n.currentRepeats >= n.maxRepeats {
-		n.executeState = NodeStateComplete
-		n.lastResult = ResultSuccess
+		n.Reset() // 重置等待下一轮可以继续执行
 		return ResultSuccess
 	}
 
-	// 执行第一个子节点
-	child := n.children[0]
+	// 执行子节点
+	child := n.children[n.currentChildIndex]
 	result := child.Execute(ctx)
 
 	switch result {
 	case ResultSuccess:
 		// 子节点执行成功，重置并增加重复次数
 		child.Reset()
-		n.currentRepeats++
-
-		// 检查是否达到最大重复次数
-		if n.maxRepeats > 0 && n.currentRepeats >= n.maxRepeats {
-			n.executeState = NodeStateComplete
-			n.lastResult = ResultSuccess
-			return ResultSuccess
+		n.currentChildIndex++
+		if n.currentChildIndex >= len(n.children) {
+			n.currentRepeats++
+			// 检查是否达到最大重复次数
+			if n.maxRepeats > 0 && n.currentRepeats >= n.maxRepeats {
+				n.Reset() // 本轮正常结束了
+				return ResultSuccess
+			}
 		}
-
-		// 继续重复
+		// 继续下一个子节点执行
 		return ResultRunning
 	case ResultFailure:
 		// 子节点失败，重复节点失败
-		n.executeState = NodeStateFailed
-		n.lastResult = ResultFailure
+		n.Reset()
 		return ResultFailure
 	case ResultRunning:
 		// 子节点运行中，继续等待
 		return ResultRunning
 	}
 
-	n.executeState = NodeStateFailed
-	n.lastResult = ResultFailure
+	n.Reset()
 	return ResultFailure
 }
 
 func (n *RepeaterNode) Reset() {
-	n.executeState = NodeStateIdle
+	n.BaseBehaviorNode.Reset()
 	n.currentRepeats = 0
-	for _, child := range n.children {
-		child.Reset()
-	}
+	n.currentChildIndex = 0
 }
 
 func (n *RepeaterNode) SetParam(key string, value interface{}) {
 	// 支持设置最大重复次数
+	n.BaseBehaviorNode.SetParam(key, value)
 	if key == "max_repeats" {
 		if maxRepeats, ok := value.(int); ok {
 			n.maxRepeats = maxRepeats
 		}
 	}
-}
-
-func (n *RepeaterNode) GetParam(key string) interface{} {
-	if key == "max_repeats" {
-		return n.maxRepeats
-	}
-	return nil
 }
 
 // RandomNode 随机选择节点 - 根据权重随机执行子节点
@@ -326,19 +298,7 @@ func (n *RandomNode) SetChildWeight(index int, weight int) {
 }
 
 func (n *RandomNode) Execute(ctx *BossContext) BehaviorResult {
-	// 如果节点已完成，直接返回结果
-	if n.executeState == NodeStateComplete {
-		return n.lastResult
-	}
-
-	// 如果节点失败，直接返回失败结果
-	if n.executeState == NodeStateFailed {
-		return ResultFailure
-	}
-
 	if len(n.children) == 0 {
-		n.executeState = NodeStateFailed
-		n.lastResult = ResultFailure
 		return ResultFailure
 	}
 
@@ -377,8 +337,6 @@ func (n *RandomNode) Execute(ctx *BossContext) BehaviorResult {
 		}
 
 		if n.selectedNode == nil {
-			n.executeState = NodeStateFailed
-			n.lastResult = ResultFailure
 			return ResultFailure
 		}
 	}
@@ -389,12 +347,10 @@ func (n *RandomNode) Execute(ctx *BossContext) BehaviorResult {
 
 		switch result {
 		case ResultSuccess:
-			n.executeState = NodeStateComplete
-			n.lastResult = ResultSuccess
+			n.Reset()
 			return ResultSuccess
 		case ResultFailure:
-			n.executeState = NodeStateFailed
-			n.lastResult = ResultFailure
+			n.Reset()
 			return ResultFailure
 		case ResultRunning:
 			// 继续执行当前选中的节点
@@ -402,15 +358,11 @@ func (n *RandomNode) Execute(ctx *BossContext) BehaviorResult {
 		}
 	}
 
-	n.executeState = NodeStateFailed
-	n.lastResult = ResultFailure
+	n.Reset()
 	return ResultFailure
 }
 
 func (n *RandomNode) Reset() {
-	n.executeState = NodeStateIdle
+	n.BaseBehaviorNode.Reset()
 	n.selectedNode = nil
-	for _, child := range n.children {
-		child.Reset()
-	}
 }

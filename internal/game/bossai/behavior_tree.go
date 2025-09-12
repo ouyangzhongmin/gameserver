@@ -8,8 +8,8 @@ import (
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 )
 
-// 基础节点定义（用于支持复杂行为树）
-// NodeExecuteState 节点执行状态
+// 基础节点定义
+// 节点执行状态
 type NodeExecuteState int
 
 const (
@@ -32,9 +32,7 @@ type BaseBehaviorNode struct {
 	executeCount int64            // 执行次数
 	startTime    time.Time        // 开始执行时间
 
-	// 性能监控
-	totalExecuteTime time.Duration
-	lastExecuteTime  time.Time
+	lastExecuteTime time.Time
 
 	// 配置参数
 	params map[string]interface{}
@@ -60,7 +58,19 @@ func (n *BaseBehaviorNode) GetType() BehaviorNodeType {
 
 func (n *BaseBehaviorNode) AddChild(child IBehaviorNode) error {
 	n.children = append(n.children, child)
+	child.setParent(n)
 	return nil
+}
+
+func (n *BaseBehaviorNode) setParent(parent IBehaviorNode) {
+	n.parent = parent
+}
+
+func (n *BaseBehaviorNode) GetParent() IBehaviorNode {
+	if n.parent == nil {
+		return nil
+	}
+	return n.parent
 }
 
 func (n *BaseBehaviorNode) GetChildren() []IBehaviorNode {
@@ -68,33 +78,7 @@ func (n *BaseBehaviorNode) GetChildren() []IBehaviorNode {
 }
 
 func (n *BaseBehaviorNode) Execute(ctx *BossContext) BehaviorResult {
-	// 如果节点已完成，直接返回结果
-	if n.executeState == NodeStateComplete {
-		return n.lastResult
-	}
-
-	// 如果节点失败，直接返回失败结果
-	if n.executeState == NodeStateFailed {
-		return ResultFailure
-	}
-
-	// 开始执行节点
-	if n.executeState == NodeStateIdle {
-		n.executeState = NodeStateRunning
-		n.startTime = ctx.CurrentTime
-		n.executeCount++
-	}
-
-	n.lastExecuteTime = ctx.CurrentTime
-	start := time.Now()
-
-	defer func() {
-		n.totalExecuteTime += time.Since(start)
-	}()
-
-	// 基础节点不执行任何操作
-	n.executeState = NodeStateFailed
-	n.lastResult = ResultFailure
+	// 基类不实现具体的逻辑
 	return ResultFailure
 }
 
@@ -111,7 +95,7 @@ func (n *BaseBehaviorNode) Reset() {
 func (n *BaseBehaviorNode) SetParams(val map[string]interface{}) {
 	if val != nil {
 		for key, value := range val {
-			n.params[key] = value
+			n.SetParam(key, value)
 		}
 	}
 }
@@ -158,29 +142,6 @@ func (n *BaseBehaviorNode) GetParamAsBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
-}
-
-// CheckStateAndBeginExecution 检查状态并开始执行（通用方法）
-func (n *BaseBehaviorNode) CheckStateAndBeginExecution(ctx *BossContext) BehaviorResult {
-	// 如果节点已完成，直接返回结果
-	if n.executeState == NodeStateComplete {
-		return n.lastResult
-	}
-
-	// 如果节点失败，直接返回失败结果
-	if n.executeState == NodeStateFailed {
-		return ResultFailure
-	}
-
-	// 开始执行节点
-	if n.executeState == NodeStateIdle {
-		n.executeState = NodeStateRunning
-		n.startTime = ctx.CurrentTime
-		n.executeCount++
-	}
-
-	n.lastExecuteTime = ctx.CurrentTime
-	return ResultRunning // 表示需要继续执行
 }
 
 // SetComplete 设置节点完成状态

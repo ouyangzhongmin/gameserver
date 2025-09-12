@@ -74,6 +74,7 @@ type IBossEntity interface {
 
 	// 状态相关
 	IsInCombat() bool
+	SetInCombat(val bool)
 	GetCombatTarget() IEntity
 	SetCombatTarget(target IEntity)
 
@@ -140,6 +141,8 @@ type IBehaviorNode interface {
 	// 子节点管理 (仅组合节点需要)
 	AddChild(child IBehaviorNode) error
 	GetChildren() []IBehaviorNode
+	setParent(parent IBehaviorNode)
+	GetParent() IBehaviorNode
 
 	SetParams(val map[string]interface{})
 }

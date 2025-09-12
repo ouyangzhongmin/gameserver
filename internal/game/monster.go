@@ -52,6 +52,7 @@ type Monster struct {
 	bornPos         coord.Vector3
 	spells          []*object.SpellObject
 	propertyChanged atomic.Bool
+	stateEnterTime  time.Time
 
 	// Boss AI相关字段
 	currentPhaseModifier *PhaseModifier // 当前阶段修饰器
@@ -269,6 +270,7 @@ func (m *Monster) SetState(state constants.ActionState) {
 	if m.State != state {
 		m.State = state
 		m.propertyChanged.Store(true)
+		m.stateEnterTime = time.Now()
 	}
 }
 
@@ -351,6 +353,13 @@ func (m *Monster) update(curMilliSecond int64, elapsedTime int64) error {
 			m.scene.cellMgr.PropertyChanged(m)
 		}
 		m.propertyChanged.Store(false)
+	}
+	if m.GetState() == constants.ACTION_STATE_ATTACK {
+		// 如果是攻击状态，这个状态需要段时间内结束
+		if time.Now().Sub(m.stateEnterTime) > 300*time.Millisecond {
+			// 这里直接固定一个攻击动作时间就是300ms
+			m.Idle()
+		}
 	}
 	return err
 }
