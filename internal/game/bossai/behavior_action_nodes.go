@@ -312,7 +312,6 @@ func (n *ScanEnemiesActionNode) Execute(ctx *BossContext) BehaviorResult {
 	nearest := ctx.GetNearestEnemyInRange(n.scanRadius)
 	if nearest != nil {
 		ctx.Target = nearest
-		ctx.Boss.SetCombatTarget(nearest)
 		logger.Debugf("Boss %d found enemy %d in range", ctx.Boss.GetID(), nearest.GetID())
 	} else {
 		//logger.Debugf("Boss %d not found enemy", ctx.Boss.GetID())

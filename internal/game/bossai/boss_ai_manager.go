@@ -809,7 +809,6 @@ func (ai *BossAIManager) updateContext(deltaTime time.Duration) {
 	// 如果当前目标已死亡，则清除目标
 	if ai.context.Target != nil && !ai.context.Target.IsAlive() {
 		ai.context.Target = nil
-		ai.boss.SetCombatTarget(nil)
 	}
 
 	if len(ai.context.ActionHistory) > 50 {

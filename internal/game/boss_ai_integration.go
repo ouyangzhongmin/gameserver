@@ -395,24 +395,6 @@ func (b *BossEntityAdapter) SetInCombat(val bool) {
 	b.isInCombat = val
 }
 
-func (b *BossEntityAdapter) GetCombatTarget() bossai.IEntity {
-	// 获取当前目标
-	if b.monster.aimgr != nil {
-		// 这里需要适配原有AI系统的目标获取
-		// 暂时返回nil，需要根据实际情况调整
-	}
-	return nil
-}
-
-func (b *BossEntityAdapter) SetCombatTarget(target bossai.IEntity) {
-	// 设置战斗目标
-	if entityAdapter, ok := target.(*EntityAdapter); ok {
-		// 这里需要调用原有系统的目标设置方法
-		// 可以通过AI管理器设置目标
-		_ = entityAdapter // 暂时忽略，需要根据实际情况调整
-	}
-}
-
 func (b *BossEntityAdapter) IsEnemy(entity bossai.IEntity) bool {
 	return entity.GetEntityType() == constants.ENTITY_TYPE_HERO && entity.IsAlive() && !entity.IsDestroyed()
 }

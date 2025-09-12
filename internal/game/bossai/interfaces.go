@@ -75,10 +75,8 @@ type IBossEntity interface {
 	GetMovableRect() shape.Rect
 
 	// 状态相关
-	IsInCombat() bool
+	IsInCombat() bool // 是否在战斗状态
 	SetInCombat(val bool)
-	GetCombatTarget() IEntity
-	SetCombatTarget(target IEntity)
 
 	// 视野相关
 	GetEntitesInRange(radius float64) []IEntity

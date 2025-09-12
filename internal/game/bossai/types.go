@@ -78,7 +78,8 @@ const (
 // BossContext Boss AI上下文
 type BossContext struct {
 	// 核心实体
-	Boss   IBossEntity
+	Boss IBossEntity
+	// 敌人
 	Target IEntity
 
 	// 时间信息
@@ -111,7 +112,7 @@ type BossContext struct {
 	// 自定义数据
 	CustomData map[string]interface{}
 
-	// 状态转换请求
+	// 强制状态转换请求
 	stateTransitionRequest *StateTransitionRequest
 }
 

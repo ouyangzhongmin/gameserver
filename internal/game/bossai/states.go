@@ -210,7 +210,6 @@ func (s *IdleState) OnEnter(ctx *BossContext) error {
 	ctx.Boss.Idle()
 
 	// 清除战斗目标
-	ctx.Boss.SetCombatTarget(nil)
 	ctx.Target = nil
 
 	return nil
@@ -264,7 +263,6 @@ func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 	if distance > s.maxChaseDistance {
 		// 超出追击范围，放弃目标
 		ctx.Target = nil
-		ctx.Boss.SetCombatTarget(nil)
 		return nil
 	}
 
@@ -373,7 +371,6 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 	ctx.Boss.EscapeTo(bornPos.X, bornPos.Y, bornPos.Z)
 	// 清除战斗目标
 	ctx.Target = nil
-	ctx.Boss.SetCombatTarget(nil)
 
 	logger.Debugf("Boss %d retreating to born point (%f, %f)",
 		ctx.Boss.GetID(), bornPos.X, bornPos.Y)
