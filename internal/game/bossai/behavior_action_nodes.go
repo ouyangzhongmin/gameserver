@@ -96,17 +96,17 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 	// 检查Boss是否空闲（可以移动）
 	if ctx.Boss.IsIdle() {
 		// 执行移动
-		err := ctx.Boss.MoveTo(coord.Coord(n.targetX), coord.Coord(n.targetY), coord.Coord(n.targetZ))
+		err := ctx.Boss.WalkTo(coord.Coord(n.targetX), coord.Coord(n.targetY), coord.Coord(n.targetZ))
 		if err != nil {
-			logger.Debugf("RandomMove: MoveTo failed: %v", err)
+			logger.Debugf("RandomMove: WalkTo failed: %v", err)
 			n.Reset()
 			return ResultFailure
 		}
-		logger.Debugf("RandomMove: Moving to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
+		logger.Debugf("RandomMove: Walking to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
 		return ResultRunning // Boss在移动中，等待
 	}
 
-	logger.Debugf("RandomMove: Boss is moving, distance: %.2f", dist)
+	logger.Debugf("RandomMove: Boss is Walking, distance: %.2f", dist)
 	return ResultRunning // 继续移动
 }
 
@@ -203,7 +203,7 @@ func (n *PatrolMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 
 	// 检查Boss是否空闲（可以移动）
 	if ctx.Boss.IsIdle() {
-		err := ctx.Boss.MoveTo(coord.Coord(target.X), coord.Coord(target.Y), coord.Coord(target.Z))
+		err := ctx.Boss.WalkTo(coord.Coord(target.X), coord.Coord(target.Y), coord.Coord(target.Z))
 		if err != nil {
 			logger.Debugf("PatrolMove: MoveTo failed: %v", err)
 			return ResultFailure

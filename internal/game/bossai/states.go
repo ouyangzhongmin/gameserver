@@ -226,10 +226,9 @@ type ChaseState struct {
 	*BaseBossState
 	maxChaseDistance float64
 	// 位置变化检测和执行间隔限制
-	lastTargetPos   coord.Vector3 // 记录目标的上次位置
-	lastMoveTime    time.Time     // 上次执行MoveTo的时间
-	moveInterval    time.Duration // MoveTo执行间隔
-	minMoveDistance float64       // 目标位置变化的最小距离阈值
+	lastTargetPos coord.Vector3 // 记录目标的上次位置
+	lastMoveTime  time.Time     // 上次执行MoveTo的时间
+	moveInterval  time.Duration // MoveTo执行间隔
 }
 
 func NewChaseState() *ChaseState {
@@ -246,10 +245,6 @@ func (s *ChaseState) OnEnter(ctx *BossContext) error {
 	}
 	// 这里需要记录开始追击的原始位置，怪物在返回时需要回到这个位置
 	ctx.ChaseStartPos = ctx.Boss.GetPos()
-
-	// 控制Monster真实状态
-	ctx.Boss.Chase()
-
 	return nil
 }
 
@@ -297,7 +292,7 @@ func (s *ChaseState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error {
 
 	if needMove {
 		// 执行移动
-		err := ctx.Boss.MoveTo(targetPos.X, targetPos.Y, targetPos.Z)
+		err := ctx.Boss.ChaseTo(targetPos.X, targetPos.Y, targetPos.Z)
 		if err != nil {
 			logger.Debugf("ChaseTarget: MoveTo failed: %v", err)
 			return err
@@ -374,10 +369,8 @@ func (s *RetreatState) OnEnter(ctx *BossContext) error {
 	}
 
 	bornPos := ctx.Boss.GetBornPos()
-	// 控制Monster真实状态
-	ctx.Boss.Escape()
 	// 返回出生点
-	ctx.Boss.MoveTo(bornPos.X, bornPos.Y, bornPos.Z)
+	ctx.Boss.EscapeTo(bornPos.X, bornPos.Y, bornPos.Z)
 	// 清除战斗目标
 	ctx.Target = nil
 	ctx.Boss.SetCombatTarget(nil)
@@ -392,7 +385,7 @@ func (s *RetreatState) OnUpdate(ctx *BossContext, deltaTime time.Duration) error
 	// 获取出生点参数
 	bornPos := ctx.Boss.GetBornPos()
 	if !ctx.Boss.IsEscaping() && !ctx.Boss.IsWalking() && !ctx.Boss.IsRunning() {
-		ctx.Boss.MoveTo(bornPos.X, bornPos.Y, bornPos.Z)
+		ctx.Boss.EscapeTo(bornPos.X, bornPos.Y, bornPos.Z)
 	}
 
 	// 获取移动间隔参数

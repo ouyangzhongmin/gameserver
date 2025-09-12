@@ -212,7 +212,18 @@ func (b *BossEntityAdapter) IsDestroyed() bool {
 	return b.monster.IsDestroyed()
 }
 
-func (b *BossEntityAdapter) MoveTo(x, y, z coord.Coord) error {
+func (b *BossEntityAdapter) WalkTo(x, y, z coord.Coord) error {
+	b.Walk()
+	return b.monster.MoveTo(x, y, 0)
+}
+
+func (b *BossEntityAdapter) EscapeTo(x, y, z coord.Coord) error {
+	b.Escape()
+	return b.monster.MoveTo(x, y, 0)
+}
+
+func (b *BossEntityAdapter) ChaseTo(x, y, z coord.Coord) error {
+	b.Chase()
 	return b.monster.MoveTo(x, y, 0)
 }
 

@@ -33,7 +33,9 @@ type IMovableEntityForAI interface {
 	IEntityForAI
 
 	// 移动功能
-	MoveTo(x, y, z coord.Coord) error
+	WalkTo(x, y, z coord.Coord) error
+	EscapeTo(x, y, z coord.Coord) error
+	ChaseTo(x, y, z coord.Coord) error
 	Stop() error
 
 	// 战斗功能

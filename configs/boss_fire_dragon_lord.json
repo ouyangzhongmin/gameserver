@@ -3,7 +3,6 @@
   "name": "Fire Dragon Lord",
   "description": "A powerful dragon boss with fire-based attacks and multiple combat phases",
   "initial_state": "idle",
-  
   "states": [
     {
       "id": "idle",

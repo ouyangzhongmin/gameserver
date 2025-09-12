@@ -1,14 +1,15 @@
 package game
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/ouyangzhongmin/gameserver/constants"
 	"github.com/ouyangzhongmin/gameserver/db/model"
 	"github.com/ouyangzhongmin/gameserver/internal/game/object"
 	"github.com/ouyangzhongmin/gameserver/pkg/coord"
 	"github.com/ouyangzhongmin/gameserver/pkg/logger"
 	"github.com/ouyangzhongmin/gameserver/pkg/shape"
-	"math/rand"
-	"time"
 )
 
 type monsterai struct {
@@ -94,7 +95,7 @@ func (a *monsterai) processIdleState(curMilliSecond int64, elapsedTime int64) er
 					a.preparePathId = a.preparePathId % len(a.monster.preparePaths.Paths)
 					paths := a.monster.preparePaths.Paths[a.preparePathId]
 					//logger.Debugf("monster:%d 使用预制路径:%d移动:%v", a.monster.GetID(), a.preparePathId, paths)
-					a.monster.SetState(constants.ACTION_STATE_WALK)
+					a.monster.Walk()
 					a.preparePathId += 1
 					return a.monster.MoveByPaths(paths.Paths)
 				} else {
