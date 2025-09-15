@@ -575,7 +575,10 @@ func (ai *BossAIManager) InterruptBehavior() error {
 // OnDamageReceived 处理受到伤害事件
 func (ai *BossAIManager) OnDamageReceived(attacker IEntity, damage int32) error {
 	ai.context.DamageReceived += damage
-
+	if ai.context.Target == nil || !ai.context.Target.IsAlive() {
+		// 被攻击了
+		ai.context.Target = attacker
+	}
 	// 通知状态机和插件
 	// 这里可以触发特定的AI反应
 
