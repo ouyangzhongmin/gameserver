@@ -102,11 +102,11 @@ func (n *RandomMoveActionNode) Execute(ctx *BossContext) BehaviorResult {
 			n.Reset()
 			return ResultFailure
 		}
-		logger.Debugf("RandomMove: Walking to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
+		logger.Debugf("RandomMove: moving to target (%d, %.d), distance: %.2f", n.targetX, n.targetY, dist)
 		return ResultRunning // Boss在移动中，等待
 	}
 
-	logger.Debugf("RandomMove: Boss is Walking, distance: %.2f", dist)
+	logger.Debugf("RandomMove: Boss is moving, distance: %.2f", dist)
 	return ResultRunning // 继续移动
 }
 
@@ -538,6 +538,12 @@ func (n *SkillUsageNode) Execute(ctx *BossContext) BehaviorResult {
 				return ResultFailure
 			}
 		}
+	}
+
+	if !ctx.Boss.IsInSkillAttackRange(n.skillId, ctx.Target.GetPos().X, ctx.Target.GetPos().Y) {
+		logger.Errorf("SkillUsageNode: Target out of range")
+		// todo 不在技能攻击范围内, 需要移动到技能释放位置
+
 	}
 
 	err := ctx.Boss.UseSkill(n.skillId, ctx.Target)
